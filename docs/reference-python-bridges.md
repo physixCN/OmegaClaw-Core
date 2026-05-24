@@ -16,16 +16,20 @@ LLM and embedding bridges.
 
 OpenAI calls go through MeTTa-side helpers (`useGPT`, `useGPTEmbedding`) that are defined elsewhere in the library but use the same LLM call pattern.
 
-## `src/agentverse.py`
+## `modules/agentverse/src/agentverse_organ.py`
 
-Remote agent bridge.
+Optional Agentverse/uAgents remote-agent transport membrane.
 
 | Function | Purpose |
 |---|---|
-| `tavily_search(query)` | Forward a query to the remote Tavily search agent. |
-| `technical_analysis(ticker)` | Forward a ticker to the remote technical analysis agent. |
+| `agentverse_status()` | Report uAgents availability and trace/search paths without exposing secrets. |
+| `agentverse_discover_atoms(query)` | Search Agentverse and return candidate atoms for `&agentverse`. |
+| `agentverse_record_agent(name, address, schema, capability)` | Mirror a chosen remote agent into a local registry file. |
+| `agentverse_ask(destination, schema, payload)` | Send a typed uAgents request to a raw destination. |
+| `agentverse_trace()` | Return recent local Agentverse trace atoms. |
 
-Both use a fixed Agentverse address and return the remote agent's reply as a string. Add your own function following the same pattern — see [tutorial-06-remote-agentverse-skills.md](./tutorial-06-remote-agentverse-skills.md).
+`src/agentverse.py` is now only a compatibility shim for old deployments. New
+work should import `modules/agentverse/entry.metta`.
 
 ## `src/helper.py`
 
@@ -33,7 +37,8 @@ String and time utilities used by the loop.
 
 | Function | Purpose |
 |---|---|
-| `balance_parentheses(str)` | Attempt to repair mismatched parentheses in LLM output before `sread` parses it. |
+| `signature_balance_parentheses(str)` | Canonical syntax command membrane. Reads MeTTa `SkillSignature` declarations, lowers friendly command text into safe MeTTa skill calls, and fails closed with `wait`/`syntax-error`. |
+| `balance_parentheses(str)` | Compatibility wrapper for `signature_balance_parentheses`. |
 | `normalize_string(obj)` | Render a skill return value into a string safe to embed in the next prompt. |
 | `around_time(ts, n)` | Backs `(episodes ts)` — returns `n` lines of `memory/history.metta` around `ts`. |
 

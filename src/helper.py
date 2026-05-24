@@ -131,3 +131,20 @@ def test_balance_parenthesis():
 
 if __name__ == "__main__":
     test_balance_parenthesis()
+
+
+# Signature-declared command membrane.
+#
+# The command surface is declared in src/skill_signatures*.metta.  Keep this
+# as a thin compatibility export so the MeTTa loop can continue calling
+# helper.signature_balance_parentheses without making helper.py own the parser.
+try:
+    from .helper_command_parser import (
+        signature_balance_parentheses,
+        balance_parentheses,
+    )
+except Exception:
+    from helper_command_parser import (
+        signature_balance_parentheses,
+        balance_parentheses,
+    )

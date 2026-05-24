@@ -37,6 +37,19 @@
                                           (change-state! &error $new)))
                  ($else $sexpr))))
 
+
+(= (command-results $items)
+   (if (== $items ())
+       ()
+       (let* (($cmd (car-atom $items))
+              ($rest (cdr-atom $items))
+              ($result (HandleError SINGLE_COMMAND_FORMAT_ERROR_NOTHING_WAS_DONE_PLEASE_FIX_AND_RETRY
+                                    $cmd
+                                    (catch (let $R (car-atom (collapse (reduce $cmd)))
+                                                (py-call (helper.normalize_string $R)))))))
+             (cons (COMMAND_RETURN: ($cmd $result))
+                   (command-results $rest)))))
+
 (= (omegaclaw)
    (omegaclaw 1))
 (= (omegaclaw $k)
@@ -61,13 +74,13 @@
                                        ($respi (if (== (provider) OpenAI)
                                                    (useGPT (LLM) (maxOutputToken) (reasoningMode) $send)
                                                    (py-call (lib_llm_ext.callProvider (provider) $send (maxOutputToken)))))
-                                       ($resp (py-call (helper.balance_parentheses $respi)))
-                                       ($response (if (== "(" (first_char $resp)) $resp (progn (println! $resp) (repr (REMEMBER:OUTPUT_NOTHING_ELSE_THAN: ((skill arg) ...))))))
+                                       ($resp (py-call (helper.signature_balance_parentheses $respi)))
+                                       ($response $resp)
                                        ($sexpr (catch (sread $response)))
                                        ($_ (change-state! &error ()))
                                        ($_ (HandleError MULTI_COMMAND_FAILURE_NOTHING_WAS_DONE_PLEASE_CORRECT_PARENTHESES_AND_USE_QUOTES_AND_RETRY $response $sexpr))
                                        ($_ (println! (RESPONSE: $sexpr)))
-                                       ($results (RESULTS: (collapse (let $s (superpose $sexpr) (COMMAND_RETURN: ($s (HandleError SINGLE_COMMAND_FORMAT_ERROR_NOTHING_WAS_DONE_PLEASE_FIX_AND_RETRY $s (catch (let $R (eval $s) (py-call (helper.normalize_string $R)))))))))))
+                                       ($results (RESULTS: (command-results $sexpr)))
                                        ($_ (println! $results)))
                                       (progn (if (or $msgnew  (not (== $sexpr ()))) (addToHistory $msg $response $sexpr $msgnew) _)
                                              (change-state! &lastresults (string-safe (repr $results)))))

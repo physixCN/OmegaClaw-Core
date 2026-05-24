@@ -1,0 +1,21 @@
+; Core skill catalog declarations.
+; Imported as SkillCatalog / SkillHelp atoms by the core loader.
+
+(SkillCatalog "Core: send message, wait reason, pin state, remember lesson, query phrase, episodes-at time, promote time, demote time, body-status, current-swipl-pid, restart-self reason, reboot-self reason")
+(SkillCatalog "System and files: shell command, shell-confirm command, read-file path, write-file path content, append-file path content")
+(SkillCatalog "Conversation: send replies to the latest channel. Fresh inbound human messages are open conversations; answer, defer, mark handled, or pin reply-debt before silence. Web chat is a channel, not a decision layer.")
+(SkillCatalog "Help: skill-help topic. Core topics: core, memory, energy, reasoning, affordance. Imported organs may add channels, assume, attention, house, media, health, web.")
+(SkillHelp "core" "Core affordances:")
+(SkillHelp "core" "send message - reply through the latest routed control channel")
+(SkillHelp "core" "wait reason - deliberately take no external action this cycle")
+(SkillHelp "core" "pin state - one-line volatile working memory")
+(SkillHelp "core" "remember lesson - store compact future-useful memory")
+(SkillHelp "core" "query phrase - search long-term embedding memory")
+(SkillHelp "core" "episodes-at time - inspect history around a flexible timestamp")
+(SkillHelp "core" "body-status, context-organ-status, current-swipl-pid, prepare-reboot reason, complete-reboot-check, restart-self reason, reboot-self reason, restart-omega reason")
+(SkillHelp "core" "restart-self restarts the agent process; reboot-self reboots the embodied VM after writing a reboot breadcrumb")
+(SkillHelp "core" "shell command - run a non-risky shell command inside your own VM body and return stdout")
+(SkillHelp "core" "shell-confirm command - explicitly run a command that shell flagged as risky; use cautiously and only with clear reason")
+(SkillHelp "core" "read-file path, write-file path content, append-file path content - inspect or change files through the file hand")
+(SkillHelp "core" "write-file-base64 path payload, append-file-base64 path payload - robust multiline/special-character file writes")
+(SkillHelp "core" "Treat shell and files as hands/devices, not thought: reason in MeTTa first, act through terminal only when useful, trace lessons afterward")

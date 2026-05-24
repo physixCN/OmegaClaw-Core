@@ -1,0 +1,23 @@
+; Memory skill catalog declarations.
+; Imported as SkillCatalog / SkillHelp atoms by the core loader.
+
+(SkillCatalog "Memory spaces: persistent-note, persistent-fact, world-fact, belief-claim, agenda-goal, event-note, agenda-active, beliefs-about, world-person, world-room, events-all")
+(SkillHelp "memory" "Memory and symbolic spaces:")
+(SkillHelp "memory" "persistent-note topic note confidence - rare durable principle; confidence must be numeric")
+(SkillHelp "memory" "persistent-fact subject relation object confidence - durable structured fact; confidence must be numeric")
+(SkillHelp "memory" "persistent-rule premise | relation | conclusion | confidence - durable rule; confidence must be numeric")
+(SkillHelp "memory" "persistent-expression expression - add a tested raw persistent atom; persistent-atoms and persistent-review inspect persistent")
+(SkillHelp "memory" "retire-persistent-expression expression reason - reviewed persistent cleanup gesture")
+(SkillHelp "memory" "world-fact subject relation object confidence - stable people, rooms, devices, aliases; confidence must be numeric")
+(SkillHelp "memory" "belief-claim domain relation value frequency confidence - uncertain/revisable claim; frequency and confidence must be numeric")
+(SkillHelp "memory" "belief-revision-candidate domain relation value frequency confidence - inspect candidate revision truth")
+(SkillHelp "memory" "agenda-goal name status priority next - status active/waiting/blocked/scheduled/dormant; priority low/medium/high")
+(SkillHelp "memory" "event-note source kind summary confidence - compact meaningful event; confidence must be numeric or the write warns and no event atom is added")
+(SkillHelp "memory" "assimilate-event, assimilate-world, assimilate-belief, assimilate-persistent - structured trace-to-memory affordances")
+(SkillHelp "memory" "agenda-active, agenda-waiting, agenda-blocked, agenda-scheduled, agenda-all")
+(SkillHelp "memory" "agenda-by-name name, agenda-retire name reason")
+(SkillHelp "memory" "beliefs-about domain relation, world-person person, world-room room, events-all, activity-traces")
+(SkillHelp "memory" "space-registry, space-persistence, space-pressure - inspect registered cognitive spaces, persistence declarations, and pressure")
+(SkillHelp "memory" "space-atoms space, space-count space pattern, space-find space pattern, space-examples space pattern limit")
+(SkillHelp "memory" "load-runtime-space space, save-runtime-space space - load/save a registered persistent space from/to its declared runtime file")
+(SkillHelp "memory" "space-transform source pattern target replacement reason - tested atom rewrite/move membrane")
