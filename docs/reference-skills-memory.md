@@ -1,6 +1,6 @@
 # Reference — Memory Skills
 
-Defined in `src/memory.metta` and catalogued in `src/skills.metta`.
+Core embedding memory is defined in `src/memory.metta`. Structured memory affordances are defined in `src/skills_memory.metta` and advertised through `src/skill_catalog.metta`.
 
 All four skills accept quoted string arguments. Variables are not permitted in LLM-generated calls.
 
