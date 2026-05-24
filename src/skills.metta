@@ -8,3 +8,8 @@
 !(import! &self (library OmegaClaw-Core ./src/skills_runtime_spaces.metta))
 !(import! &self (library OmegaClaw-Core ./src/skills_memory.metta))
 !(import! &self (library OmegaClaw-Core ./src/skills_space_mutation.metta))
+!(import! &self (library OmegaClaw-Core ./src/skills_affordance.metta))
+!(import! &self (library OmegaClaw-Core ./src/skill_affordance_core.metta))
+!(import! &self (library OmegaClaw-Core ./src/skill_affordance_memory.metta))
+!(import! &self (library OmegaClaw-Core ./src/skill_affordance_reasoning.metta))
+!(import! &self (library OmegaClaw-Core ./src/skill_affordance_affordance.metta))

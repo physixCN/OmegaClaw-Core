@@ -52,5 +52,6 @@ Syntax membrane errors are returned as ordinary atoms such as `(syntax-error "sl
 
 - [reference-internals-loop.md](./reference-internals-loop.md) — the full turn structure.
 - [reference-syntax-membrane.md](./reference-syntax-membrane.md) — the typed syntax membrane and declaration contract.
+- [reference-skill-affordance-directory.md](./reference-skill-affordance-directory.md) — symbolic skill discovery and compact context routing.
 - [reference-internals-extension-points.md](./reference-internals-extension-points.md) — where to hook in new skills.
 - [tutorial-03-writing-a-custom-skill.md](./tutorial-03-writing-a-custom-skill.md) — end-to-end skill addition.

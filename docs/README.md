@@ -53,6 +53,7 @@ User-facing MeTTa skills the agent invokes. Each page follows the template **Sig
 - [reference-skills-communication.md](./reference-skills-communication.md) — `send`, `receive`, `search`
 - [reference-skills-reasoning.md](./reference-skills-reasoning.md) — `metta` (NAL/PLN invocation surface)
 - [reference-skills-remote-agents.md](./reference-skills-remote-agents.md) — `tavily-search`, `technical-analysis`
+- [reference-skill-affordance-directory.md](./reference-skill-affordance-directory.md) — symbolic skill discovery via `&skills`, `query-skill-space`, `choose-skill-for`, `explain-skill`, and `skill-card`
 
 ### Configuration & Adapters
 
