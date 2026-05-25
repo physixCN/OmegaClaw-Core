@@ -38,6 +38,7 @@ class InputContextContractTests(unittest.TestCase):
         self.assertIn('" INPUT_RECALL: " $inputctx', loop)
         self.assertIn('" SKILL_RECALL: " $skillctx', loop)
 
+
     def test_prompt_explains_input_recall_is_hint_not_memory_check(self):
         prompt = (ROOT / "memory" / "prompt.txt").read_text(encoding="utf-8")
 
@@ -47,6 +48,24 @@ class InputContextContractTests(unittest.TestCase):
         self.assertIn("Fresh inbound human messages are open conversations", prompt)
         self.assertNotIn("Jon", prompt)
         self.assertNotIn("WhatsApp", prompt)
+
+    def test_loop_has_portable_energy_posture_without_hardcoded_provider(self):
+        loop = (ROOT / "src" / "loop.metta").read_text(encoding="utf-8")
+        core = (ROOT / "lib_omegaclaw.metta").read_text(encoding="utf-8")
+
+        self.assertIn("(configure maxNewInputLoops 12)", loop)
+        self.assertIn("(configure maxWakeLoops 6)", loop)
+        self.assertIn("(configure sleepInterval 3)", loop)
+        self.assertIn("(configure wakeupInterval 900)", loop)
+        self.assertIn("(change-state! &energyMode \"warm\")", loop)
+        self.assertIn("(change-state! &loops (get-state &maxNewInputLoops))", loop)
+        self.assertIn("(sleep (get-state &sleepInterval))", loop)
+        self.assertNotIn("(configure LLM", loop)
+        self.assertNotIn("(configure provider", loop)
+        self.assertIn("./src/energy.py", core)
+        self.assertIn("skill_catalog_energy.metta", core)
+        self.assertIn("skills_energy.metta", core)
+        self.assertIn("skill_affordance_energy.metta", core)
 
     def test_input_recall_queries_only_for_fresh_input(self):
         memory = (ROOT / "src" / "memory.metta").read_text(encoding="utf-8")

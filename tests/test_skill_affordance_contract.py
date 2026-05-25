@@ -60,6 +60,7 @@ class SkillAffordanceContractTests(unittest.TestCase):
     def test_affordance_declarations_are_loaded_by_composition_after_space_exists(self):
         declaration_files = [
             "skill_affordance_core.metta",
+            "skill_affordance_energy.metta",
             "skill_affordance_memory.metta",
             "skill_affordance_reasoning.metta",
             "skill_affordance_affordance.metta",
@@ -108,7 +109,6 @@ class SkillAffordanceContractTests(unittest.TestCase):
         self.assertNotIn("(SkillSignature tavily-search", signatures)
         self.assertNotIn("(SkillSignature internet-search", signatures)
 
-
     def test_reasoning_affordance_guides_pln_without_fake_query_surface(self):
         source = (SRC / "skill_affordance_reasoning.metta").read_text(encoding="utf-8")
 
@@ -124,6 +124,8 @@ class SkillAffordanceContractTests(unittest.TestCase):
             "do not use PLN.Query unless you have a real supported KB query surface",
         ]:
             self.assertIn(expected, source)
+
+
 
     def test_pin_is_always_visible_and_has_continuity_schema(self):
         context = "\n".join(line for _domain, line in _context_hints())

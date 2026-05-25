@@ -16,15 +16,13 @@
 (= (maxScratchAtomsChars) (empty))
 
 (= (initLoop)
-   (progn (configure maxNewInputLoops 50) ;20
-          (configure maxWakeLoops 1)
+   (progn (configure maxNewInputLoops 12) ;bounded restart posture; the agent can choose more with energy skills
+          (configure maxWakeLoops 6) ;warm autonomous wake posture, not idle-only
           (configure spamShield True)
-          (configure sleepInterval 1) ;10
-          (configure LLM gpt-5.4)
-          (configure provider Anthropic) ;Anthropic or OpenAI or ASICloud or ASIOne or Test
+          (configure sleepInterval 3) ;slower continuous loop
           (configure maxOutputToken 6000)
           (configure reasoningMode medium)
-          (configure wakeupInterval 600) ;600=10 minutes
+          (configure wakeupInterval 900) ;autonomous warm wake interval; messages still wake immediately
           ; Temporary survival bounds from the current architecture.
           ; Keep these until full ECAN/attention-driven pruning can replace
           ; automatic char-pressure removal with reasoned graph maintenance.
@@ -44,8 +42,16 @@
           (change-state! &maxEventAtomsChars (maxEventAtomsChars))
           (change-state! &maxActivityAtomsChars (maxActivityAtomsChars))
           (change-state! &maxScratchAtomsChars (maxScratchAtomsChars))
+          (change-state! &maxNewInputLoops (maxNewInputLoops))
+          (change-state! &maxWakeLoops (maxWakeLoops))
+          (change-state! &sleepInterval (sleepInterval))
+          (change-state! &wakeupInterval (wakeupInterval))
+          (change-state! &energyMode "warm")
           (change-state! &cycle 1)
-          (change-state! &loops (maxNewInputLoops))))
+          (change-state! &practiceStartCycle 1)
+          (change-state! &practiceLabel "none")
+          (change-state! &nextWakeAt (+ (get_time) (get-state &wakeupInterval)))
+          (change-state! &loops (get-state &maxNewInputLoops))))
 
 (= (getContext)
    (getContext ""))
@@ -98,13 +104,13 @@
                                         (if (> (string_length $msgrcv) 0) (change-state! &prevmsg $msgrcv) _)))
                         ($msg (get-state &prevmsg))
                         ($_ (if (and (> $k 1) $msgnew)
-                                (change-state! &loops (maxNewInputLoops)) _))
+                                (change-state! &loops (get-state &maxNewInputLoops)) _))
                         ($inputctx (input-recall $msgnew $msg))
                         ($skillctx (skill-recall $msgnew $msg))
                         ($prompt (getContext $inputctx $skillctx)))
                             (if (> (get-state &loops) 0)
                                 (let* (($lastmessage (if $msgnew (HUMAN-MSG: $msg) (if (spamShield) " DO NOT RE-SEND OR SPAM!" "")))
-                                       ($_ (change-state! &nextWakeAt (+ (get_time) (wakeupInterval))))
+                                       ($_ (change-state! &nextWakeAt (+ (get_time) (get-state &wakeupInterval))))
                                        ($_ (println! $lastmessage))
                                        ($send (py-str ($prompt :-:-:-: $lastmessage)))
                                        ($_ (println! (CHARS_SENT: (string_length $send) $send)))
@@ -122,10 +128,10 @@
                                       (progn (if (or $msgnew  (not (== $sexpr ()))) (addToHistory $msg $response $sexpr $msgnew $results) _)
                                              (change-state! &lastresults (string-safe (repr $results)))))
                                 (if (> (get_time) (get-state &nextWakeAt))
-                                    (change-state! &loops (+ 1 (maxWakeLoops))) _)))
+                                    (change-state! &loops (+ 2 (get-state &maxWakeLoops))) _)))
                  (bound-runtime-spaces-by-role memory)
                  (save-runtime-spaces-by-role memory)
-                 (sleep (sleepInterval))
+                 (sleep (get-state &sleepInterval))
                  (cut)
                  (gc)
                  (omegaclaw (+ 1 $k)))))
