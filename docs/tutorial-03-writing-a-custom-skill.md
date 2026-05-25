@@ -49,6 +49,35 @@ Add full help in the matching `skill_catalog_*.metta` file:
 
 Only add `SkillContextHint` when a command must be part of the tiny always-on bootstrap. Ordinary skills should be discoverable through `skill-help`, `query-skill-space`, `choose-skill-for`, `explain-skill`, or `skill-card`.
 
+## Module form
+
+For a capability that should be removable or shareable, put the same pieces in a
+module:
+
+```text
+modules/text-utils/
+  entry.metta
+  skills.metta
+  signatures.metta
+  catalog.metta
+```
+
+`modules/text-utils/entry.metta` should import the runtime skill file:
+
+```metta
+!(import! &self (library OmegaClaw-Core ./modules/text-utils/skills.metta))
+```
+
+Then enable the module in `modules/loader.metta`:
+
+```metta
+!(import! &self (library OmegaClaw-Core ./modules/text-utils/entry.metta))
+```
+
+The loader import is what makes the module active. A folder under `modules/`
+that is not imported by the loader remains inert: its runtime is not loaded and
+its signatures/catalog are not exposed.
+
 Optional attention trigger: if a factual input signal often makes the skill relevant, add a symbolic trigger in the skill affordance declarations:
 
 ```metta

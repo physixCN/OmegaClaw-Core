@@ -13,6 +13,35 @@ Most common extension. Add the executable skill and its symbolic declarations:
 
 Full walkthrough: [tutorial-03-writing-a-custom-skill.md](./tutorial-03-writing-a-custom-skill.md).
 
+## Add a module
+
+A module is a removable package of skills and optional bridge code. Use this
+when a capability should be installable as one unit instead of mixed into core.
+
+Recommended layout:
+
+```text
+modules/name/
+  entry.metta
+  skills.metta
+  signatures.metta
+  catalog.metta
+  src/optional_bridge.py
+```
+
+`entry.metta` imports the module's runtime files. `signatures.metta` and
+`catalog.metta` are read by the syntax/catalog membranes only when the module is
+enabled.
+
+Enable the module by adding one import to `modules/loader.metta`:
+
+```metta
+!(import! &self (library OmegaClaw-Core ./modules/name/entry.metta))
+```
+
+The loader is the module boundary. Installed-but-disabled module folders should
+not be visible to the syntax membrane, skill catalog, or runtime.
+
 ## Add a remote skill
 
 Same as above, but the body delegates to `src/agentverse.py`:

@@ -16,9 +16,9 @@ mouth/hand boundary.
 The command surface is declared in MeTTa-shaped files, not in Python tables:
 
 - `src/skill_signatures*.metta`
-- `modules/*/signatures.metta`
+- `modules/<enabled-module>/signatures.metta`
 - `src/skill_catalog*.metta`
-- `modules/*/catalog.metta`
+- `modules/<enabled-module>/catalog.metta`
 
 Examples:
 
@@ -28,6 +28,10 @@ Examples:
 (SkillSignature space-find (Arg space space) (Arg metta pattern))
 (SignatureLowering write-file write-file-base64)
 ```
+
+Modules are enabled by `modules/loader.metta`. A module contributes signatures
+and catalog entries only when the loader imports its `entry.metta` file. Merely
+placing a folder under `modules/` is not enough.
 
 Python reads these atoms and performs typed lowering. Malformed, duplicate, or unknown declaration shapes fail fast instead of being silently skipped. Adding a new skill should normally mean adding a neighboring `SkillSignature`, runtime implementation, and catalog/help atom. It should not require editing the parser.
 
@@ -108,8 +112,9 @@ To add a skill or organ:
    `modules/<name>/skills.metta`.
 2. Add `(SkillSignature ...)` declarations beside that organ.
 3. Add `(SkillCatalog ...)` / `(SkillHelp ...)` entries beside that organ, plus `SkillContextHint` only for minimal always-on bootstrap text.
-4. Add smoke tests for the expected command shapes.
-5. Keep execution safety at the execution boundary, not in parser heuristics.
+4. If it is a module, import `modules/<name>/entry.metta` from `modules/loader.metta`.
+5. Add smoke tests for the expected command shapes.
+6. Keep execution safety at the execution boundary, not in parser heuristics.
 
 The membrane should remain boring, deterministic, and cheap. Cognition belongs
 in symbolic spaces, memory, reasoning, and skills; this layer only keeps command

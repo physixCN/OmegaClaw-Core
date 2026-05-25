@@ -223,6 +223,51 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             fallback = {"tabby": (("rest-text", "old"),)}
             self.assertEqual(parser._load_signature_commands(tabby, fallback=fallback)["tabby"], (("text", "value"),))
 
+    def test_module_declarations_follow_loader_not_folder_presence(self):
+        old_root = parser.MODULE_DECLARATIONS_ROOT
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                modules = pathlib.Path(tmpdir) / "modules"
+                enabled = modules / "enabled"
+                disabled = modules / "disabled"
+                enabled.mkdir(parents=True)
+                disabled.mkdir()
+                (modules / "loader.metta").write_text(
+                    '!(import! &self (library OmegaClaw-Core ./modules/enabled/entry.metta))\n',
+                    encoding="utf-8",
+                )
+                (enabled / "entry.metta").write_text(
+                    '!(import! &self (library OmegaClaw-Core ./modules/enabled/skills.metta))\n',
+                    encoding="utf-8",
+                )
+                (enabled / "signatures.metta").write_text(
+                    "(SkillSignature enabled-skill (Arg rest-text note))\n",
+                    encoding="utf-8",
+                )
+                (enabled / "catalog.metta").write_text(
+                    '(SkillCatalog "Enabled module: enabled-skill note")\n',
+                    encoding="utf-8",
+                )
+                (disabled / "signatures.metta").write_text(
+                    "(SkillSignature disabled-skill (Arg rest-text note))\n",
+                    encoding="utf-8",
+                )
+                (disabled / "catalog.metta").write_text(
+                    '(SkillCatalog "Disabled module: disabled-skill note")\n',
+                    encoding="utf-8",
+                )
+
+                parser.MODULE_DECLARATIONS_ROOT = modules
+                signature_text = "\n".join(path.read_text(encoding="utf-8") for path in parser.signature_declaration_paths())
+                catalog_text = parser.skill_catalog()
+
+                self.assertIn("enabled-skill", signature_text)
+                self.assertNotIn("disabled-skill", signature_text)
+                self.assertIn("Enabled module:", catalog_text)
+                self.assertNotIn("Disabled module:", catalog_text)
+        finally:
+            parser.MODULE_DECLARATIONS_ROOT = old_root
+
     def test_malformed_signature_declarations_fail_fast(self):
         bad_cases = [
             ("command", '(SkillSignature broken (Arg text))\n', parser.signature_commands_from),

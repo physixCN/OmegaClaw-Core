@@ -28,6 +28,7 @@
 !(import! &self (library OmegaClaw-Core ./src/skill_affordance_memory.metta))
 !(import! &self (library OmegaClaw-Core ./src/skill_affordance_reasoning.metta))
 !(import! &self (library OmegaClaw-Core ./src/skill_affordance_affordance.metta))
+!(import! &self (library OmegaClaw-Core ./modules/loader.metta))
 !(import! &self (library OmegaClaw-Core ./src/memory))
 !(import! &self (library OmegaClaw-Core ./src/loop))
 !(git-import! "https://github.com/patham9/petta_lib_chromadb.git")

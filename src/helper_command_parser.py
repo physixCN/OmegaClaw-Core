@@ -62,6 +62,7 @@ SIGNATURE_DECLARATIONS_GLOB = "skill_signatures*.metta"
 SKILL_CATALOG_DECLARATIONS_PATH = CORE_ROOT / "src" / "skill_catalog.metta"
 SKILL_CATALOG_DECLARATIONS_GLOB = "skill_catalog*.metta"
 MODULE_DECLARATIONS_ROOT = CORE_ROOT / "modules"
+MODULE_LOADER_PATH = MODULE_DECLARATIONS_ROOT / "loader.metta"
 
 
 DECLARATION_ORDER = {
@@ -78,11 +79,35 @@ DECLARATION_ORDER = {
 }
 
 
+def _enabled_module_names(loader_path=MODULE_LOADER_PATH):
+    loader = pathlib.Path(loader_path)
+    if not loader.exists():
+        return []
+    names = []
+    seen = set()
+    pattern = re.compile(r"\./modules/([A-Za-z0-9_.-]+)/entry\.metta")
+    for raw in loader.read_text(encoding="utf-8").splitlines():
+        line = _strip_signature_comment(raw)
+        match = pattern.search(line)
+        if not match:
+            continue
+        name = match.group(1)
+        if name not in seen:
+            seen.add(name)
+            names.append(name)
+    return names
+
+
 def _module_declaration_paths(filename):
     root = pathlib.Path(MODULE_DECLARATIONS_ROOT)
     if not root.exists():
         return []
-    return sorted(root.glob(f"*/{filename}"), key=lambda candidate: (candidate.parent.name, candidate.name))
+    paths = []
+    for name in _enabled_module_names(root / "loader.metta"):
+        path = root / name / filename
+        if path.exists():
+            paths.append(path)
+    return sorted(paths, key=lambda candidate: (candidate.parent.name, candidate.name))
 
 
 def _signature_declaration_paths(path=SIGNATURE_DECLARATIONS_PATH):

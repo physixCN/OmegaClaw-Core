@@ -49,11 +49,13 @@ place to list every installed organ.
 
 ## Adding Skill Cards
 
-A skill module may add its own affordance declarations by importing a file that
-adds atoms to `&skills` after `skills_affordance.metta` has created the space.
-Keep declarations factual and compact. Avoid embedding policy that forces the
-agent to act. Prefer descriptions of arguments, risks, effects, and useful
-situations.
+A skill module may add its own affordance declarations by importing a file from
+its `entry.metta`, after `skills_affordance.metta` has created the `&skills`
+space. A module is active only when `modules/loader.metta` imports that
+`entry.metta`; installed-but-disabled module folders should not contribute
+affordance atoms. Keep declarations factual and compact. Avoid embedding policy
+that forces the agent to act. Prefer descriptions of arguments, risks, effects,
+and useful situations.
 
 A minimal card looks like:
 
