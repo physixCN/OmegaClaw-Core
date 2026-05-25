@@ -87,6 +87,10 @@ try:
         context_input_recall,
         context_input_recall_text,
     )
+    from .helper_skill_recall import (
+        input_skill_signals,
+        input_skill_signals_expr,
+    )
     from .helper_promotion import (
         promotion_open_map,
         promotion_key,
@@ -186,6 +190,10 @@ except Exception:
     from helper_recall import (
         context_input_recall,
         context_input_recall_text,
+    )
+    from helper_skill_recall import (
+        input_skill_signals,
+        input_skill_signals_expr,
     )
     from helper_promotion import (
         promotion_open_map,

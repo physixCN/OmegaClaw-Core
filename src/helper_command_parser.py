@@ -50,6 +50,22 @@ SIGNATURE_ARG_TYPES = {
 }
 
 
+def _signature_known_spaces_hint():
+    spaces = " ".join(sorted(SIGNATURE_KNOWN_SPACES))
+    return spaces or "none"
+
+
+def _signature_space_error(token):
+    token = str(token or "")
+    hint = f"unknown space {token}; known spaces: {_signature_known_spaces_hint()}"
+    if token.startswith("&"):
+        hint += "; use registered space names in skill commands, not raw &handles"
+        stripped = token[1:]
+        if stripped in SIGNATURE_KNOWN_SPACES:
+            hint += f"; try {stripped}"
+    return hint
+
+
 # The command surface is canonical in src/skill_signatures.metta.
 # Python is only the syntax/typing membrane that reads those atoms and lowers
 # natural command text into safe MeTTa calls. No skill names should be added
@@ -775,7 +791,7 @@ def _signature_parse_prefix_args(signature, rest):
         elif arg_type == "space":
             token, rest = _signature_consume_token(rest)
             if token not in SIGNATURE_KNOWN_SPACES:
-                raise SignatureParseError(f"unknown space {token}")
+                raise SignatureParseError(_signature_space_error(token))
             args.append(_signature_quote(token))
         elif arg_type == "metta":
             expr, rest = _signature_consume_metta(rest, consume_all=index == len(signature) - 1)
@@ -808,7 +824,7 @@ def _signature_render_typed_value(arg_type, name, value):
     value = str(value or "").strip()
     if arg_type == "space":
         if value not in SIGNATURE_KNOWN_SPACES:
-            raise SignatureParseError(f"unknown space {value}")
+            raise SignatureParseError(_signature_space_error(value))
         return _signature_quote(value)
     if arg_type == "metta":
         return _signature_quote(_signature_validated_metta(value))
@@ -1011,7 +1027,7 @@ def _signature_parse_one(line):
         elif arg_type == "space":
             token, rest = _signature_consume_token(rest)
             if token not in SIGNATURE_KNOWN_SPACES:
-                raise SignatureParseError(f"unknown space {token}")
+                raise SignatureParseError(_signature_space_error(token))
             args.append(_signature_quote(token))
         elif arg_type == "metta":
             expr, rest = _signature_consume_metta(rest, consume_all=index == len(signature) - 1)

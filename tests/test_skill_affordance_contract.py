@@ -107,9 +107,20 @@ class SkillAffordanceContractTests(unittest.TestCase):
             "skill-trigger-candidates",
         }
         self.assertLessEqual(expected, signatures)
-        for atom in ["SkillTrigger", "CandidateSkillTrigger", "AttentionSkillSuggestion"]:
+        for atom in ["SkillTrigger", "CandidateSkillTrigger", "AttentionSkillSuggestion", "SkillRecall"]:
             self.assertIn(atom, source + declarations)
         self.assertNotIn("import helper_command_parser", source)
+
+    def test_skill_recall_uses_symbolic_cards_not_hidden_python_routing(self):
+        affordance = (SRC / "skills_affordance.metta").read_text(encoding="utf-8")
+        helper = (ROOT / "src" / "helper_skill_recall.py").read_text(encoding="utf-8")
+
+        self.assertIn("(skill-recall $msgnew $msg)", affordance)
+        self.assertIn("(match $space (SkillTrigger", affordance)
+        self.assertIn("(match $space (SkillCardLine", affordance)
+        self.assertIn("helper.input_skill_signals_expr", affordance)
+        self.assertNotIn("(SkillTrigger", helper)
+        self.assertNotIn("(SkillCardLine", helper)
 
     def test_affordance_files_do_not_contain_deployment_secrets(self):
         source = _text("skill_affordance*.metta") + _text("skill_catalog_affordance.metta")

@@ -14,6 +14,7 @@ The directory is loaded as the `&skills` space. It contains ordinary MeTTa atoms
 - `(Risk "skill" "risk")`
 - `(Effect "skill" "effect")`
 - `(SkillCardLine "skill" "compact help text")`
+- `(SkillTrigger "skill" "input-signal" confidence "why")`
 
 These atoms are data for symbolic inspection. They are not an automation policy.
 The agent still chooses whether to act, wait, ask, or reason further.
@@ -43,6 +44,14 @@ When a task needs more detail, the agent can call `query-skill-space`,
 the normal command result trace for the next cycle. This keeps discovery
 composable while preserving an explicit trace of what was looked up and why.
 
+Fresh input can also produce compact `SKILL_RECALL` context. The Python side
+only extracts factual signals from the text, such as `has-question`,
+`mentions-word:metta`, `has-url`, `has-code-shape`, or `has-file-reference`.
+The symbolic affordance directory then matches those signals against
+`SkillTrigger` atoms and returns bounded `SkillRecall` card lines. This is an
+attention hint, not a router: it never executes a skill and never forces a
+choice.
+
 Use `SkillContextHint` sparingly. It is for orientation primitives such as core
 reply/wait/memory commands and the discovery commands themselves. It is not a
 place to list every installed organ.
@@ -67,6 +76,7 @@ A minimal card looks like:
 !(add-atom &skills (Risk "example-skill" "example-risk"))
 !(add-atom &skills (Effect "example-skill" "example-effect"))
 !(add-atom &skills (SkillCardLine "example-skill" "example-skill input - compact description"))
+!(add-atom &skills (SkillTrigger "example-skill" "mentions-word:example" 0.70 "example wording may need this skill"))
 ```
 
 If a module adds a new topic with `SkillHelp`, it should also expose at least one
@@ -96,3 +106,9 @@ Signals should be factual observations such as `has-question`,
 `mentions-word:metta`, or `has-attachment:image`, not hidden interpretations of
 what the agent must do. The agent still decides whether to inspect, ignore, or
 use the suggested skill.
+
+Modules should keep their own general trigger words near their card
+declarations, usually in `modules/name/affordance.metta`, and import that file
+from `entry.metta`. When the module is enabled by `modules/loader.metta`, its
+cards and triggers become visible together. When the module is disabled, neither
+the command signatures nor the trigger cards should leak into context.

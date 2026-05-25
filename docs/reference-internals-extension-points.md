@@ -26,12 +26,15 @@ modules/name/
   skills.metta
   signatures.metta
   catalog.metta
+  affordance.metta
   src/optional_bridge.py
 ```
 
 `entry.metta` imports the module's runtime files. `signatures.metta` and
 `catalog.metta` are read by the syntax/catalog membranes only when the module is
-enabled.
+enabled. `affordance.metta` should add the module's skill cards, topics, and
+general `SkillTrigger` atoms to `&skills` so input-aware context can surface the
+right cards immediately after the module loads.
 
 Enable the module by adding one import to `modules/loader.metta`:
 

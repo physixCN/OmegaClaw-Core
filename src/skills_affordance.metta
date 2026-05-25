@@ -20,6 +20,7 @@
 ; (SkillCardLine "skill" "human-readable compact line")
 ; (SkillTrigger "skill" "signal" confidence "why")
 ; (CandidateSkillTrigger "skill" "signal" confidence "why")
+; (SkillRecall "signal" "skill" confidence "why" "compact card line")
 
 (= (skill-topic-cards $space $topic)
    (collapse (match $space (SkillTopic $skill $topic)
@@ -99,6 +100,34 @@
 (= (skill-suggestions-for $signal)
    (list_to_set (append (skill-trigger-suggestions-normalized &skills $signal)
                         (skill-trigger-suggestions-normalized &self $signal))))
+
+(= (skill-recall-card-lines $space $signal)
+   (collapse (match $space (SkillTrigger $skill $signal $confidence $why)
+                    (match $space (SkillCardLine $skill $line)
+                           (SkillRecall $signal $skill $confidence $why $line)))))
+
+(= (skill-recall-card-lines-normalized $space $signal)
+   (let $symbol (repr $signal)
+        (list_to_set (append (skill-recall-card-lines $space $signal)
+                             (skill-recall-card-lines $space $symbol)))))
+
+(= (skill-recall-cards-for-signal $signal)
+   (list_to_set (append (skill-recall-card-lines-normalized &skills $signal)
+                        (skill-recall-card-lines-normalized &self $signal))))
+
+(= (skill-recall-cards-for-signals ())
+   ())
+
+(= (skill-recall-cards-for-signals $signals)
+   (append (skill-recall-cards-for-signal (car-atom $signals))
+           (skill-recall-cards-for-signals (cdr-atom $signals))))
+
+(= (skill-recall $msgnew $msg)
+   (if $msgnew
+       (let* (($signals (car-atom (collapse (sread (py-call (helper.input_skill_signals_expr (string-safe $msg)))))))
+              ($cards (list_to_set (skill-recall-cards-for-signals $signals))))
+             (repr $cards))
+       ""))
 
 (= (skill-trigger-candidates)
    (list_to_set (append (collapse (match &skills (CandidateSkillTrigger $skill $signal $confidence $why)

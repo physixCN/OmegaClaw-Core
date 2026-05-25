@@ -49,8 +49,16 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             parser.signature_balance_parentheses("sleep-for soon no"),
         )
         self.assertIn(
-            '(syntax-error "space-find" "unknown space nowhere"',
+            '(syntax-error "space-find" "unknown space nowhere; known spaces:',
             parser.signature_balance_parentheses("space-find nowhere (A $x)"),
+        )
+        self.assertIn(
+            'use registered space names in skill commands, not raw &handles',
+            parser.signature_balance_parentheses("space-find &beliefs (Belief $d $r $v $t $s)"),
+        )
+        self.assertIn(
+            'try beliefs',
+            parser.signature_balance_parentheses("space-find &beliefs (Belief $d $r $v $t $s)"),
         )
 
     def test_file_memory_and_reasoning_cases(self):
@@ -248,6 +256,12 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
                     '(SkillCatalog "Enabled module: enabled-skill note")\n',
                     encoding="utf-8",
                 )
+                (enabled / "affordance.metta").write_text(
+                    '!(add-atom &skills (Skill "enabled-skill"))\n'
+                    '!(add-atom &skills (SkillTopic "enabled-skill" "enabled"))\n'
+                    '!(add-atom &skills (SkillTrigger "enabled-skill" "mentions-word:enabled" 0.7 "enabled module trigger"))\n',
+                    encoding="utf-8",
+                )
                 (disabled / "signatures.metta").write_text(
                     "(SkillSignature disabled-skill (Arg rest-text note))\n",
                     encoding="utf-8",
@@ -256,15 +270,21 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
                     '(SkillCatalog "Disabled module: disabled-skill note")\n',
                     encoding="utf-8",
                 )
+                (disabled / "affordance.metta").write_text(
+                    '!(add-atom &skills (SkillTrigger "disabled-skill" "mentions-word:disabled" 0.7 "disabled module trigger"))\n',
+                    encoding="utf-8",
+                )
 
                 parser.MODULE_DECLARATIONS_ROOT = modules
                 signature_text = "\n".join(path.read_text(encoding="utf-8") for path in parser.signature_declaration_paths())
                 catalog_text = parser.skill_catalog()
+                affordance_paths = parser._module_declaration_paths("affordance.metta")
 
                 self.assertIn("enabled-skill", signature_text)
                 self.assertNotIn("disabled-skill", signature_text)
                 self.assertIn("Enabled module:", catalog_text)
                 self.assertNotIn("Disabled module:", catalog_text)
+                self.assertEqual(affordance_paths, [enabled / "affordance.metta"])
         finally:
             parser.MODULE_DECLARATIONS_ROOT = old_root
 

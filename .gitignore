@@ -1,5 +1,6 @@
 # embedded vector store
 memory/chroma_db/
+chroma_db/
 
 # pulled in repos
 repos/

@@ -51,6 +51,9 @@
    (getContext ""))
 
 (= (getContext $inputctx)
+   (getContext $inputctx ""))
+
+(= (getContext $inputctx $skillctx)
    (string-safe (py-str ("PROMPT: " (getPrompt) " SKILLS: " (getSkills)
                          " OUTPUT_FORMAT: Up to 5 lines, do not wrap quotes around args, do not use variables:" (newline)
                          " toolName1 arg1" (newline)
@@ -60,6 +63,7 @@
                          " toolName5 arg5" (newline)
                          " LAST_SKILL_USE_RESULTS: " (last_chars (get-state &lastresults) (maxFeedback)) " HISTORY: " (getHistory)
                          " INPUT_RECALL: " $inputctx
+                         " SKILL_RECALL: " $skillctx
                          " PROMOTED_MEMORY_HINTS: " (promoted-memory-hints) " TIME: " (get_time_as_string)))))
 
 (= (HandleError $msg $cmd $sexpr)
@@ -96,7 +100,8 @@
                         ($_ (if (and (> $k 1) $msgnew)
                                 (change-state! &loops (maxNewInputLoops)) _))
                         ($inputctx (input-recall $msgnew $msg))
-                        ($prompt (getContext $inputctx)))
+                        ($skillctx (skill-recall $msgnew $msg))
+                        ($prompt (getContext $inputctx $skillctx)))
                             (if (> (get-state &loops) 0)
                                 (let* (($lastmessage (if $msgnew (HUMAN-MSG: $msg) (if (spamShield) " DO NOT RE-SEND OR SPAM!" "")))
                                        ($_ (change-state! &nextWakeAt (+ (get_time) (wakeupInterval))))
