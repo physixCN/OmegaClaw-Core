@@ -1,3 +1,8 @@
+# runtime memory
+memory/*.metta
+!memory/prompt.txt
+!memory/history.metta
+
 # embedded vector store
 memory/chroma_db/
 chroma_db/
