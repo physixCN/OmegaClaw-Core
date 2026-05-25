@@ -38,6 +38,16 @@ class InputContextContractTests(unittest.TestCase):
         self.assertIn('" INPUT_RECALL: " $inputctx', loop)
         self.assertIn('" SKILL_RECALL: " $skillctx', loop)
 
+    def test_prompt_explains_input_recall_is_hint_not_memory_check(self):
+        prompt = (ROOT / "memory" / "prompt.txt").read_text(encoding="utf-8")
+
+        self.assertIn("Always check memory before responding confidently to a fresh human message", prompt)
+        self.assertIn("Automatic INPUT_RECALL is only a hint, not the check", prompt)
+        self.assertIn("query first and wait/pin the reply-debt", prompt)
+        self.assertIn("Fresh inbound human messages are open conversations", prompt)
+        self.assertNotIn("Jon", prompt)
+        self.assertNotIn("WhatsApp", prompt)
+
     def test_input_recall_queries_only_for_fresh_input(self):
         memory = (ROOT / "src" / "memory.metta").read_text(encoding="utf-8")
         match = re.search(r"\(= \(input-recall \$msgnew \$msg\).*?\n\n\(=", memory, re.S)
