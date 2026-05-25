@@ -109,6 +109,22 @@ class SkillAffordanceContractTests(unittest.TestCase):
         self.assertNotIn("(SkillSignature internet-search", signatures)
 
 
+    def test_reasoning_affordance_guides_pln_without_fake_query_surface(self):
+        source = (SRC / "skill_affordance_reasoning.metta").read_text(encoding="utf-8")
+
+        for expected in [
+            'SkillTopic "pln-step" "pln"',
+            'SkillTopic "pln-step" "inference"',
+            'SkillTopic "nal-step" "nal"',
+            'SkillTopic "nal-step" "inference"',
+            'SkillTopic "run-metta-file" "metta"',
+            'SkillTopic "run-metta-file" "metta-file"',
+            'SkillTopic "run-metta-file" "run-metta"',
+            "prefer pln-step/nal-step",
+            "do not use PLN.Query unless you have a real supported KB query surface",
+        ]:
+            self.assertIn(expected, source)
+
     def test_pin_is_always_visible_and_has_continuity_schema(self):
         context = "\n".join(line for _domain, line in _context_hints())
         self.assertIn("pin state-continuity", context)

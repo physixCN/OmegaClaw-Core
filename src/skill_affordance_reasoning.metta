@@ -25,6 +25,8 @@
 
 !(add-atom &skills (Skill "nal-step"))
 !(add-atom &skills (SkillTopic "nal-step" "reasoning"))
+!(add-atom &skills (SkillTopic "nal-step" "nal"))
+!(add-atom &skills (SkillTopic "nal-step" "inference"))
 !(add-atom &skills (SkillArg "nal-step" 1 "metta" "premise1"))
 !(add-atom &skills (SkillArg "nal-step" 2 "metta" "premise2"))
 !(add-atom &skills (PreferredWhen "nal-step" "nars-style-inference" 0.78 "inspect NAL derivation with NAL copulas"))
@@ -33,6 +35,8 @@
 
 !(add-atom &skills (Skill "pln-step"))
 !(add-atom &skills (SkillTopic "pln-step" "reasoning"))
+!(add-atom &skills (SkillTopic "pln-step" "pln"))
+!(add-atom &skills (SkillTopic "pln-step" "inference"))
 !(add-atom &skills (SkillArg "pln-step" 1 "metta" "premise1"))
 !(add-atom &skills (SkillArg "pln-step" 2 "metta" "premise2"))
 !(add-atom &skills (PreferredWhen "pln-step" "pln-inheritance-or-implication" 0.82 "inspect PLN-style derivation over typed symbolic atoms"))
@@ -57,9 +61,13 @@
 
 !(add-atom &skills (Skill "run-metta-file"))
 !(add-atom &skills (SkillTopic "run-metta-file" "reasoning"))
+!(add-atom &skills (SkillTopic "run-metta-file" "metta"))
+!(add-atom &skills (SkillTopic "run-metta-file" "metta-file"))
+!(add-atom &skills (SkillTopic "run-metta-file" "run-metta"))
 !(add-atom &skills (SkillTopic "run-metta-file" "files"))
 !(add-atom &skills (SkillArg "run-metta-file" 1 "filepath" "path"))
 !(add-atom &skills (PreferredWhen "run-metta-file" "run-symbolic-test-file" 0.78 "run a .metta file through the standard runner"))
 !(add-atom &skills (Risk "run-metta-file" "direct-symbolic-execution"))
 !(add-atom &skills (Effect "run-metta-file" "metta-file-result"))
 !(add-atom &skills (SkillCardLine "run-metta-file" "run-metta-file path - run a .metta file through the standard runner"))
+!(add-atom &skills (SkillCardLine "run-metta-file" "For ordinary PLN/NAL reasoning prefer pln-step/nal-step; do not use PLN.Query unless you have a real supported KB query surface."))
