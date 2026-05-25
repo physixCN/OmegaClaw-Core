@@ -1,15 +1,11 @@
 ![OmegaClaw banner](/docs/assets/banner.png)
 
-# Meet Oma
+# OmegaClaw Core
 
-Oma is the first Telegram agent built on the OmegaClaw framework. Interacting
-with Oma is the fastest way to experience what we’re building with OmegaClaw.
-
-<p align="center">
-  <a href="https://t.me/ASI_Alliance">
-    <img src="/docs/assets/tg-button.png" width="25%" alt="Chat with Oma">
-  </a>
-</p>
+OmegaClaw Core is the portable MeTTa/AtomSpace runtime for building persistent
+neural-symbolic agents. It provides the continuous loop, memory substrate,
+symbolic skill surface, provider membrane, and extension boundaries used by
+OmegaClaw deployments.
 
 ---
 
@@ -69,7 +65,7 @@ python3 -m pip install -r ./repos/OmegaClaw-Core/requirements.txt
 Before running the system you need to choose your LLM API provider and export the API key as the environment variable.
 | Provider | Env var name | Notes |
 |---|---|---|
-| `Anthropic` (default) | `ANTHROPIC_API_KEY` | Claude models via the Anthropic API. |
+| `Anthropic` | `ANTHROPIC_API_KEY` | Claude models via the Anthropic API. |
 | `OpenAI` | `OPENAI_API_KEY` | GPT models. Also reused by the OpenAI embedding provider below. |
 | `ASICloud` | `ASI_API_KEY` |  MiniMax models via ASI Alliance inference endpoint (`inference.asicloud.cudos.org`). |
 | `ASIOne` | `ASIONE_API_KEY` |  ASI1 Ultra model via ASI:One inference endpoint (`https://api.asi1.ai/v1`). |
@@ -88,12 +84,12 @@ After start go to https://webchat.quakenet.org/ to communicate with the agent. J
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `maxNewInputLoops` | 50 | Turns the agent keeps running after a new human message before idling (seconds) |
-| `maxWakeLoops` | 1 | Extra turns granted on each scheduled wake-up |
-| `sleepInterval` | 1 | Delay between loop iterations (seconds) |
-| `wakeupInterval` | 600 | How long idle before the next scheduled wake-up (seconds) |
-| `LLM` | `gpt-5.4` | Model identifier passed to the provider (used with OpenAI provider only) |
-| `provider` | `Anthropic` | LLM provider, see the table of the providers above |
+| `maxNewInputLoops` | 12 | Turns the agent keeps running after a new human message before idling |
+| `maxWakeLoops` | 6 | Extra warm autonomous turns granted on each scheduled wake-up |
+| `sleepInterval` | 3 | Delay between loop iterations (seconds) |
+| `wakeupInterval` | 900 | How long idle before the next scheduled wake-up (seconds) |
+| `LLM` | unset unless supplied | Model identifier used by the OpenAI/PeTTa path; registry-backed providers carry their own model defaults |
+| `provider` | supplied at runtime | LLM provider, see the table of the providers above |
 | `maxOutputToken` | 6000 | Output cap passed to the provider |
 | `reasoningMode` | `medium` | Reasoning-effort hint passed to the provider (OpenAI only) |
 

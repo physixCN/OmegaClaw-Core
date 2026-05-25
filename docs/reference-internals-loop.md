@@ -32,17 +32,13 @@ Also creates shared state slots:
 4. **Input-aware recall** — when there is fresh input, `(input-recall $msgnew $msg)` retrieves a small bounded semantic memory hint block for that input. Idle turns receive an empty recall block.
 5. **Build the prompt** — `getContext` assembles `PROMPT + SKILLS + LAST_SKILL_USE_RESULTS + HISTORY + INPUT_RECALL + PROMOTED_MEMORY_HINTS + TIME` plus an output-format instruction requiring a tuple of up to 5 skill s-exprs.
 6. **Set next wake** — `&nextWakeAt := now + wakeupInterval`.
-7. **Call the LLM** — dispatches on `provider`:
-   - `OpenAI` → `useGPT`
-   - `Anthropic` → `lib_llm_ext.useClaude`
-   - `ASICloud` → `lib_llm_ext.useMiniMax`
-   - else → `lib_llm_ext.useAsi1`
-8. **Repair parentheses** — `helper.balance_parentheses` fixes common mismatches before parsing.
+7. **Call the cognition provider** — `OpenAI` still uses the PeTTa `useGPT` path; other provider names dispatch through `lib_llm_ext.callProvider`, which looks up the provider registry.
+8. **Syntax membrane** — `helper.signature_balance_parentheses` repairs common shape issues and lowers friendly command text through declared `SkillSignature` atoms before parsing.
 9. **Parse** — `sread` on the repaired string; if it does not start with `(`, the loop feeds back a reminder prompt.
 10. **Dispatch skills** — `(superpose $sexpr)` runs each skill, capturing errors via `HandleError`.
 11. **Record** — `addToHistory` appends human message + response + any errors to `memory/history.metta`, provided something new happened.
 12. **Save last results** — into `&lastresults` for the next turn's prompt.
-13. **Sleep** — `(sleep (sleepInterval))`.
+13. **Sleep** — `(sleep (get-state &sleepInterval))`.
 14. **Recurse** — `(omegaclaw (+ 1 $k))`.
 
 ## Input-Aware Recall

@@ -14,14 +14,14 @@ This reads a command-line override via `argk` (`name=value` on the MeTTa command
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `maxNewInputLoops` | 50 | How many turns the agent keeps running after a new human message before idling. |
-| `maxWakeLoops` | 1 | Extra turns granted on each scheduled wake-up. |
-| `sleepInterval` | 1 (seconds) | Delay between loop iterations. |
-| `LLM` | `gpt-5.4` | Model identifier passed to the provider. |
-| `provider` | `Anthropic` | LLM provider — `Anthropic`, `OpenAI`, `ASICloud`, or `ASIOne`. |
+| `maxNewInputLoops` | 12 | How many turns the agent keeps running after a new human message before idling. |
+| `maxWakeLoops` | 6 | Extra warm autonomous turns granted on each scheduled wake-up. |
+| `sleepInterval` | 3 (seconds) | Delay between loop iterations. |
+| `LLM` | unset unless supplied | Model identifier used by the OpenAI/PeTTa path; registry-backed providers carry their own model defaults. |
+| `provider` | supplied at runtime | LLM provider — `Anthropic`, `OpenAI`, `ASICloud`, `ASIOne`, `Ollama-local`, `OpenRouter`, or `Test`. |
 | `maxOutputToken` | 6000 | Output cap passed to the provider. |
 | `reasoningMode` | `medium` | Reasoning-effort hint passed to the provider. |
-| `wakeupInterval` | 600 (seconds) | How long idle before the next scheduled wake-up. |
+| `wakeupInterval` | 900 (seconds) | How long idle before the next scheduled wake-up. |
 
 ## Memory (`src/memory.metta`, `initMemory`)
 

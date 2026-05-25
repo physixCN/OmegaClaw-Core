@@ -73,7 +73,7 @@ jobs:
 
       - name: Run auto tests
         if: inputs.run_tests
-        run: echo "No autotests yet"
+        run: python3 -m unittest discover -s tests -p "test_*.py"
 
       - name: Build and push (release)
         if: success() && inputs.publish_docker

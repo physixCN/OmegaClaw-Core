@@ -8,9 +8,9 @@ LLM and embedding bridges.
 
 | Function | Purpose |
 |---|---|
-| `useClaude(prompt)` | Call an Anthropic Claude model. Used when `provider = Anthropic`. |
-| `useMiniMax(prompt)` | Call MiniMax. Used when `provider = ASICloud` (or similar routing). |
-| `useAsi1(prompt)` | Call ASI1. Used when `provider = ASIOne`. |
+| `callProvider(provider, prompt, max_tokens)` | Registry-backed provider dispatcher used by the loop for non-OpenAI providers. |
+| `_register_provider(...)` / `_register_provider_instance(...)` | Add provider adapters without adding new branches to the loop. |
+| `useClaude(prompt)`, `useMiniMax(prompt)`, `useAsi1(prompt)` | Legacy compatibility wrappers for older provider-specific routing. |
 | `useLocalEmbedding(str)` | Compute an embedding with a locally loaded model. Used when `embeddingprovider = Local`. |
 | `initLocalEmbedding()` | Load the local embedding model once at startup. |
 
