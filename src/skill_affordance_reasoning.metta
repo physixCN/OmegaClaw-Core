@@ -47,6 +47,14 @@
 !(add-atom &skills (Effect "nars-query" "nars-query-result"))
 !(add-atom &skills (SkillCardLine "nars-query" "nars-query kb term - query a NARS expression"))
 
+!(add-atom &skills (Skill "nars-derive"))
+!(add-atom &skills (SkillTopic "nars-derive" "reasoning"))
+!(add-atom &skills (SkillArg "nars-derive" 1 "metta" "tasks"))
+!(add-atom &skills (SkillArg "nars-derive" 2 "metta" "beliefs"))
+!(add-atom &skills (PreferredWhen "nars-derive" "derive-nars-tasks-from-beliefs" 0.74 "inspect NARS derivation from task and belief expressions"))
+!(add-atom &skills (Effect "nars-derive" "nars-derivation"))
+!(add-atom &skills (SkillCardLine "nars-derive" "nars-derive tasks_expression beliefs_expression - inspect NARS derivation from tasks and beliefs"))
+
 !(add-atom &skills (Skill "run-metta-file"))
 !(add-atom &skills (SkillTopic "run-metta-file" "reasoning"))
 !(add-atom &skills (SkillTopic "run-metta-file" "files"))

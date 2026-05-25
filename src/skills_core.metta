@@ -34,6 +34,9 @@
 (= (body-status)
    (py-str ("BODY-STATUS swipl_pid=" (current-swipl-pid))))
 
+(= (context-organ-status)
+   (py-str "CONTEXT-ORGAN-STATUS input-recall=enabled skill-recall=symbolic-card-guidance getSkills=bootstrap-hints getFullSkills=manual-catalog"))
+
 (= (prepare-reboot $reason)
    (let $trace (py-call (helper.prepare_reboot $reason))
         (progn (remember $trace)
