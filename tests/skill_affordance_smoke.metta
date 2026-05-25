@@ -20,6 +20,11 @@
 !(import! &self ../src/skill_affordance_reasoning.metta)
 !(import! &self ../src/skill_affordance_affordance.metta)
 
+
+!(if (== (eval (getSkills)) (eval (getFullSkills)))
+     (println! FAILED-SKILL-CONTEXT-HINTS-NOT-SLIM)
+     (println! SKILL-CONTEXT-HINTS-SLIM-OK))
+
 !(if (== (eval (space-known "skills")) true)
      (println! SKILL-AFFORDANCE-SPACE-OK)
      (println! FAILED-SKILL-AFFORDANCE-SPACE))
@@ -43,3 +48,15 @@
      (println! SKILL-AFFORDANCE-CARD-OK))
 !(println! (eval (query-skill-space "affordance")))
 !(println! (eval (choose-skill-for "find-tool-for-task")))
+
+!(if (== (eval (skill-suggestions-for "has-question")) ())
+     (println! FAILED-SKILL-TRIGGER-DEFAULT-EMPTY)
+     (println! SKILL-TRIGGER-DEFAULT-OK))
+!(println! (eval (suggest-skill-trigger "query" "mentions-word:lookup" 0.61 "observed missed memory lookup wording")))
+!(if (== (eval (skill-trigger-candidates)) ())
+     (println! FAILED-SKILL-TRIGGER-CANDIDATE-EMPTY)
+     (println! SKILL-TRIGGER-CANDIDATE-OK))
+!(println! (eval (promote-skill-trigger "query" "mentions-word:lookup" 0.66 "candidate reviewed and useful")))
+!(if (== (eval (skill-suggestions-for "mentions-word:lookup")) ())
+     (println! FAILED-SKILL-TRIGGER-PROMOTED-EMPTY)
+     (println! SKILL-TRIGGER-PROMOTED-OK))

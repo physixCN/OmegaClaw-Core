@@ -1,5 +1,8 @@
-(= (getSkills)
+(= (getFullSkills)
    (repr (list_to_set (collapse (match &self (SkillCatalog $line) $line)))))
+
+(= (getSkills)
+   (repr (list_to_set (collapse (match &self (SkillContextHint $domain $line) $line)))))
 
 (= (skill-help $topic)
    (let* (($exact (collapse (match &self (SkillHelp $topic $line) $line)))

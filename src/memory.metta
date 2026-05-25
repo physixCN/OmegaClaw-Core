@@ -1,6 +1,7 @@
 ;Configured at runtime memory and history in amount of characters:
 (= (maxFeedback) (empty))
 (= (maxRecallItems) (empty))
+(= (maxInputRecallItems) (empty))
 (= (maxSimilarityRecall) (empty))
 (= (maxEpisodeRecallLines) (empty))
 (= (maxHistory) (empty))
@@ -19,6 +20,7 @@
                      (change-state! &runtimeMemoryLoaded True)))
           (configure maxFeedback 40000)
           (configure maxRecallItems 20)
+          (configure maxInputRecallItems 8)
           (configure maxSimilarityRecall 10)
           (configure maxEpisodeRecallLines 20)
           (configure maxHistory 30000)
@@ -77,6 +79,11 @@
 
 (= (best-promoted-memories)
    (promoted-memory-hints))
+
+(= (input-recall $msgnew $msg)
+   (if $msgnew
+       (car-atom (collapse (once (py-call (helper.context_input_recall_text (string-safe $msg) (maxInputRecallItems) (promotionInflationFactor) (maxRecallItems) (get_time))))))
+       ""))
 
 (= (get-promotion $current_time $uuid)
    (let* (($promotion (py-call (helper.promotion_get_value $uuid 0.0)))

@@ -107,7 +107,7 @@ To add a skill or organ:
 1. Add a runtime implementation, usually in `src/skills_*.metta` or
    `modules/<name>/skills.metta`.
 2. Add `(SkillSignature ...)` declarations beside that organ.
-3. Add `(SkillCatalog ...)` / `(SkillHelp ...)` entries beside that organ.
+3. Add `(SkillCatalog ...)` / `(SkillHelp ...)` entries beside that organ, plus `SkillContextHint` only for minimal always-on bootstrap text.
 4. Add smoke tests for the expected command shapes.
 5. Keep execution safety at the execution boundary, not in parser heuristics.
 

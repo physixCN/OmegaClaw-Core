@@ -1,6 +1,7 @@
 ; Core skill catalog declarations.
 ; Imported as SkillCatalog / SkillHelp atoms by the core loader.
 
+(SkillContextHint "core" "Core: send message, wait reason, pin state, remember lesson, query phrase, episodes-at time, current-swipl-pid, restart-self reason, reboot-self reason")
 (SkillCatalog "Core: send message, wait reason, pin state, remember lesson, query phrase, episodes-at time, promote time, demote time, body-status, current-swipl-pid, restart-self reason, reboot-self reason")
 (SkillCatalog "System and files: shell command, shell-confirm command, read-file path, write-file path content, append-file path content")
 (SkillCatalog "Conversation: send replies to the latest channel. Fresh inbound human messages are open conversations; answer, defer, mark handled, or pin reply-debt before silence. Web chat is a channel, not a decision layer.")

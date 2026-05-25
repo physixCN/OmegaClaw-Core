@@ -4,10 +4,12 @@ Where to plug in new behavior, in order of increasing depth.
 
 ## Add a skill
 
-Most common extension. Two edits:
+Most common extension. Add the executable skill and its symbolic declarations:
 
-1. A line in `getSkills` (`src/skills.metta`) so the LLM knows the skill exists.
-2. A `(= (my-skill $arg) ...)` definition, either pure MeTTa or a `py-call` / `translatePredicate`.
+1. A `(= (my-skill $arg) ...)` definition, either pure MeTTa or a `py-call` / `translatePredicate`.
+2. A `(SkillSignature ...)` declaration so the syntax membrane knows the command shape.
+3. `(SkillCatalog ...)` / `(SkillHelp ...)` entries for full human-readable documentation.
+4. Optional `(SkillContextHint ...)` only for tiny always-on bootstrap hints. Most skills should be found through `query-skill-space`, `choose-skill-for`, `explain-skill`, or `skill-card`, not stuffed into the loop prompt.
 
 Full walkthrough: [tutorial-03-writing-a-custom-skill.md](./tutorial-03-writing-a-custom-skill.md).
 

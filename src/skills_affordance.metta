@@ -18,7 +18,8 @@
 ; (Risk "skill" "risk")
 ; (Effect "skill" "effect")
 ; (SkillCardLine "skill" "human-readable compact line")
-
+; (SkillTrigger "skill" "signal" confidence "why")
+; (CandidateSkillTrigger "skill" "signal" confidence "why")
 
 (= (skill-topic-cards $space $topic)
    (collapse (match $space (SkillTopic $skill $topic)
@@ -85,3 +86,36 @@
 (= (skill-card $skill)
    (list_to_set (append (skill-card-lines-normalized &skills $skill)
                         (skill-card-lines-normalized &self $skill))))
+
+(= (skill-trigger-suggestions $space $signal)
+   (collapse (match $space (SkillTrigger $skill $signal $confidence $why)
+                    (AttentionSkillSuggestion $signal $skill $confidence $why))))
+
+(= (skill-trigger-suggestions-normalized $space $signal)
+   (let $symbol (repr $signal)
+        (list_to_set (append (skill-trigger-suggestions $space $signal)
+                             (skill-trigger-suggestions $space $symbol)))))
+
+(= (skill-suggestions-for $signal)
+   (list_to_set (append (skill-trigger-suggestions-normalized &skills $signal)
+                        (skill-trigger-suggestions-normalized &self $signal))))
+
+(= (skill-trigger-candidates)
+   (list_to_set (append (collapse (match &skills (CandidateSkillTrigger $skill $signal $confidence $why)
+                                         (CandidateSkillTrigger $skill $signal $confidence $why)))
+                        (collapse (match &self (CandidateSkillTrigger $skill $signal $confidence $why)
+                                         (CandidateSkillTrigger $skill $signal $confidence $why))))))
+
+(= (suggest-skill-trigger $skill $signal $confidence $reason)
+   (progn (add-atom &skills (CandidateSkillTrigger $skill $signal $confidence $reason))
+          (CandidateSkillTriggerAdded $skill $signal $confidence $reason)))
+
+(= (add-skill-trigger $skill $signal $confidence $reason)
+   (progn (add-atom &skills (SkillTrigger $skill $signal $confidence $reason))
+          (SkillTriggerAdded $skill $signal $confidence $reason)))
+
+(= (promote-skill-trigger $skill $signal $confidence $reason)
+   (progn (collapse (match &skills (CandidateSkillTrigger $skill $signal $oldconfidence $oldreason)
+                           (remove-atom &skills (CandidateSkillTrigger $skill $signal $oldconfidence $oldreason))))
+          (add-atom &skills (SkillTrigger $skill $signal $confidence $reason))
+          (SkillTriggerPromoted $skill $signal $confidence $reason)))

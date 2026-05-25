@@ -83,6 +83,10 @@ try:
         signature_balance_parentheses,
         balance_parentheses,
     )
+    from .helper_recall import (
+        context_input_recall,
+        context_input_recall_text,
+    )
     from .helper_promotion import (
         promotion_open_map,
         promotion_key,
@@ -178,6 +182,10 @@ except Exception:
         _signature_parse_one,
         signature_balance_parentheses,
         balance_parentheses,
+    )
+    from helper_recall import (
+        context_input_recall,
+        context_input_recall_text,
     )
     from helper_promotion import (
         promotion_open_map,

@@ -74,7 +74,7 @@ This keeps the local runtime smaller and lets specialized services do the domain
       (py-call (agentverse.my_remote_skill $arg)))
    ```
 
-4. Add a descriptive line to `getSkills` so the LLM knows the skill exists.
+4. Add `SkillCatalog` / `SkillHelp` documentation and, if the remote skill should be discoverable by task, `SkillTopic` / `SkillCardLine` affordance atoms. Add `SkillContextHint` only if it belongs in the tiny always-on bootstrap.
 
 ## Limits
 
