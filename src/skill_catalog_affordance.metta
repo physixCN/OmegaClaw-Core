@@ -1,9 +1,10 @@
 ; Skill affordance catalog declarations.
 ; Imported as SkillCatalog / SkillHelp atoms by the core loader.
 
-(SkillContextHint "affordance" "Discovery: skill-help topic, query-skill-space topic, choose-skill-for situation, explain-skill skill, skill-card skill. Skill discovery is attention guidance, not automation.")
+(SkillContextHint "affordance" "Discovery: skill-help topic, query-skill-space topic, choose-skill-for situation, explain-skill skill, skill-card skill. Use skill-aliases topic when wording misses.")
 (SkillCatalog "Affordance: query-skill-space topic, choose-skill-for situation, explain-skill skill, skill-card skill")
 (SkillCatalog "Attention triggers: skill-suggestions-for signal, suggest-skill-trigger skill signal confidence reason, promote-skill-trigger skill signal confidence reason, add-skill-trigger skill signal confidence reason, skill-trigger-candidates")
+(SkillCatalog "Skill aliases: skill-aliases topic, suggest-skill-alias alias topic confidence reason, promote-skill-alias alias topic confidence reason, add-skill-alias alias topic confidence reason, skill-alias-candidates")
 (SkillHelp "affordance" "Skill affordance directory:")
 (SkillHelp "affordance" "query-skill-space topic - list candidate skills registered for a topic such as memory, reasoning, core, or affordance")
 (SkillHelp "affordance" "choose-skill-for situation - return candidate skills with confidence and why for a named situation")
@@ -14,4 +15,9 @@
 (SkillHelp "affordance" "promote-skill-trigger skill signal confidence reason - promote a reviewed candidate trigger into active suggestions")
 (SkillHelp "affordance" "add-skill-trigger skill signal confidence reason - add an active symbolic trigger directly when already justified")
 (SkillHelp "affordance" "skill-trigger-candidates - list candidate triggers waiting for review")
+(SkillHelp "affordance" "skill-aliases topic - list active alias topics for a canonical topic, or the canonical topic for an alias")
+(SkillHelp "affordance" "suggest-skill-alias alias topic confidence reason - record a candidate wording alias without activating it")
+(SkillHelp "affordance" "promote-skill-alias alias topic confidence reason - promote a reviewed candidate alias into active query-skill-space expansion")
+(SkillHelp "affordance" "add-skill-alias alias topic confidence reason - add an active symbolic alias directly when already justified")
+(SkillHelp "affordance" "skill-alias-candidates - list candidate aliases waiting for review")
 (SkillHelp "affordance" "Use affordance results as attention guidance, not automation. The agent still senses, reasons, chooses, acts, verifies, and remembers.")

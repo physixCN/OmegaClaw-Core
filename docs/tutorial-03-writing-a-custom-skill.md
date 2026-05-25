@@ -56,6 +56,7 @@ module:
 
 ```text
 modules/text-utils/
+  module.toml
   entry.metta
   skills.metta
   signatures.metta
@@ -85,6 +86,29 @@ Optional attention trigger: if a factual input signal often makes the skill rele
 ```
 
 This is only an attention suggestion. It should help the agent notice the skill, not force routing or action.
+
+Optional trace contract: if the module can write verbose traces, declare them in
+`module.toml` and make them runtime-controlled. Potentially large or private
+traces should be off by default:
+
+```toml
+[env]
+OMEGACLAW_TEXT_UTILS_TRACE = { required = false, default = "0" }
+
+[trace]
+default_enabled = false
+writes = ["TextUtilityTrace"]
+```
+
+Then mirror that availability in `entry.metta`:
+
+```metta
+(RuntimeConfig omegaclaw.module.text-utils OMEGACLAW_TEXT_UTILS_TRACE "optional-default-off")
+(TraceAvailable omegaclaw.module.text-utils TextUtilityTrace)
+```
+
+The skill return value should remain compact enough for
+`LAST_SKILL_USE_RESULTS`; full raw traces are for explicit audit/debug modes.
 
 ### Step 3 — Test
 

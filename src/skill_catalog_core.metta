@@ -1,15 +1,15 @@
 ; Core skill catalog declarations.
 ; Imported as SkillCatalog / SkillHelp atoms by the core loader.
 
-(SkillContextHint "core" "Core: send message, wait reason, pin state, remember lesson, query phrase, episodes-at time, current-swipl-pid, restart-self reason, reboot-self reason")
-(SkillCatalog "Core: send message, wait reason, pin state, remember lesson, query phrase, episodes-at time, promote time, demote time, body-status, current-swipl-pid, restart-self reason, reboot-self reason")
+(SkillContextHint "core" "Core: send message, wait reason, pin state-continuity, remember lesson, query phrase, episodes-at time, current-swipl-pid, restart-self reason, reboot-self reason")
+(SkillCatalog "Core: send message, wait reason, pin state-continuity, remember lesson, query phrase, episodes-at time, promote time, demote time, body-status, current-swipl-pid, restart-self reason, reboot-self reason")
 (SkillCatalog "System and files: shell command, shell-confirm command, read-file path, write-file path content, append-file path content")
 (SkillCatalog "Conversation: send replies to the latest channel. Fresh inbound human messages are open conversations; answer, defer, mark handled, or pin reply-debt before silence. Web chat is a channel, not a decision layer.")
 (SkillCatalog "Help: skill-help topic. Core topics: core, memory, energy, reasoning, affordance. Imported organs may add channels, assume, attention, house, media, health, web.")
 (SkillHelp "core" "Core affordances:")
 (SkillHelp "core" "send message - reply through the latest routed control channel")
 (SkillHelp "core" "wait reason - deliberately take no external action this cycle")
-(SkillHelp "core" "pin state - one-line volatile working memory")
+(SkillHelp "core" "pin state - one-line volatile continuity vector; use before wait/sleep/reboot/task switch/open-loop obligations")
 (SkillHelp "core" "remember lesson - store compact future-useful memory")
 (SkillHelp "core" "query phrase - search long-term embedding memory")
 (SkillHelp "core" "episodes-at time - inspect history around a flexible timestamp")
@@ -30,4 +30,8 @@
 (SkillHelp "runtime" "Runtime affordances: current-swipl-pid, body-status, context-organ-status, cycle-status, prepare-reboot reason, complete-reboot-check, restart-self reason, reboot-self reason, restart-omega reason.")
 (SkillHelp "history" "History affordances: episodes-at time, episodes time, activity-traces, events-all. Use history to inspect actual traces before guessing.")
 (SkillHelp "continuity" "Continuity affordances: pin state for volatile continuity, remember lesson for compact future-useful memory, promote time and demote time for recalled memory hygiene.")
+(SkillHelp "continuity" "Recommended pin shape: MODE | primary: agenda/<goal> -> next | meta: beliefs/<self-belief> or persistent/<self-model> -> practice | secondary: ... | open-loop: ... | constraint: ... | wake/check: ...")
 (SkillHelp "working-memory" "Working-memory affordance: pin state. Keep it one line unless explicitly multitasking; no newlines in pin.")
+(SkillHelp "working-memory" "Pin is a pointer into live agenda/beliefs/persistent context, not a diary or durable fact store.")
+(SkillHelp "reboot" "Reboot pin shape: REBOOT | primary: agenda/<goal> -> confirm pid | meta: persistent/<self-model> -> preserve continuity | open-loop: previous pid/cycle | constraint: no duplicate process | wake/check: current-swipl-pid")
+(SkillHelp "reply-debt" "Reply-debt pin shape: MODE | primary: agenda/<conversation> -> reply/defer | meta: beliefs/<communication-lesson> -> practice | open-loop: chat/person owed | constraint: route safely | wake/check: after send/read")

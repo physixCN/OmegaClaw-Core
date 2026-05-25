@@ -68,7 +68,7 @@
    PIN-SUCCESS)
 
 (= (episodes-at $time)
-   (py-call (helper.episodes_at $time (maxEpisodeRecallLines))))
+   (py-call (helper.episodes_at $time (maxEpisodeRecallLines) (maxEpisodeResultChars))))
 
 (= (test-metta $expr)
    (py-call (helper.test_metta_expression $expr)))

@@ -33,6 +33,49 @@ class MemoryRuntimeTests(unittest.TestCase):
                 "EPISODES-NOT-FOUND 2026-05-17 21:00:00",
             )
 
+    def test_context_history_compacts_skill_declared_payloads_only(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            memory_dir = pathlib.Path(tmpdir)
+            helper_metta = self.import_with_memory("helper_metta", memory_dir)
+            big_html = "<html>" + ("payload: keep raw history exact " * 120) + "</html>"
+            history = (
+                '(remember "'
+                + ("thought stays visible " * 80)
+                + '")\n'
+                + f'(write-file "memory/page.html" "{big_html}")\n'
+            )
+            history_path = memory_dir / "history.metta"
+            history_path.write_text(history, encoding="utf-8")
+
+            view = helper_metta.context_history_tail(20000)
+            raw = history_path.read_text(encoding="utf-8")
+
+            self.assertIn("thought stays visible", view)
+            self.assertIn('(write-file "memory/page.html"', view)
+            self.assertIn("<context-omitted-payload", view)
+            self.assertIn("raw-history-preserved", view)
+            self.assertNotIn(big_html, view)
+            self.assertIn(big_html, raw)
+
+    def test_context_history_does_not_compact_command_mentions_inside_strings(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            memory_dir = pathlib.Path(tmpdir)
+            helper_metta = self.import_with_memory("helper_metta", memory_dir)
+            big_payload = "quoted command mention " * 120
+            history = (
+                '(remember "literal syntax mention: '
+                f'(write-file \\"memory/page.html\\" \\"{big_payload}\\")'
+                ' should remain thought text")\n'
+            )
+            history_path = memory_dir / "history.metta"
+            history_path.write_text(history, encoding="utf-8")
+
+            view = helper_metta.context_history_tail(20000)
+
+            self.assertIn("literal syntax mention", view)
+            self.assertIn(big_payload, view)
+            self.assertNotIn("<context-omitted-payload", view)
+
     def test_runtime_memory_files_and_promotion_db_use_configured_memory_dir(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             memory_dir = pathlib.Path(tmpdir)

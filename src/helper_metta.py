@@ -8,6 +8,146 @@ import subprocess
 CORE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 OMEGACLAW_ROOT = CORE_ROOT.parents[1]
 MEMORY_DIR = pathlib.Path(os.environ.get("OMEGACLAW_MEMORY_DIR", CORE_ROOT / "memory"))
+CONTEXT_VIEW_POLICY_RE = re.compile(
+    r'\(SkillContextView\s+"?([^"\s()]+)"?\s+"?([^"\s()]+)"?\s*\)'
+)
+CONTEXT_POLICY_ARG_RE = re.compile(
+    r'\(SkillContextPolicy\s+"?([^"\s()]+)"?\s+"?([^"\s()]+)"?\s+([^\s()]+)\s*\)'
+)
+DEFAULT_CONTEXT_COMPACT_THRESHOLD = 900
+CONTEXT_HISTORY_COMPACT_WINDOW_BYTES = 300000
+
+
+def _iter_skill_policy_files():
+    patterns = [
+        "src/skill_affordance*.metta",
+        "modules/**/affordance.metta",
+        "modules/**/skill_affordance*.metta",
+    ]
+    seen = set()
+    for pattern in patterns:
+        for path in CORE_ROOT.glob(pattern):
+            if path in seen or not path.is_file():
+                continue
+            seen.add(path)
+            yield path
+
+
+def _skill_context_policies():
+    """Return command-owned context view policies from skill/module metadata.
+
+    Raw history remains exact. These declarations only control the view that is
+    inserted into the next LLM context.
+    """
+    policies = {}
+    for path in _iter_skill_policy_files():
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+        for command, view in CONTEXT_VIEW_POLICY_RE.findall(text):
+            policies.setdefault(command, {})["view"] = view
+        for command, key, value in CONTEXT_POLICY_ARG_RE.findall(text):
+            policies.setdefault(command, {})[key] = value.strip().strip('"')
+    return policies
+
+
+def _coerce_positive_int(value, default):
+    try:
+        n = int(float(str(value).strip().strip('"')))
+        return n if n > 0 else default
+    except Exception:
+        return default
+
+
+def _quoted_args_prefix(expr, max_scan=4000):
+    return re.findall(r'"([^"\\]*(?:\\.[^"\\]*)*)"', expr[:max_scan])
+
+
+def _compact_history_expr(head, expr, policy):
+    threshold = _coerce_positive_int(policy.get("compact-threshold"), DEFAULT_CONTEXT_COMPACT_THRESHOLD)
+    if len(expr) <= threshold:
+        return expr
+    args = _quoted_args_prefix(expr)
+    label = args[0] if args else ""
+    if len(label) > 120:
+        label = label[:117] + "..."
+    return f'({head} "{_escape_metta_string(label)}" "<context-omitted-payload chars={len(expr)} raw-history-preserved>")'
+
+
+def compact_history_context_view(text):
+    """Mechanically compact bulky command payloads for prompt context only."""
+    policies = {
+        command: policy
+        for command, policy in _skill_context_policies().items()
+        if policy.get("view") in {"compact-payload", "omit-large-payload"}
+    }
+    if not policies:
+        return text
+    out = []
+    i = 0
+    n = len(text)
+    in_str = False
+    esc = False
+    while i < n:
+        matched = False
+        if not in_str and text[i] == "(":
+            for head, policy in policies.items():
+                prefix = "(" + head
+                if not text.startswith(prefix, i):
+                    continue
+                after = i + len(prefix)
+                if after < n and text[after] not in {" ", "\t", "\r", "\n", ")"}:
+                    continue
+                start = i
+                depth = 0
+                expr_in_str = False
+                expr_esc = False
+                j = i
+                while j < n:
+                    ch = text[j]
+                    if expr_in_str:
+                        if expr_esc:
+                            expr_esc = False
+                        elif ch == "\\":
+                            expr_esc = True
+                        elif ch == '"':
+                            expr_in_str = False
+                    else:
+                        if ch == '"':
+                            expr_in_str = True
+                        elif ch == "(":
+                            depth += 1
+                        elif ch == ")":
+                            depth -= 1
+                            if depth == 0:
+                                j += 1
+                                break
+                            if depth < 0:
+                                break
+                    j += 1
+                expr = text[start:j]
+                out.append(_compact_history_expr(head, expr, policy))
+                i = max(j, start + 1)
+                in_str = False
+                esc = False
+                matched = True
+                break
+        if not matched:
+            ch = text[i]
+            out.append(ch)
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+            else:
+                if ch == '"':
+                    in_str = True
+            i += 1
+    return "".join(out)
 
 def _read_text_tail(path, max_chars):
     try:
@@ -22,6 +162,24 @@ def _read_text_tail(path, max_chars):
         return text[-max_chars:]
     return text
 
+
+def _read_text_tail_bytes(path, max_bytes):
+    try:
+        max_bytes = max(0, int(float(max_bytes)))
+    except Exception:
+        max_bytes = 0
+    try:
+        path = pathlib.Path(path)
+        with path.open("rb") as handle:
+            if max_bytes:
+                handle.seek(0, os.SEEK_END)
+                size = handle.tell()
+                handle.seek(max(0, size - max_bytes), os.SEEK_SET)
+            data = handle.read()
+        return data.decode("utf-8", errors="replace")
+    except Exception as exc:
+        return f"CONTEXT-READ-ERROR {type(exc).__name__}: {exc}"
+
 def context_prompt(max_chars=20000):
     """Read the persona prompt as text for the loop context membrane."""
     path = MEMORY_DIR / "prompt.txt"
@@ -34,7 +192,39 @@ def context_history_tail(max_chars=30000):
     path = MEMORY_DIR / "history.metta"
     if not path.exists():
         return ""
-    return _read_text_tail(path, max_chars)
+    try:
+        max_chars = max(0, int(float(max_chars)))
+    except Exception:
+        max_chars = 0
+    window_bytes = max(CONTEXT_HISTORY_COMPACT_WINDOW_BYTES, max_chars * 8)
+    text = _read_text_tail_bytes(path, window_bytes)
+    if text.startswith("CONTEXT-READ-ERROR "):
+        return text
+    text = compact_history_context_view(text)
+    if max_chars and len(text) > max_chars:
+        return text[-max_chars:]
+    return text
+
+def context_last_results(results, max_chars=8000):
+    """Return a bounded view of previous command results for prompt context.
+
+    Full command results remain in the history trace.  This is only the loop
+    context membrane, so large inspect/history/file results cannot recursively
+    dominate the next cognition cycle.
+    """
+    try:
+        max_chars = max(0, int(float(max_chars)))
+    except Exception:
+        max_chars = 8000
+    text = str(results or "")
+    if max_chars and len(text) > max_chars:
+        omitted = len(text) - max_chars
+        return (
+            f"RESULTS-CONTEXT-TRUNCATED original_chars={len(text)} "
+            f"shown_tail_chars={max_chars} omitted_chars={omitted}\n"
+            + text[-max_chars:]
+        )
+    return text
 
 _SAFE_MEMORY_NAME = re.compile(r"^[A-Za-z0-9_-]+$")
 

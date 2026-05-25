@@ -14,3 +14,8 @@
 (SkillSignature add-skill-trigger (Arg text skill) (Arg text signal) (Arg number confidence) (Arg rest-text reason))
 (SkillSignature promote-skill-trigger (Arg text skill) (Arg text signal) (Arg number confidence) (Arg rest-text reason))
 (SkillSignature skill-trigger-candidates)
+(SkillSignature skill-aliases (Arg text topic))
+(SkillSignature suggest-skill-alias (Arg text alias) (Arg text topic) (Arg number confidence) (Arg rest-text reason))
+(SkillSignature add-skill-alias (Arg text alias) (Arg text topic) (Arg number confidence) (Arg rest-text reason))
+(SkillSignature promote-skill-alias (Arg text alias) (Arg text topic) (Arg number confidence) (Arg rest-text reason))
+(SkillSignature skill-alias-candidates)

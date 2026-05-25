@@ -9,6 +9,7 @@ CORE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 MEMORY_DIR = pathlib.Path(os.environ.get("OMEGACLAW_MEMORY_DIR", CORE_ROOT / "memory"))
 HISTORY_FILE = MEMORY_DIR / "history.metta"
 TS_RE = re.compile(r'^\("(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"')
+EPISODE_RESULT_MAX_CHARS = 6000
 
 def extract_timestamp(line):
     m = TS_RE.search(line)
@@ -95,12 +96,36 @@ def normalize_episode_time(raw, now=None):
         return text
     return None
 
-def episodes_at(raw, k=20):
+def coerce_context_chars(n, default=EPISODE_RESULT_MAX_CHARS, low=500, high=50000):
+    try:
+        if isinstance(n, (list, tuple)):
+            if len(n) == 1:
+                n = n[0]
+            else:
+                return default
+        text = str(n).strip()
+        if text in {"", "[]", "()", "empty", "None", "[maxEpisodeResultChars]", "maxEpisodeResultChars"}:
+            return default
+        value = int(float(text))
+        return max(low, min(high, value))
+    except Exception:
+        return default
+
+def episodes_at(raw, k=20, max_chars=EPISODE_RESULT_MAX_CHARS):
     k = coerce_recall_lines(k)
+    max_chars = coerce_context_chars(max_chars)
     normalized = normalize_episode_time(raw)
     if not normalized:
         return "EPISODES-FORMAT-ERROR use YYYY-MM-DD HH:MM:SS, YYYY-MM-DD HH:MM, YYYY-MM-DD, or HH:MM"
     result = around_time(normalized, k)
     if not result:
         return f"EPISODES-NOT-FOUND {normalized}"
-    return "EPISODES-AT " + normalized + "\n" + result
+    header = "EPISODES-AT " + normalized
+    if len(result) > max_chars:
+        omitted = len(result) - max_chars
+        result = (
+            f"EPISODES-CONTEXT-TRUNCATED original_chars={len(result)} "
+            f"shown_tail_chars={max_chars} omitted_chars={omitted}\n"
+            + result[-max_chars:]
+        )
+    return header + "\n" + result

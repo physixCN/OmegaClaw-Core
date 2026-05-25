@@ -61,7 +61,7 @@
                          " toolName3 arg3" (newline)
                          " toolName4 arg4" (newline)
                          " toolName5 arg5" (newline)
-                         " LAST_SKILL_USE_RESULTS: " (last_chars (get-state &lastresults) (maxFeedback)) " HISTORY: " (getHistory)
+                         " LAST_SKILL_USE_RESULTS: " (py-call (helper.context_last_results (get-state &lastresults) (maxLastResultsContext))) " HISTORY: " (getHistory)
                          " INPUT_RECALL: " $inputctx
                          " SKILL_RECALL: " $skillctx
                          " PROMOTED_MEMORY_HINTS: " (promoted-memory-hints) " TIME: " (get_time_as_string)))))

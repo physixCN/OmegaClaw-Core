@@ -10,8 +10,31 @@ Most common extension. Add the executable skill and its symbolic declarations:
 2. A `(SkillSignature ...)` declaration so the syntax membrane knows the command shape.
 3. `(SkillCatalog ...)` / `(SkillHelp ...)` entries for full human-readable documentation.
 4. Optional `(SkillContextHint ...)` only for tiny always-on bootstrap hints. Most skills should be found through `query-skill-space`, `choose-skill-for`, `explain-skill`, or `skill-card`, not stuffed into the loop prompt.
+5. Optional `(SkillContextView ...)` / `(SkillContextPolicy ...)` declarations when a skill produces large transport or artifact payloads that should not dominate the next prompt context.
 
 Full walkthrough: [tutorial-03-writing-a-custom-skill.md](./tutorial-03-writing-a-custom-skill.md).
+
+### Context view policy
+
+Raw `memory/history.metta` is the exact trace and should not be rewritten by
+context economy. A skill may still declare that its large payload arguments
+should be mechanically compacted in the LLM-facing history view:
+
+```metta
+!(add-atom &skills (SkillContextView "write-file" "compact-payload"))
+!(add-atom &skills (SkillContextPolicy "write-file" "compact-threshold" 900))
+```
+
+This turns an oversized history expression into a compact reference only in the
+prompt context:
+
+```metta
+(write-file "memory/page.html" "<context-omitted-payload chars=12000 raw-history-preserved>")
+```
+
+Use this for artifact, file, media, or transport payloads. Do not use it for
+reasoning, memory, belief, world, event, PLN/NAL, or other thought-bearing
+atoms. The default policy is full visibility.
 
 ## Add a module
 
@@ -22,6 +45,7 @@ Recommended layout:
 
 ```text
 modules/name/
+  module.toml
   entry.metta
   skills.metta
   signatures.metta
@@ -34,7 +58,24 @@ modules/name/
 `catalog.metta` are read by the syntax/catalog membranes only when the module is
 enabled. `affordance.metta` should add the module's skill cards, topics, and
 general `SkillTrigger` atoms to `&skills` so input-aware context can surface the
-right cards immediately after the module loads.
+right cards immediately after the module loads. If a module has large payload
+commands, its `affordance.metta` should also declare their context view policy.
+
+Use `module.toml` to declare dependencies and runtime configuration:
+
+```toml
+requires = [
+  "python>=3.10",
+]
+
+[env]
+EXAMPLE_TOKEN = { required = true, secret = true }
+```
+
+If a module needs language-specific dependencies, keep them inside the module
+folder, for example `requirements.txt`, `pyproject.toml`, or `package.json`.
+Dependencies should be inspectable before install, and runtime secrets should be
+declared as config, not committed.
 
 Enable the module by adding one import to `modules/loader.metta`:
 
@@ -44,6 +85,37 @@ Enable the module by adding one import to `modules/loader.metta`:
 
 The loader is the module boundary. Installed-but-disabled module folders should
 not be visible to the syntax membrane, skill catalog, or runtime.
+
+### Module trace contract
+
+If a module can write verbose traces, make trace behavior explicit and
+deployment-controlled. Do not silently write large or private raw logs from a
+shareable module.
+
+Use `module.toml` to declare the available trace types, whether they are enabled
+by default, and the runtime switch:
+
+```toml
+[env]
+OMEGACLAW_NAME_TRACE = { required = false, default = "0" }
+
+[trace]
+default_enabled = false
+writes = [
+  "ExampleTrace",
+]
+```
+
+Use `entry.metta` to expose trace availability as inspectable atoms:
+
+```metta
+(RuntimeConfig omegaclaw.module.name OMEGACLAW_NAME_TRACE "optional-default-off")
+(TraceAvailable omegaclaw.module.name ExampleTrace)
+```
+
+The standard default for potentially large, private, or deployment-specific
+traces is off. Skills should still return compact symbolic summaries to the
+loop, and full traces should be enabled only by an explicit runtime setting.
 
 ## Add a remote skill
 

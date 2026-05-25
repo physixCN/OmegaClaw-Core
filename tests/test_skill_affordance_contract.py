@@ -94,6 +94,29 @@ class SkillAffordanceContractTests(unittest.TestCase):
         self.assertEqual(missing, [])
 
 
+    def test_pin_is_always_visible_and_has_continuity_schema(self):
+        context = "\n".join(line for _domain, line in _context_hints())
+        self.assertIn("pin state-continuity", context)
+
+        source = (
+            (SRC / "skill_affordance_core.metta").read_text(encoding="utf-8")
+            + (SRC / "skill_catalog_core.metta").read_text(encoding="utf-8")
+        )
+        for expected in [
+            'SkillTopic "pin" "continuity"',
+            'SkillTopic "pin" "working-memory"',
+            'SkillTopic "pin" "agenda"',
+            'SkillTopic "pin" "beliefs"',
+            'SkillTopic "pin" "persistent"',
+            "primary: agenda/<goal>",
+            "meta: beliefs/<self-belief> or persistent/<self-model>",
+            "not permanent memory",
+            "reboot shape",
+            "reply-debt",
+        ]:
+            self.assertIn(expected, source)
+
+
 
     def test_attention_trigger_surface_is_symbolic(self):
         source = (SRC / "skills_affordance.metta").read_text(encoding="utf-8")
@@ -105,10 +128,27 @@ class SkillAffordanceContractTests(unittest.TestCase):
             "add-skill-trigger",
             "promote-skill-trigger",
             "skill-trigger-candidates",
+            "skill-aliases",
+            "suggest-skill-alias",
+            "add-skill-alias",
+            "promote-skill-alias",
+            "skill-alias-candidates",
         }
         self.assertLessEqual(expected, signatures)
-        for atom in ["SkillTrigger", "CandidateSkillTrigger", "AttentionSkillSuggestion", "SkillRecall"]:
+        for atom in [
+            "SkillTrigger",
+            "CandidateSkillTrigger",
+            "AttentionSkillSuggestion",
+            "SkillRecall",
+            "SkillAlias",
+            "CandidateSkillAlias",
+            "SkillAliasTarget",
+        ]:
             self.assertIn(atom, source + declarations)
+        self.assertIn('register-space "skill-triggers" &skill_triggers memory', source)
+        self.assertIn('register-space-persistence "skill-triggers"', source)
+        self.assertIn('(save-runtime-space "skill-triggers")', source)
+        self.assertIn("add-atom &skill_triggers", source)
         self.assertNotIn("import helper_command_parser", source)
 
     def test_skill_recall_uses_symbolic_cards_not_hidden_python_routing(self):

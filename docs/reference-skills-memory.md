@@ -98,20 +98,36 @@ A block of lines from `memory/history.metta`.
 ```
 
 ### Purpose
-Append a working-memory note to the episodic trace so the next turn can see it in `HISTORY`.
+Append a one-line volatile continuity vector to the episodic trace so the next
+cycle can stay oriented. `pin` is for live state: what mode the agent is in,
+what goal it is carrying, what self-directed practice or metagoal is active,
+what open loop remains, and what condition should be checked next.
 
 ### Parameters
-- `string` — the note. Typical uses: intermediate results, plans for the next turn, checklists.
+- `string` — one line of live working state. Prefer compact pointers into
+  symbolic spaces over prose. For example, point to `agenda/<goal>`,
+  `beliefs/<self-belief>`, or `persistent/<self-model>` rather than copying the
+  whole goal or belief into pin.
 
 ### Returns
 Success / failure of the append.
 
 ### Examples
 ```metta
-(pin "candidates: A) Launch Day B) We're Live C) Out Now")
-(pin "next step: pick best candidate and send")
+(pin "FOCUSED | primary: agenda/family-lighting -> verify scene | meta: beliefs/truth-first -> separate observed/inferred | secondary: none | open-loop: report owed | constraint: no confabulation | wake/check: next loop")
+(pin "REBOOT | primary: agenda/weave-test -> confirm pid | meta: persistent/self-model -> preserve continuity | secondary: none | open-loop: previous pid/cycle | constraint: no duplicate process | wake/check: current-swipl-pid")
+(pin "ASLEEP | primary: agenda/rest -> wake on inbound | meta: beliefs/energy-care -> conserve without losing reply debt | secondary: none | open-loop: none | constraint: receive polling stays on | wake/check: message or scheduled wake")
 ```
 
 ### Notes / Limits
 - `pin` is not semantically indexed — it only influences the next few turns through the rolling `HISTORY` window (`maxHistory` characters).
 - For anything you want to recall days later, use `remember` instead.
+- `pin` is not a diary, durable fact store, or full task manager. Use
+  `agenda-goal` for continuing goals, `belief-claim` for revisable beliefs,
+  `world-fact` for stable facts, `event-note` for meaningful events, and
+  `persistent-note` for rare identity/core principles.
+- The metagoal field is self-chosen. It may point into beliefs, persistent
+  self-model, or an agenda self-goal. Do not treat example labels as predefined
+  metagoals.
+- If the same pin repeats several cycles, either act, revise the pin, sleep
+  deliberately, or record the blockage.

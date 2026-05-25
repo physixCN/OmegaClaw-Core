@@ -8,6 +8,10 @@
 !(bind! &skills (new-space))
 !(register-space "skills" &skills affordance)
 !(register-space-alias skills "skills")
+!(bind! &skill_triggers (new-space))
+!(register-space "skill-triggers" &skill_triggers memory)
+!(register-space-alias skill-triggers "skill-triggers")
+!(register-space-persistence "skill-triggers" (library OmegaClaw-Core ./memory/skill-triggers.metta) runtime-state)
 
 ; Registry schema:
 ; (Skill "name")
@@ -20,6 +24,8 @@
 ; (SkillCardLine "skill" "human-readable compact line")
 ; (SkillTrigger "skill" "signal" confidence "why")
 ; (CandidateSkillTrigger "skill" "signal" confidence "why")
+; (SkillAlias "alias-topic" "canonical-topic" confidence "why")
+; (CandidateSkillAlias "alias-topic" "canonical-topic" confidence "why")
 ; (SkillRecall "signal" "skill" confidence "why" "compact card line")
 
 (= (skill-topic-cards $space $topic)
@@ -31,8 +37,24 @@
                         (skill-topic-cards $space (repr $topic)))))
 
 (= (query-skill-space $topic)
-   (list_to_set (append (skill-topic-cards-normalized &skills $topic)
-                        (skill-topic-cards-normalized &self $topic))))
+   (list_to_set (append (append (skill-topic-cards-normalized &skills $topic)
+                                (skill-topic-cards-normalized &self $topic))
+                        (append (append (skill-topic-cards-via-alias-normalized &skills $topic)
+                                        (skill-topic-cards-via-alias-normalized &skill_triggers $topic))
+                                (skill-topic-cards-via-alias-normalized &self $topic)))))
+
+(= (skill-topic-cards-via-alias $space $topic)
+   (list_to_set
+     (append (collapse (match $space (SkillAlias $topic $canonical $confidence $why)
+                              (match &skills (SkillTopic $skill $canonical)
+                                     (SkillCard $canonical $skill))))
+             (collapse (match $space (SkillAlias $topic $canonical $confidence $why)
+                              (match &self (SkillTopic $skill $canonical)
+                                     (SkillCard $canonical $skill)))))))
+
+(= (skill-topic-cards-via-alias-normalized $space $topic)
+   (list_to_set (append (skill-topic-cards-via-alias $space $topic)
+                        (skill-topic-cards-via-alias $space (repr $topic)))))
 
 (= (skill-choices $space $situation)
    (collapse (match $space (SituationFeature $situation $feature)
@@ -98,22 +120,35 @@
                              (skill-trigger-suggestions $space $symbol)))))
 
 (= (skill-suggestions-for $signal)
-   (list_to_set (append (skill-trigger-suggestions-normalized &skills $signal)
+   (list_to_set (append (append (skill-trigger-suggestions-normalized &skills $signal)
+                                (skill-trigger-suggestions-normalized &skill_triggers $signal))
                         (skill-trigger-suggestions-normalized &self $signal))))
 
 (= (skill-recall-card-lines $space $signal)
    (collapse (match $space (SkillTrigger $skill $signal $confidence $why)
-                    (match $space (SkillCardLine $skill $line)
-                           (SkillRecall $signal $skill $confidence $why $line)))))
+                     (match $space (SkillCardLine $skill $line)
+                            (SkillRecall $signal $skill $confidence $why $line)))))
 
 (= (skill-recall-card-lines-normalized $space $signal)
+    (let $symbol (repr $signal)
+         (list_to_set (append (skill-recall-card-lines $space $signal)
+                              (skill-recall-card-lines $space $symbol)))))
+
+(= (skill-recall-card-lines-with-cards $trigger-space $card-space $signal)
+   (collapse (match $trigger-space (SkillTrigger $skill $signal $confidence $why)
+                    (match $card-space (SkillCardLine $skill $line)
+                           (SkillRecall $signal $skill $confidence $why $line)))))
+
+(= (skill-recall-card-lines-with-cards-normalized $trigger-space $card-space $signal)
    (let $symbol (repr $signal)
-        (list_to_set (append (skill-recall-card-lines $space $signal)
-                             (skill-recall-card-lines $space $symbol)))))
+        (list_to_set (append (skill-recall-card-lines-with-cards $trigger-space $card-space $signal)
+                             (skill-recall-card-lines-with-cards $trigger-space $card-space $symbol)))))
 
 (= (skill-recall-cards-for-signal $signal)
-   (list_to_set (append (skill-recall-card-lines-normalized &skills $signal)
-                        (skill-recall-card-lines-normalized &self $signal))))
+   (list_to_set (append (append (skill-recall-card-lines-normalized &skills $signal)
+                                (skill-recall-card-lines-normalized &self $signal))
+                        (append (skill-recall-card-lines-with-cards-normalized &skill_triggers &skills $signal)
+                                (skill-recall-card-lines-with-cards-normalized &skill_triggers &self $signal)))))
 
 (= (skill-recall-cards-for-signals ())
    ())
@@ -130,21 +165,77 @@
        ""))
 
 (= (skill-trigger-candidates)
-   (list_to_set (append (collapse (match &skills (CandidateSkillTrigger $skill $signal $confidence $why)
+   (list_to_set (append (collapse (match &skill_triggers (CandidateSkillTrigger $skill $signal $confidence $why)
                                          (CandidateSkillTrigger $skill $signal $confidence $why)))
                         (collapse (match &self (CandidateSkillTrigger $skill $signal $confidence $why)
                                          (CandidateSkillTrigger $skill $signal $confidence $why))))))
 
+(= (skill-aliases-for-topic $space $topic)
+   (collapse (match $space (SkillAlias $alias $topic $confidence $why)
+                    (SkillAlias $alias $topic $confidence $why))))
+
+(= (skill-aliases-for-topic-normalized $space $topic)
+   (let $symbol (repr $topic)
+        (list_to_set (append (skill-aliases-for-topic $space $topic)
+                             (skill-aliases-for-topic $space $symbol)))))
+
+(= (skill-alias-targets $space $alias)
+   (collapse (match $space (SkillAlias $alias $canonical $confidence $why)
+                    (SkillAliasTarget $alias $canonical $confidence $why))))
+
+(= (skill-alias-targets-normalized $space $alias)
+   (let $symbol (repr $alias)
+        (list_to_set (append (skill-alias-targets $space $alias)
+                             (skill-alias-targets $space $symbol)))))
+
+(= (skill-aliases $topic)
+   (list_to_set
+     (append (append (skill-aliases-for-topic-normalized &skills $topic)
+                     (skill-aliases-for-topic-normalized &skill_triggers $topic))
+             (append (append (skill-aliases-for-topic-normalized &self $topic)
+                             (skill-alias-targets-normalized &skills $topic))
+                     (append (skill-alias-targets-normalized &skill_triggers $topic)
+                             (skill-alias-targets-normalized &self $topic))))))
+
+(= (skill-alias-candidates)
+   (list_to_set (append (collapse (match &skill_triggers (CandidateSkillAlias $alias $topic $confidence $why)
+                                         (CandidateSkillAlias $alias $topic $confidence $why)))
+                        (collapse (match &self (CandidateSkillAlias $alias $topic $confidence $why)
+                                         (CandidateSkillAlias $alias $topic $confidence $why))))))
+
+(= (save-skill-trigger-space)
+   (save-runtime-space "skill-triggers"))
+
 (= (suggest-skill-trigger $skill $signal $confidence $reason)
-   (progn (add-atom &skills (CandidateSkillTrigger $skill $signal $confidence $reason))
-          (CandidateSkillTriggerAdded $skill $signal $confidence $reason)))
+   (progn (add-atom &skill_triggers (CandidateSkillTrigger $skill $signal $confidence $reason))
+          (let $saved (save-skill-trigger-space)
+               (CandidateSkillTriggerAdded $skill $signal $confidence $reason))))
 
 (= (add-skill-trigger $skill $signal $confidence $reason)
-   (progn (add-atom &skills (SkillTrigger $skill $signal $confidence $reason))
-          (SkillTriggerAdded $skill $signal $confidence $reason)))
+   (progn (add-atom &skill_triggers (SkillTrigger $skill $signal $confidence $reason))
+          (let $saved (save-skill-trigger-space)
+               (SkillTriggerAdded $skill $signal $confidence $reason))))
 
 (= (promote-skill-trigger $skill $signal $confidence $reason)
-   (progn (collapse (match &skills (CandidateSkillTrigger $skill $signal $oldconfidence $oldreason)
-                           (remove-atom &skills (CandidateSkillTrigger $skill $signal $oldconfidence $oldreason))))
-          (add-atom &skills (SkillTrigger $skill $signal $confidence $reason))
-          (SkillTriggerPromoted $skill $signal $confidence $reason)))
+   (progn (collapse (match &skill_triggers (CandidateSkillTrigger $skill $signal $oldconfidence $oldreason)
+                           (remove-atom &skill_triggers (CandidateSkillTrigger $skill $signal $oldconfidence $oldreason))))
+          (add-atom &skill_triggers (SkillTrigger $skill $signal $confidence $reason))
+          (let $saved (save-skill-trigger-space)
+               (SkillTriggerPromoted $skill $signal $confidence $reason))))
+
+(= (suggest-skill-alias $alias $topic $confidence $reason)
+   (progn (add-atom &skill_triggers (CandidateSkillAlias $alias $topic $confidence $reason))
+          (let $saved (save-skill-trigger-space)
+               (CandidateSkillAliasAdded $alias $topic $confidence $reason))))
+
+(= (add-skill-alias $alias $topic $confidence $reason)
+   (progn (add-atom &skill_triggers (SkillAlias $alias $topic $confidence $reason))
+          (let $saved (save-skill-trigger-space)
+               (SkillAliasAdded $alias $topic $confidence $reason))))
+
+(= (promote-skill-alias $alias $topic $confidence $reason)
+   (progn (collapse (match &skill_triggers (CandidateSkillAlias $alias $topic $oldconfidence $oldreason)
+                           (remove-atom &skill_triggers (CandidateSkillAlias $alias $topic $oldconfidence $oldreason))))
+          (add-atom &skill_triggers (SkillAlias $alias $topic $confidence $reason))
+          (let $saved (save-skill-trigger-space)
+               (SkillAliasPromoted $alias $topic $confidence $reason))))
