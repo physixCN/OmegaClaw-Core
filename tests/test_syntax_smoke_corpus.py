@@ -34,6 +34,8 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             "shell find memory/web -maxdepth 2 -type f": '((shell "find memory/web -maxdepth 2 -type f"))',
             "remember UI preference: warm | simple | private": '((remember "UI preference: warm | simple | private"))',
             "- testing phase 1": '((pin "- testing phase 1"))',
+            "web-search OpenCog Hyperon": '((web-search "OpenCog Hyperon"))',
+            "web-search OpenCog Hyperon\nsend done": '((web-search "OpenCog Hyperon") (send "done"))',
         }
         for raw, expected in cases.items():
             with self.subTest(raw=raw):

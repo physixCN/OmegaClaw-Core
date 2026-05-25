@@ -649,7 +649,7 @@ def _signature_explicit_command_head(line):
 
 
 def _signature_accepts_unquoted_continuation(head):
-    if head in {"wait", "query", "search", "shell", "shell-confirm"}:
+    if head in {"wait", "query", "web-search", "search", "shell", "shell-confirm"}:
         return False
     signature = SIGNATURE_COMMANDS.get(head, ())
     return any(arg_type in {"rest-text", "multiline"} for arg_type, _ in signature)

@@ -69,6 +69,10 @@
                                    (let $temp (cut) (py-call (mattermost.send_message $safemsg)))
                                    (let $temp (cut) (py-call (mock.send_message $safemsg))))))))) _))
 
-;Search the internet for some information:
-(= (search $msg)
+;Search the internet for current external information.
+; Canonical command: web-search. Legacy search delegates here.
+(= (web-search $msg)
    (py-call (websearch.search $msg)))
+
+(= (search $msg)
+   (web-search $msg))

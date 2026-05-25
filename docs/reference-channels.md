@@ -61,7 +61,7 @@ Slack adapter using Slack Web API polling.
 
 ## `channels/websearch.py`
 
-Not a communication channel in the `send`/`receive` sense — this is the backend for the `search` skill. Exposes `search(query)`.
+Not a communication channel in the `send`/`receive` sense — this is the backend for the `web-search` skill. Exposes `websearch.search(query)` to the MeTTa wrapper.
 
 ## Adding a new channel
 
@@ -69,5 +69,5 @@ See [tutorial-04-adding-a-channel.md](./tutorial-04-adding-a-channel.md).
 
 ## Related reference
 
-- [reference-skills-communication.md](./reference-skills-communication.md) — the MeTTa surface (`send`, `receive`, `search`).
+- [reference-skills-communication.md](./reference-skills-communication.md) — the MeTTa surface (`send`, `receive`, `web-search`).
 - [reference-configuration.md](./reference-configuration.md) — channel parameters.

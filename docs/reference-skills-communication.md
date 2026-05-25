@@ -60,15 +60,15 @@ The agent does not normally call `receive` itself; the loop wraps it:
 
 ---
 
-## `search`
+## `web-search`
 
 ### Signature
 ```metta
-(search "query")
+(web-search "query")
 ```
 
 ### Purpose
-Perform a web search through the `channels/websearch.py` adapter.
+Perform a live web search through the `channels/websearch.py` adapter. Legacy `(search "query")` delegates to this command.
 
 ### Parameters
 - `query` — the search string.
@@ -78,9 +78,9 @@ A string of search results suitable for feeding back into the prompt.
 
 ### Examples
 ```metta
-(search "MeTTa AtomSpace tutorial")
+(web-search "MeTTa AtomSpace tutorial")
 ```
 
 ### Notes / Limits
-- For research-oriented search through an Agentverse agent, see `tavily-search` in [reference-skills-remote-agents.md](./reference-skills-remote-agents.md).
+- For research-oriented search through an optional remote-agent module, install/register that module first; do not assume a hardcoded Tavily skill exists.
 - Result format depends on the backend used by `websearch.search`.

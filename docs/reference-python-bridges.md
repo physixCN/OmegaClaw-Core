@@ -19,17 +19,12 @@ OpenAI calls go through MeTTa-side helpers (`useGPT`, `useGPTEmbedding`) that ar
 ## `modules/agentverse/src/agentverse_organ.py`
 
 Optional Agentverse/uAgents remote-agent transport membrane.
+This module is not present in every checkout and is not part of the default core
+skill surface. When installed, it should expose its own MeTTa signatures,
+catalog/help, affordance cards, and trace policy.
 
-| Function | Purpose |
-|---|---|
-| `agentverse_status()` | Report uAgents availability and trace/search paths without exposing secrets. |
-| `agentverse_discover_atoms(query)` | Search Agentverse and return candidate atoms for `&agentverse`. |
-| `agentverse_record_agent(name, address, schema, capability)` | Mirror a chosen remote agent into a local registry file. |
-| `agentverse_ask(destination, schema, payload)` | Send a typed uAgents request to a raw destination. |
-| `agentverse_trace()` | Return recent local Agentverse trace atoms. |
-
-`src/agentverse.py` is now only a compatibility shim for old deployments. New
-work should import `modules/agentverse/entry.metta`.
+`src/agentverse.py` is a compatibility shim for old deployments. Do not assume
+hardcoded remote skills exist unless their module is installed and loaded.
 
 ## `src/helper.py`
 

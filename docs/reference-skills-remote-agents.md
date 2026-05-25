@@ -1,67 +1,37 @@
 # Reference — Remote Agent Skills
 
-Defined in `src/skills.metta`; bridge code lives in `src/agentverse.py`.
+Remote agents are optional extension organs, not core cognition and not part of
+the default command surface.
 
-Both skills delegate to a fixed Agentverse address. They depend on network access and the remote agent being reachable.
+Out of the box, live web research is the core `web-search` skill documented in
+[reference-skills-communication.md](./reference-skills-communication.md). Use
+that for current or external facts unless an optional remote-agent module is
+installed and discoverable.
 
----
+## Default Core Surface
 
-## `tavily-search`
+No named remote-agent domain skill is guaranteed by core. In particular, do not
+assume a hardcoded search or market-analysis command exists just because an old
+deployment had a bridge for it.
 
-### Signature
 ```metta
-(tavily-search "query")
+(web-search "OpenCog Hyperon")
 ```
 
-### Purpose
-Send a research query to a dedicated Tavily-backed search agent on Agentverse and return its reply.
+## Optional Remote Agents
 
-### Parameters
-- `query` — the search string.
+If a deployment installs a remote-agent module, the module should expose its own
+MeTTa signatures, catalog/help entries, affordance cards, and trace policy. The
+agent should discover or inspect that surface before calling it.
 
-### Returns
-A compact string of web search results: a few links with short snippets.
+A remote-agent module should make these boundaries explicit:
 
-### Examples
-```metta
-(tavily-search "OpenCog Hyperon")
-(tavily-search "recent papers on Non-Axiomatic Logic")
-```
+- network dependency
+- remote address or discovery mechanism
+- request/response schema
+- runtime traces
+- failure behavior when the remote service is absent
 
-### Notes / Limits
-- Output quality depends on the remote agent, not on OmegaClaw itself.
-- For a lighter-weight, direct-backend search, see `search` in [reference-skills-communication.md](./reference-skills-communication.md).
+## Adding Your Own
 
----
-
-## `technical-analysis`
-
-### Signature
-```metta
-(technical-analysis "TICKER")
-```
-
-### Purpose
-Send a ticker symbol to a remote technical-analysis agent and return its chart-oriented summary.
-
-### Parameters
-- `TICKER` — a stock ticker symbol, quoted.
-
-### Returns
-A string containing the remote analysis.
-
-### Examples
-```metta
-(technical-analysis "AMZN")
-(technical-analysis "NVDA")
-```
-
-### Notes / Limits
-- Remote-only — requires network and a reachable Agentverse target.
-- The bridge implementation is in `src/agentverse.py::technical_analysis`.
-
----
-
-## Adding your own
-
-See [tutorial-06-remote-agentverse-skills.md](./tutorial-06-remote-agentverse-skills.md) for the pattern, and [reference-python-bridges.md](./reference-python-bridges.md) for the bridge surface.
+See [tutorial-06-remote-agentverse-skills.md](./tutorial-06-remote-agentverse-skills.md) for the pattern, and [reference-python-bridges.md](./reference-python-bridges.md) for bridge conventions.

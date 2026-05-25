@@ -93,6 +93,21 @@ class SkillAffordanceContractTests(unittest.TestCase):
         missing = sorted({domain for domain, _line in _context_hints()} - _help_topics())
         self.assertEqual(missing, [])
 
+    def test_web_search_is_canonical_live_web_surface(self):
+        signatures = _text("skill_signatures*.metta")
+        catalog = _text("skill_catalog*.metta")
+        affordance = _text("skill_affordance*.metta")
+        channels = (SRC / "channels.metta").read_text(encoding="utf-8")
+
+        self.assertIn("(SkillSignature web-search ", signatures)
+        self.assertIn("(= (web-search $msg)", channels)
+        self.assertIn("(= (search $msg)\n   (web-search $msg))", channels)
+        self.assertIn("web-search query", catalog)
+        self.assertIn("legacy alias for web-search", catalog + affordance)
+        self.assertIn("SkillTopic \"web-search\" \"web-search\"", affordance)
+        self.assertNotIn("(SkillSignature tavily-search", signatures)
+        self.assertNotIn("(SkillSignature internet-search", signatures)
+
 
     def test_pin_is_always_visible_and_has_continuity_schema(self):
         context = "\n".join(line for _domain, line in _context_hints())
