@@ -119,11 +119,12 @@ loop, and full traces should be enabled only by an explicit runtime setting.
 
 ## Add a remote skill
 
-Same as above, but the body delegates to `src/agentverse.py`:
+Remote skills should live in an optional module and delegate to that module's
+own membrane:
 
 ```metta
 (= (my-remote-skill $arg)
-   (py-call (agentverse.my_remote_skill $arg)))
+   (py-call (my_remote_module.my_remote_skill $arg)))
 ```
 
 Full walkthrough: [tutorial-06-remote-agentverse-skills.md](./tutorial-06-remote-agentverse-skills.md).

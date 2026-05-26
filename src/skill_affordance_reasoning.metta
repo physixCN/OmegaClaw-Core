@@ -39,9 +39,9 @@
 !(add-atom &skills (SkillTopic "pln-step" "inference"))
 !(add-atom &skills (SkillArg "pln-step" 1 "metta" "premise1"))
 !(add-atom &skills (SkillArg "pln-step" 2 "metta" "premise2"))
-!(add-atom &skills (PreferredWhen "pln-step" "pln-inheritance-or-implication" 0.82 "inspect PLN-style derivation over typed symbolic atoms"))
+!(add-atom &skills (PreferredWhen "pln-step" "pln-inheritance-or-implication" 0.82 "inspect PLN-style derivation over truth-valued symbolic statements"))
 !(add-atom &skills (Effect "pln-step" "pln-derivation"))
-!(add-atom &skills (SkillCardLine "pln-step" "pln-step premise1 premise2 - inspect PLN derivation; use Inheritance/Implication/Similarity atoms"))
+!(add-atom &skills (SkillCardLine "pln-step" "pln-step premise1 premise2 - inspect PLN derivation; premises must be truth-valued, e.g. ((Inheritance A B) (stv f c))"))
 
 !(add-atom &skills (Skill "nars-query"))
 !(add-atom &skills (SkillTopic "nars-query" "reasoning"))

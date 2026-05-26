@@ -16,15 +16,12 @@ LLM and embedding bridges.
 
 OpenAI calls go through MeTTa-side helpers (`useGPT`, `useGPTEmbedding`) that are defined elsewhere in the library but use the same LLM call pattern.
 
-## `modules/agentverse/src/agentverse_organ.py`
+## `modules/agentverse/src/agentverse_bridge.py`
 
 Optional Agentverse/uAgents remote-agent transport membrane.
 This module is not present in every checkout and is not part of the default core
 skill surface. When installed, it should expose its own MeTTa signatures,
 catalog/help, affordance cards, and trace policy.
-
-`src/agentverse.py` is a compatibility shim for old deployments. Do not assume
-hardcoded remote skills exist unless their module is installed and loaded.
 
 ## `src/helper.py`
 

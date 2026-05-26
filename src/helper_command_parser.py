@@ -29,6 +29,8 @@ SIGNATURE_NO_ACTION_HEADS = set()
 
 SIGNATURE_MULTILINE_LOWERING = {}
 SIGNATURE_SHORTHANDS = {}
+SIGNATURE_RECOVERY_HINTS = {}
+SIGNATURE_SKILL_CARDS = {}
 
 
 SIGNATURE_ARG_TYPES = {
@@ -77,6 +79,8 @@ SIGNATURE_DECLARATIONS_PATH = CORE_ROOT / "src" / "skill_signatures.metta"
 SIGNATURE_DECLARATIONS_GLOB = "skill_signatures*.metta"
 SKILL_CATALOG_DECLARATIONS_PATH = CORE_ROOT / "src" / "skill_catalog.metta"
 SKILL_CATALOG_DECLARATIONS_GLOB = "skill_catalog*.metta"
+SKILL_AFFORDANCE_DECLARATIONS_PATH = CORE_ROOT / "src" / "skill_affordance_affordance.metta"
+SKILL_AFFORDANCE_DECLARATIONS_GLOB = "skill_affordance*.metta"
 MODULE_DECLARATIONS_ROOT = CORE_ROOT / "modules"
 MODULE_LOADER_PATH = MODULE_DECLARATIONS_ROOT / "loader.metta"
 
@@ -164,6 +168,18 @@ def _skill_catalog_declaration_paths(path=SKILL_CATALOG_DECLARATIONS_PATH):
     return [p]
 
 
+def _skill_affordance_declaration_paths(path=SKILL_AFFORDANCE_DECLARATIONS_PATH):
+    p = pathlib.Path(path)
+    if p == SKILL_AFFORDANCE_DECLARATIONS_PATH:
+        paths = sorted(p.parent.glob(SKILL_AFFORDANCE_DECLARATIONS_GLOB))
+        paths = sorted(paths, key=lambda candidate: _declaration_sort_key(candidate, "skill_affordance"))
+        paths.extend(_module_declaration_paths("affordance.metta"))
+        return paths or [p]
+    if p.is_dir():
+        return sorted(p.glob(SKILL_AFFORDANCE_DECLARATIONS_GLOB), key=lambda candidate: _declaration_sort_key(candidate, "skill_affordance"))
+    return [p]
+
+
 def _strip_signature_comment(line):
     return str(line or "").split(";", 1)[0].strip()
 
@@ -171,6 +187,27 @@ def _strip_signature_comment(line):
 def _signature_decl_error(path, line_number, message, line):
     where = f"{path}:{line_number}" if line_number else str(path)
     raise SignatureParseError(f"{where}: {message}: {line}")
+
+
+def _signature_decl_consume_token(text):
+    text = str(text or "").strip()
+    if not text:
+        return "", ""
+    if text.startswith('"'):
+        out = []
+        escaped = False
+        for index in range(1, len(text)):
+            ch = text[index]
+            if ch == '"' and not escaped:
+                return "".join(out), text[index + 1:].strip()
+            if ch == "\\" and not escaped:
+                escaped = True
+                continue
+            out.append(ch)
+            escaped = False
+        return "".join(out), ""
+    parts = text.split(maxsplit=1)
+    return parts[0], parts[1].strip() if len(parts) > 1 else ""
 
 
 def _signature_arg_spans(body):
@@ -305,6 +342,61 @@ def _load_signature_no_action_heads(path=SIGNATURE_DECLARATIONS_PATH):
     return heads
 
 
+def _load_signature_recovery_hints(path=SIGNATURE_DECLARATIONS_PATH):
+    hints = {}
+    loaded = set()
+    for signature_path in _signature_declaration_paths(path):
+        try:
+            text = pathlib.Path(signature_path).read_text(encoding="utf-8")
+        except Exception:
+            continue
+        for line_number, raw_line in enumerate(text.splitlines(), 1):
+            line = _strip_signature_comment(raw_line)
+            if not line:
+                continue
+            if not line.startswith("(SignatureRecoveryHint"):
+                continue
+            match = re.match(r"^\(SignatureRecoveryHint\s+([^\s()]+)\s+(.*)\)$", line)
+            if not match:
+                _signature_decl_error(signature_path, line_number, "malformed SignatureRecoveryHint declaration", line)
+            kind = match.group(1)
+            hint, extra = _signature_decl_consume_token(match.group(2))
+            if extra:
+                _signature_decl_error(signature_path, line_number, "unexpected SignatureRecoveryHint text", line)
+            if kind in loaded:
+                _signature_decl_error(signature_path, line_number, f"duplicate SignatureRecoveryHint {kind}", line)
+            loaded.add(kind)
+            hints[kind] = hint
+    return hints
+
+
+def _load_skill_cards(path=SKILL_AFFORDANCE_DECLARATIONS_PATH):
+    cards = {}
+    for affordance_path in _skill_affordance_declaration_paths(path):
+        try:
+            text = pathlib.Path(affordance_path).read_text(encoding="utf-8")
+        except Exception:
+            continue
+        for raw_line in text.splitlines():
+            line = _strip_signature_comment(raw_line)
+            start = line.find("(SkillCardLine ")
+            if start < 0:
+                continue
+            body = line[start + len("(SkillCardLine "):]
+            if body.endswith("))"):
+                body = body[:-2]
+            elif body.endswith(")"):
+                body = body[:-1]
+            skill, rest = _signature_decl_consume_token(body)
+            if not skill:
+                continue
+            card, extra = _signature_decl_consume_token(rest)
+            if not card or extra:
+                continue
+            cards.setdefault(skill, []).append(card)
+    return cards
+
+
 def _load_signature_shorthands(path=SIGNATURE_DECLARATIONS_PATH):
     shorthands = {}
     loaded = set()
@@ -355,6 +447,8 @@ SIGNATURE_KNOWN_SPACES = _load_signature_spaces(fallback=SIGNATURE_BOOTSTRAP_SPA
 SIGNATURE_MULTILINE_LOWERING = _load_signature_lowerings()
 SIGNATURE_NO_ACTION_HEADS = _load_signature_no_action_heads()
 SIGNATURE_SHORTHANDS = _load_signature_shorthands()
+SIGNATURE_RECOVERY_HINTS = _load_signature_recovery_hints()
+SIGNATURE_SKILL_CARDS = _load_skill_cards()
 
 
 def signature_commands_from(path=SIGNATURE_DECLARATIONS_PATH):
@@ -377,6 +471,11 @@ def signature_no_action_heads_from(path=SIGNATURE_DECLARATIONS_PATH):
     return _load_signature_no_action_heads(path=path)
 
 
+def signature_recovery_hints_from(path=SIGNATURE_DECLARATIONS_PATH):
+    """Read recovery hints from MeTTa declaration files."""
+    return _load_signature_recovery_hints(path=path)
+
+
 def signature_shorthands_from(path=SIGNATURE_DECLARATIONS_PATH):
     """Read SignatureShorthand atoms from MeTTa declaration files."""
     return _load_signature_shorthands(path=path)
@@ -390,6 +489,11 @@ def signature_declaration_paths(path=SIGNATURE_DECLARATIONS_PATH):
 def skill_catalog_declaration_paths(path=SKILL_CATALOG_DECLARATIONS_PATH):
     """Expose the active skill catalog declaration files for tests/review."""
     return tuple(_skill_catalog_declaration_paths(path))
+
+
+def skill_affordance_declaration_paths(path=SKILL_AFFORDANCE_DECLARATIONS_PATH):
+    """Expose active skill affordance declaration files for tests/review."""
+    return tuple(_skill_affordance_declaration_paths(path))
 
 
 def _catalog_decl_string(text):
@@ -814,10 +918,54 @@ def _signature_lowered_multiline_call(lowered, signature, rest, content):
 
 
 def _signature_syntax_error(head, message, raw):
+    message = _signature_recovery_message(head, message)
     return (
         f"(syntax-error {_signature_quote(head)} "
         f"{_signature_quote(message)} {_signature_quote(raw)})"
     )
+
+
+def _signature_error_kind(message):
+    text = str(message or "")
+    if text.startswith("missing "):
+        return "missing-argument"
+    if "unexpected trailing text" in text or "unexpected text outside multiline body" in text:
+        return "unexpected-trailing"
+    if text.startswith("unknown space"):
+        return "unknown-space"
+    if "METTA-SYNTAX-ERROR" in text or "missing closing parenthesis" in text or "unbalanced parentheses" in text:
+        return "metta-syntax"
+    if "must be number" in text:
+        return "invalid-number"
+    if "pipe fields" in text:
+        return "pipe-shape"
+    return "syntax-error"
+
+
+def _signature_compact_card(head):
+    cards = SIGNATURE_SKILL_CARDS.get(str(head or ""), [])
+    if not cards:
+        return ""
+    return "card: " + cards[0]
+
+
+def _signature_recovery_message(head, message):
+    parts = [str(message or "")]
+    card = _signature_compact_card(head)
+    if card:
+        parts.append(card)
+    hint = SIGNATURE_RECOVERY_HINTS.get(_signature_error_kind(message), SIGNATURE_RECOVERY_HINTS.get("syntax-error", ""))
+    if hint:
+        parts.append(hint)
+    return "; ".join(part for part in parts if part)
+
+
+def _signature_unknown_head_message(cmd):
+    parts = [f"ignored unknown command head {cmd}", "use only commands listed in SKILLS"]
+    hint = SIGNATURE_RECOVERY_HINTS.get("unknown-head", "")
+    if hint:
+        parts.append(hint)
+    return "; ".join(parts)
 
 
 def _signature_render_typed_value(arg_type, name, value):
@@ -912,7 +1060,7 @@ def _signature_parse_one(line):
         if cmd.lower() in SIGNATURE_NO_ACTION_HEADS:
             return f"(wait {_signature_quote(_signature_one_line(original))})"
         return (
-            f"(wait {_signature_quote('ignored unknown command head ' + cmd + '; use only commands listed in SKILLS')})"
+            f"(wait {_signature_quote(_signature_unknown_head_message(cmd))})"
         )
     signature = SIGNATURE_COMMANDS[cmd]
     block = _signature_extract_block(rest)
@@ -928,6 +1076,7 @@ def _signature_parse_one(line):
     if (
         len(signature) > 1
         and not any(arg_type in {"rest-text", "shell-command", "multiline", "pipe-spec"} for arg_type, _ in signature)
+        and not any(arg_type in {"optional-number", "optional-rest-text"} for arg_type, _ in signature)
         and rest.startswith('"')
     ):
         token, extra = _signature_consume_token(rest)
@@ -1092,9 +1241,14 @@ def reload_signature_commands(path=SIGNATURE_DECLARATIONS_PATH):
     able to expose new SkillSignature atoms without editing this parser module.
     """
     global SIGNATURE_COMMANDS, SIGNATURE_KNOWN_SPACES, SIGNATURE_MULTILINE_LOWERING
+    global SIGNATURE_NO_ACTION_HEADS, SIGNATURE_SHORTHANDS, SIGNATURE_RECOVERY_HINTS, SIGNATURE_SKILL_CARDS
     SIGNATURE_COMMANDS = _load_signature_commands(path=path, fallback=SIGNATURE_BOOTSTRAP_COMMANDS)
     SIGNATURE_KNOWN_SPACES = _load_signature_spaces(path=path, fallback=SIGNATURE_BOOTSTRAP_SPACES)
     SIGNATURE_MULTILINE_LOWERING = _load_signature_lowerings(path=path)
+    SIGNATURE_NO_ACTION_HEADS = _load_signature_no_action_heads(path=path)
+    SIGNATURE_SHORTHANDS = _load_signature_shorthands(path=path)
+    SIGNATURE_RECOVERY_HINTS = _load_signature_recovery_hints(path=path)
+    SIGNATURE_SKILL_CARDS = _load_skill_cards()
     return SIGNATURE_COMMANDS
 
 

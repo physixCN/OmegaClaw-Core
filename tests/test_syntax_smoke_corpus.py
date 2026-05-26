@@ -42,13 +42,20 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
                 self.assert_parse(raw, expected)
 
     def test_fail_closed_and_typed_core_cases(self):
-        self.assertEqual(
-            parser.signature_balance_parentheses("turn-off Living"),
-            '((wait "ignored unknown command head turn-off; use only commands listed in SKILLS"))',
+        unknown = parser.signature_balance_parentheses("turn-off Living")
+        self.assertIn("ignored unknown command head turn-off", unknown)
+        self.assertIn('query-skill-space \\"topic\\"', unknown)
+        self.assertIn(
+            '(syntax-error "sleep-for" "seconds must be number',
+            parser.signature_balance_parentheses("sleep-for soon no"),
         )
         self.assertIn(
-            '(syntax-error "sleep-for" "seconds must be number"',
+            "recover: use bare numeric values",
             parser.signature_balance_parentheses("sleep-for soon no"),
+        )
+        self.assertIn(
+            "card: beliefs-about domain relation - inspect exact belief relation",
+            parser.signature_balance_parentheses("beliefs-about Anna"),
         )
         self.assertIn(
             '(syntax-error "space-find" "unknown space nowhere; known spaces:',
@@ -69,6 +76,8 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             'append-file /tmp/test.txt "line one"': '((append-file-base64 "/tmp/test.txt" "bGluZSBvbmU="))',
             'space-transform persistent (PersistentNote "agent" $note $conf) events (Event "agent" "merged" "ok" "0.9") cleanup duplicate notes': '((space-transform "persistent" "(PersistentNote \\"agent\\" $note $conf)" "events" "(Event \\"agent\\" \\"merged\\" \\"ok\\" \\"0.9\\")" "cleanup duplicate notes"))',
             'space-transform events | (EventNote $S $K $V) | persistent | (PersistentNote $S $K $V 0.5) | test-if-space-transform-parser-fixed-now': '((space-transform "events" "(EventNote $S $K $V)" "persistent" "(PersistentNote $S $K $V 0.5)" "test-if-space-transform-parser-fixed-now"))',
+            'space-merge-atoms persistent (PersistentNote "agent" $note $conf) (PersistentNote "agent" "merged" "0.9") merge duplicate notes': '((space-merge-atoms "persistent" "(PersistentNote \\"agent\\" $note $conf)" "(PersistentNote \\"agent\\" \\"merged\\" \\"0.9\\")" "merge duplicate notes"))',
+            'persistent-merge-atoms (PersistentFact "Omega" "diagnostic-phase" "in-progress" "0.9") (PersistentFact "Omega" "diagnostic-phase" "in-progress" "0.9") exact duplicate': '((persistent-merge-atoms "(PersistentFact \\"Omega\\" \\"diagnostic-phase\\" \\"in-progress\\" \\"0.9\\")" "(PersistentFact \\"Omega\\" \\"diagnostic-phase\\" \\"in-progress\\" \\"0.9\\")" "exact duplicate"))',
             'retire-persistent-expression (PersistentNote "agent" "test: colon ok" "0.8") stale duplicate': '((retire-persistent-expression "(PersistentNote \\"agent\\" \\"test: colon ok\\" \\"0.8\\")" "stale duplicate"))',
             'retire-persistent-expression "(PersistentNote "agent" "test: colon ok" "0.8")" stale duplicate': '((retire-persistent-expression "(PersistentNote \\"agent\\" \\"test: colon ok\\" \\"0.8\\")" "stale duplicate"))',
             'assimilate-world audio | obs123 | Person | preference | warm updates | 0.9': '((assimilate-world "audio | obs123 | Person | preference | warm updates | 0.9"))',
@@ -87,26 +96,33 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             with self.subTest(raw=raw[:80]):
                 self.assert_parse(raw, expected)
         self.assertIn(
-            '(syntax-error "space-transform" "missing closing parenthesis"',
+            '(syntax-error "space-transform" "missing closing parenthesis',
             parser.signature_balance_parentheses('space-transform persistent (PersistentNote "agent" $note events (Event "agent" "bad" "0.9") cleanup'),
         )
         self.assertIn(
-            '(syntax-error "metta" "METTA-SYNTAX-ERROR unbalanced parentheses"',
+            '(syntax-error "metta" "METTA-SYNTAX-ERROR unbalanced parentheses',
             parser.signature_balance_parentheses('metta "(add-atom &persistent (PersistentNote \\"agent\\" \\"x\\" \\"0.8\\")"'),
         )
 
     def test_narration_boundaries_for_core_commands(self):
+        parsed = parser.signature_balance_parentheses("Narration before command.\nenergy-status")
+        self.assertIn("ignored unknown command head Narration", parsed)
+        self.assertIn('query-skill-space \\"topic\\"', parsed)
+        self.assertIn("(energy-status)", parsed)
+        parsed = parser.signature_balance_parentheses("Narration should not execute energy-status next")
+        self.assertIn("ignored unknown command head Narration", parsed)
+        self.assertNotIn("(energy-status)", parsed)
         cases = {
-            "Narration before command.\nenergy-status": '((wait "ignored unknown command head Narration; use only commands listed in SKILLS") (energy-status))',
-            "Narration should not execute energy-status next": '((wait "ignored unknown command head Narration; use only commands listed in SKILLS"))',
             "send Please type: energy-status": '((send "Please type: energy-status"))',
-            "energy-status then tell him": '((syntax-error "energy-status" "unexpected trailing text: then tell him" "energy-status then tell him"))',
             "- energy-status": '((pin "- energy-status"))',
             "No tool calls needed - genuine silence.": '((wait "No tool calls needed - genuine silence."))',
         }
         for raw, expected in cases.items():
             with self.subTest(raw=raw):
                 self.assertEqual(parser.signature_balance_parentheses(raw), expected)
+        parsed = parser.signature_balance_parentheses("energy-status then tell him")
+        self.assertIn('(syntax-error "energy-status" "unexpected trailing text: then tell him', parsed)
+        self.assertIn("recover: quote text args", parsed)
 
     def test_wrapped_llm_command_forms(self):
         cases = {
@@ -136,6 +152,11 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             for line in signature_text.splitlines()
             if re.match(r"\(SignatureNoActionHead\s+([^\s()]+)\)", line)
         )
+        declared_recovery_hints = set(
+            re.match(r"\(SignatureRecoveryHint\s+([^\s()]+)\s+", line).group(1)
+            for line in signature_text.splitlines()
+            if re.match(r"\(SignatureRecoveryHint\s+([^\s()]+)\s+", line)
+        )
         shorthand_commands = set(
             re.match(r"\(SignatureShorthand\s+([^\s()]+)\s+", line).group(1)
             for line in signature_text.splitlines()
@@ -144,6 +165,7 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
         self.assertEqual(set(parser.SIGNATURE_COMMANDS), declared)
         self.assertEqual(set(parser.SIGNATURE_KNOWN_SPACES), declared_spaces)
         self.assertEqual(set(parser.SIGNATURE_NO_ACTION_HEADS), declared_no_action_heads)
+        self.assertEqual(set(parser.SIGNATURE_RECOVERY_HINTS), declared_recovery_hints)
         self.assertIn("space-transform", shorthand_commands)
         self.assertNotIn("known_cmds =", source)
         self.assertNotIn("SIGNATURE_COMMANDS = {", source)
@@ -228,6 +250,7 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             self.assertEqual(parser.signature_commands_from(tabby)["tabby"], (("text", "value"),))
             self.assertEqual(parser.signature_spaces_from(tabby), {"tabspace"})
             self.assertEqual(parser.signature_no_action_heads_from(tabby), set())
+            self.assertEqual(parser.signature_recovery_hints_from(tabby), {})
             self.assertEqual(parser.signature_shorthands_from(tabby), {})
 
             fallback = {"tabby": (("rest-text", "old"),)}
@@ -297,6 +320,7 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             ("space", '(SignatureSpace)\n', parser.signature_spaces_from),
             ("lowering", '(SignatureLowering write-file)\n', parser.signature_lowerings_from),
             ("no-action", '(SignatureNoActionHead)\n', parser.signature_no_action_heads_from),
+            ("recovery", '(SignatureRecoveryHint)\n', parser.signature_recovery_hints_from),
             ("shorthand-mode", '(SignatureShorthand test weird (Field text value))\n', parser.signature_shorthands_from),
             ("shorthand-field", '(SignatureShorthand test pipe (Field surprise value))\n', parser.signature_shorthands_from),
             ("duplicate-command", '(SkillSignature same)\n(SkillSignature same)\n', parser.signature_commands_from),

@@ -43,6 +43,15 @@ Whatever the inner expression returns. For NAL/PLN calls, this is a conclusion a
            ((Inheritance Pingu (IntSet Feathered)) (stv 1.0 0.9))))
 ```
 
+`pln-step` is the direct skill wrapper for PLN shapes. Its arguments are
+premises passed directly to `|~`; it does not query previously asserted bare
+atoms. Plain `Inheritance` transitivity belongs to PLN, not NAL, and each
+premise must include an `(stv frequency confidence)` truth value:
+
+```metta
+pln-step "((Inheritance SampleAgent CarefulSystem) (stv 0.95 0.9))" "((Inheritance CarefulSystem ReliableSystem) (stv 0.9 0.9))"
+```
+
 ---
 
 ## Engine selection, stopping criteria, action thresholds
@@ -54,6 +63,11 @@ These are policy decisions, not part of the `metta` skill's API. See [reference-
 ## Notes / limits
 
 - Independent variables are written `$1`, `$2`, …
+- Do not mix vocabularies: `nal-step` expects NAL copulas like `-->`; `pln-step`
+  expects truth-valued PLN statements like `((Inheritance A B) (stv f c))`. Bare
+  atoms such as `(Inheritance A B)` are valid MeTTa syntax, but they do not match
+  the `pln-step` rule heads. If `nal-step` on `Inheritance` returns empty, that
+  means the wrong organ was selected, not that NAL rules failed to load.
 - Negated knowledge uses `(stv 0.0 c)`.
 - `metta` evaluates **any** MeTTa expression, not just reasoning calls. Malformed input reports errors through `&error` on the next turn.
 - Confidence decays ~10% per deduction hop. Chains past 3 hops usually fall below the ACT threshold — see [tutorial-08-reliable-reasoning.md](./tutorial-08-reliable-reasoning.md).

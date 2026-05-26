@@ -149,6 +149,40 @@ class SkillAffordanceContractTests(unittest.TestCase):
         ]:
             self.assertIn(expected, source)
 
+    def test_space_merge_atoms_is_symbolic_wrapper_over_transform(self):
+        source = (
+            (SRC / "skills_space_mutation.metta").read_text(encoding="utf-8")
+            + (SRC / "skill_affordance_memory.metta").read_text(encoding="utf-8")
+            + (SRC / "skill_catalog_memory.metta").read_text(encoding="utf-8")
+        )
+        signatures = _text("skill_signatures*.metta")
+
+        for expected in [
+            "(= (space-merge-atoms $space $patternstr $replacementstr $reason)",
+            '(= (persistent-merge-atoms $patternstr $replacementstr $reason)',
+            '(trace-atom "merge-remove" $space $pattern $reason)',
+            'SkillTopic "persistent-merge-atoms" "persistent"',
+            "exact dedup uses same atom as pattern and replacement",
+            "save-runtime-space $space",
+        ]:
+            self.assertIn(expected, source)
+        self.assertIn("(SkillSignature space-merge-atoms", signatures)
+        self.assertIn("(SkillSignature persistent-merge-atoms", signatures)
+
+
+    def test_pln_affordance_requires_truth_valued_premises(self):
+        source = (
+            (SRC / "skill_affordance_reasoning.metta").read_text(encoding="utf-8")
+            + (SRC / "skill_catalog_reasoning.metta").read_text(encoding="utf-8")
+        )
+        for expected in [
+            "truth-valued PLN statements",
+            "((Inheritance A B) (stv f c))",
+            "premises must be truth-valued",
+        ]:
+            self.assertIn(expected, source)
+        self.assertNotIn("use PLN atoms such as Inheritance", source)
+
 
 
     def test_attention_trigger_surface_is_symbolic(self):
