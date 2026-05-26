@@ -127,7 +127,8 @@ After start go to https://webchat.quakenet.org/ to communicate with the agent. J
 ## Documentation
 
 Full documentation lives in [`docs/`](./docs/README.md): introduction,
-tutorials, and API reference as a flat set of markdown files.
+tutorials, API reference, testing/benchmark notes, and review materials.
+Release notes for the readiness branch are in [`CHANGELOG.md`](./CHANGELOG.md).
 
 ---
 

@@ -11,7 +11,7 @@ from helpers import (
     send_prompt, try_with_clarification, wait_for_file,
 )
 
-SEARCH_SKILLS = ("search",)
+SEARCH_SKILLS = ("web-search", "search")
 
 TARGET_DIR = "/tmp/wflow"
 WEATHER_TXT = f"{TARGET_DIR}/w.txt"
@@ -70,7 +70,7 @@ def test_complex_weather_flow():
         )
         c.set_grade(grade)
         if grade == Checker.GRADE_FAIL:
-            c.fail("search invoked", "no relevant search call")
+            c.fail("search invoked", "no relevant web-search/search call")
         skill, search_arg = hit
         c.ok(f"{skill} invoked", f"arg={search_arg!r} (grade={grade})")
 

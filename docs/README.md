@@ -54,12 +54,20 @@ User-facing MeTTa skills the agent invokes. Each page follows the template **Sig
 - [reference-skills-reasoning.md](./reference-skills-reasoning.md) — `metta` (NAL/PLN invocation surface)
 - [reference-skills-remote-agents.md](./reference-skills-remote-agents.md) — optional remote-agent modules
 - [reference-skill-affordance-directory.md](./reference-skill-affordance-directory.md) — symbolic skill discovery via `&skills`, `query-skill-space`, `choose-skill-for`, `explain-skill`, and `skill-card`
+- [reference-testing-benchmarks.md](./reference-testing-benchmarks.md) — repeatable unit, smoke, and benchmark commands for core readiness
 
 ### Configuration & Adapters
 
 - [reference-configuration.md](./reference-configuration.md) — `configure` form and all runtime parameters
 - [reference-channels.md](./reference-channels.md) — IRC, Telegram, Mattermost, and websearch adapters plus the channel contract
 - [reference-python-bridges.md](./reference-python-bridges.md) — `lib_llm_ext.py`, optional module membranes, `src/helper.py`, `src/skills.pl`
+
+### Review and release notes
+
+- [../CHANGELOG.md](../CHANGELOG.md) — readiness-branch change log
+- [review/clean-patch-boundary.md](./review/clean-patch-boundary.md) — clean/private patch boundary notes
+- [review/dependency-boundary-audit.md](./review/dependency-boundary-audit.md) — dependency and module boundary audit
+- [review/out-of-box-principles-check.md](./review/out-of-box-principles-check.md) — generalization, hardcoding, Patrick Hammer, and Ben Goertzel-style readiness check
 
 ### Internals
 

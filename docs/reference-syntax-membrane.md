@@ -27,6 +27,7 @@ Examples:
 (SkillSignature send (Arg rest-text message))
 (SkillSignature space-find (Arg space space) (Arg metta pattern))
 (SignatureLowering write-file write-file-base64)
+(SignatureRecoveryHint missing-argument "recover: check required args with skill-card or explain-skill")
 ```
 
 Modules are enabled by `modules/loader.metta`. A module contributes signatures
@@ -85,12 +86,22 @@ A few constants are intentional membrane vocabulary rather than hidden cognition
 
 If a future change adds a skill name, space name, model name, person name, room name, or domain policy to Python parser logic, treat that as a regression. It belongs in MeTTa declarations, runtime skills, memory, or the relevant execution membrane.
 
+## Recovery Hints
+
+`SignatureRecoveryHint` declarations are compact repair cues for parser error classes such as `missing-argument`, `unexpected-trailing`, `unknown-space`, `metta-syntax`, `invalid-number`, and `pipe-shape`. The parser may also attach the first `SkillCardLine` for the failing command. This is reinforcement for the next cognitive cycle, not hidden routing: the hint is declared in MeTTa-shaped metadata and appears in the normal command-result trace.
+
+Example shape:
+
+```metta
+(syntax-error "beliefs-about" "missing relation; card: beliefs-about domain relation - inspect exact belief relation; recover: check required args with skill-card or explain-skill" "beliefs-about Anna")
+```
+
 ## Failure Behavior
 
 The membrane fails closed:
 
 - Unknown command head -> `(wait "ignored unknown command head ...")`
-- Known command with bad arguments -> `(syntax-error "head" "reason" "raw")`
+- Known command with bad arguments -> `(syntax-error "head" "reason plus declared recovery hint" "raw")`
 - Prose/no-action phrases such as `No tool calls needed` -> `(wait "...")`
 - Malformed nested MeTTa arguments -> `(syntax-error ...)`
 
