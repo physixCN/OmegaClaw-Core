@@ -68,6 +68,7 @@ User-facing MeTTa skills the agent invokes. Each page follows the template **Sig
 - [review/clean-patch-boundary.md](./review/clean-patch-boundary.md) — clean/private patch boundary notes
 - [review/dependency-boundary-audit.md](./review/dependency-boundary-audit.md) — dependency and module boundary audit
 - [review/out-of-box-principles-check.md](./review/out-of-box-principles-check.md) — generalization, hardcoding, Patrick Hammer, and Ben Goertzel-style readiness check
+- [review/cassio-private-repo-walkthrough.md](./review/cassio-private-repo-walkthrough.md) — chronological architecture walkthrough for private repo review
 
 ### Internals
 
