@@ -22,6 +22,7 @@
 (Provides omegaclaw.channel.whatsapp (Skill whatsapp-chats))
 (Provides omegaclaw.channel.whatsapp (Skill whatsapp-status))
 (Provides omegaclaw.channel.whatsapp (Skill read-whatsapp-chat))
+(Provides omegaclaw.channel.whatsapp (Skill read-whatsapp-chat-recent))
 (Provides omegaclaw.channel.whatsapp (Skill read-whatsapp-chat-full))
 (Provides omegaclaw.channel.whatsapp (Skill mark-whatsapp-read))
 (Provides omegaclaw.channel.whatsapp (Skill mark-whatsapp-unread))

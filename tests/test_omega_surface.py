@@ -105,6 +105,15 @@ class HelperSurfaceTests(unittest.TestCase):
                 self.assertNotIn("Error", atom)
                 self.assert_metta_ok(atom)
 
+    def test_cleanup_ids_are_stable_and_symbolic(self):
+        expr = '(PersistentNote "omega" "duplicate lesson" "0.8")'
+        candidate = helper.cleanup_candidate_id(expr)
+        proposal = helper.cleanup_proposal_id(candidate, "merge-duplicate", "exact duplicate")
+        self.assertRegex(candidate, r"^pc-[0-9a-f]{16}$")
+        self.assertRegex(proposal, r"^pp-[0-9a-f]{16}$")
+        self.assertEqual(candidate, helper.cleanup_candidate_id(expr))
+        self.assertIn("PersistentNote", helper.cleanup_preview(expr))
+
     def test_event_note_rejects_prose_without_numeric_confidence(self):
         atom = helper.event_note_atom(
             "Living Ecology exploration completed 2026-05-22 mapped room affordances"
@@ -446,6 +455,11 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("(remove-atom &persistent $atom)", skills)
         self.assertIn('(add-atom &events (Event "omega" "persistent-retire" $reason "0.9"))', skills)
         self.assertIn("(= (persistent-review)", skills)
+        self.assertIn("(= (persistent-cleanup-candidates $limit)", skills)
+        self.assertIn("(= (persistent-cleanup-propose $candidate_id $action $reason)", skills)
+        self.assertIn("(= (persistent-cleanup-commit $proposal_id)", skills)
+        self.assertIn("(PersistentCleanupCandidate", skills)
+        self.assertIn("(PersistentCleanupProposal", skills)
         self.assertIn("(repr (collapse (match &persistent $atom $atom)))", skills)
         self.assertNotIn("You can use: metta (add-atom &persistent sexpression)", skills)
 
@@ -499,9 +513,14 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("space-count", skills)
         self.assertIn("space-find", skills)
         self.assertIn("space-examples", skills)
+        self.assertIn("space-examples-default", skills)
         self.assertIn("space-atoms", skills)
         self.assertIn("agenda-by-name", skills)
         self.assertIn("agenda-retire", skills)
+        self.assertIn("agenda-complete", skills)
+        self.assertIn("beliefs-for", skills)
+        self.assertIn("belief-derived", skills)
+        self.assertIn("events-recent", skills)
         self.assertIn("helper.agenda_goal_name_atom", skills)
 
     def test_activity_trace_space_is_native_and_bounded(self):
@@ -512,8 +531,13 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         signatures = signature_declaration_source()
         helper_source = (ROOT / "src" / "helper_metta.py").read_text(encoding="utf-8")
         self.assertIn("!(bind! &activity (new-space))", lib)
+        self.assertIn("!(bind! &cleanup (new-space))", lib)
         self.assertIn(
             '(register-space-persistence "activity" (library OmegaClaw-Core ./memory/activity.metta) runtime-state)',
+            skills,
+        )
+        self.assertIn(
+            '(register-space-persistence "cleanup" (library OmegaClaw-Core ./memory/cleanup.metta) runtime-state)',
             skills,
         )
         self.assertIn("(load-runtime-spaces-by-role memory)", memory)
@@ -544,6 +568,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("(= (house-action-log $count)\n   (py-call (home_assistant.house_action_log $count)))", skills)
         self.assertIn("(= (events-all)\n   (repr (collapse (match &events", skills)
         self.assertIn("(= (persistent-review)\n   (py-str (\"PERSISTENT-REVIEW", skills)
+        self.assertIn("(= (cleanup-proposals)", skills)
         self.assertIn("(= (getPrompt)\n   (py-call (helper.context_prompt)))", memory)
         self.assertIn("(= (getHistory)\n   (py-call (helper.context_recent_history_entries (maxHistory) 12)))", memory)
 

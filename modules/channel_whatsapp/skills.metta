@@ -69,6 +69,9 @@
 (= (read-whatsapp-chat $jid)
    (py-call (whatsapp.read_chat $jid)))
 
+(= (read-whatsapp-chat-recent $jid)
+   (read-whatsapp-chat $jid))
+
 (= (read-whatsapp-chat-full $jid)
    (py-call (whatsapp.read_chat_full $jid)))
 

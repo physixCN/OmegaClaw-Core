@@ -84,5 +84,6 @@
                      (progn (remove-atom &persistent $atom)
                             (trace-atom "remove" "persistent" $atom $reason)
                             (add-atom &events (Event "omega" "persistent-retire" $reason "0.9"))
+                            (save-runtime-space "persistent")
                             (Retired $atom))
                      (NotFound $expr))))))

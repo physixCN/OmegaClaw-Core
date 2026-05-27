@@ -1,5 +1,6 @@
 # Extracted from helper.py to keep OmegaClaw membranes reviewable.
 import base64
+import hashlib
 import os
 import pathlib
 import re
@@ -539,7 +540,7 @@ def _take_balanced_metta_expr(text):
                 return "", text
     return "", text
 
-DEFAULT_KNOWN_SPACES = {"persistent", "agenda", "beliefs", "world", "events", "activity", "assume", "attention"}
+DEFAULT_KNOWN_SPACES = {"persistent", "agenda", "beliefs", "world", "events", "activity", "cleanup", "assume", "attention"}
 
 
 def _split_collapsed_space_transform_args(spec, known_spaces=None):
@@ -690,6 +691,30 @@ def event_note_atom(spec):
     kind = parts[1]
     summary = " ".join(parts[2:-1])
     return f"(Event {_metta_string(source)} {_metta_string(kind)} {_metta_string(summary)} {_metta_string(confidence)})"
+
+
+def cleanup_candidate_id(expr):
+    text = str(expr or "").strip()
+    digest = hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()[:16]
+    return f"pc-{digest}"
+
+
+def cleanup_proposal_id(candidate_id, action, reason=""):
+    text = "|".join([str(candidate_id or "").strip(), str(action or "").strip(), str(reason or "").strip()])
+    digest = hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()[:16]
+    return f"pp-{digest}"
+
+
+def cleanup_preview(expr, limit=140):
+    text = " ".join(str(expr or "").strip().split())
+    try:
+        limit = int(limit)
+    except Exception:
+        limit = 140
+    limit = max(40, min(limit, 400))
+    if len(text) > limit:
+        return text[: limit - 3] + "..."
+    return text
 
 
 def _pipe_parts(spec):

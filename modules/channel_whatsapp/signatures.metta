@@ -16,6 +16,7 @@
 (SkillSignature whatsapp-chats)
 (SkillSignature whatsapp-status)
 (SkillSignature read-whatsapp-chat (Arg jid chat))
+(SkillSignature read-whatsapp-chat-recent (Arg jid chat))
 (SkillSignature read-whatsapp-chat-full (Arg jid chat))
 (SkillSignature mark-whatsapp-read (Arg jid chat))
 (SkillSignature mark-whatsapp-unread (Arg jid chat))

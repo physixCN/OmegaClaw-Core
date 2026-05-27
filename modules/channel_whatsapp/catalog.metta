@@ -1,6 +1,7 @@
-(SkillCatalog "WhatsApp: whatsapp-inbox, read-whatsapp-chat jid, send-whatsapp message, send-primary-operator message, reply/react/edit/delete by known message id")
+(SkillCatalog "WhatsApp: whatsapp-inbox, read-whatsapp-chat jid, read-whatsapp-chat-recent jid, send-whatsapp message, send-primary-operator message, reply/react/edit/delete by known message id")
 (SkillHelp "channels" "whatsapp-inbox, whatsapp-chats, whatsapp-status - list chats, unread/delivered/seen counts, and primary route")
 (SkillHelp "channels" "read-whatsapp-chat jid - inspect a bounded current chat view deliberately; returns message ids and exact reply command; raw trace remains preserved")
+(SkillHelp "channels" "read-whatsapp-chat-recent jid - same bounded current chat view with a forgiving one-arg name")
 (SkillHelp "channels" "send-whatsapp message - send to current primary WhatsApp route")
 (SkillHelp "channels" "send-primary-operator message - send to the configured primary operator override route")
 (SkillHelp "channels" "reply-whatsapp-to-message jid message-id message - quoted reply to a specific message id from read-whatsapp-chat")

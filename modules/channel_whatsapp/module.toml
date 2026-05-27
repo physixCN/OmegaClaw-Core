@@ -18,6 +18,7 @@ provides = [
   "skill:whatsapp-chats",
   "skill:whatsapp-status",
   "skill:read-whatsapp-chat",
+  "skill:read-whatsapp-chat-recent",
   "skill:read-whatsapp-chat-full",
   "skill:mark-whatsapp-read",
   "skill:mark-whatsapp-unread",

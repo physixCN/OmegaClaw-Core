@@ -70,6 +70,10 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             parser.signature_balance_parentheses("beliefs-about Anna"),
         )
         self.assertIn(
+            "run beliefs-for domain if relation is unknown",
+            parser.signature_balance_parentheses("beliefs-about Anna"),
+        )
+        self.assertIn(
             '(syntax-error "space-find" "unknown space nowhere; known spaces:',
             parser.signature_balance_parentheses("space-find nowhere (A $x)"),
         )
@@ -92,6 +96,16 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             'persistent-merge-atoms (PersistentFact "Omega" "diagnostic-phase" "in-progress" "0.9") (PersistentFact "Omega" "diagnostic-phase" "in-progress" "0.9") exact duplicate': '((persistent-merge-atoms "(PersistentFact \\"Omega\\" \\"diagnostic-phase\\" \\"in-progress\\" \\"0.9\\")" "(PersistentFact \\"Omega\\" \\"diagnostic-phase\\" \\"in-progress\\" \\"0.9\\")" "exact duplicate"))',
             'retire-persistent-expression (PersistentNote "agent" "test: colon ok" "0.8") stale duplicate': '((retire-persistent-expression "(PersistentNote \\"agent\\" \\"test: colon ok\\" \\"0.8\\")" "stale duplicate"))',
             'retire-persistent-expression "(PersistentNote "agent" "test: colon ok" "0.8")" stale duplicate': '((retire-persistent-expression "(PersistentNote \\"agent\\" \\"test: colon ok\\" \\"0.8\\")" "stale duplicate"))',
+            'persistent-cleanup-candidates': '((persistent-cleanup-candidates 50))',
+            'persistent-cleanup-candidates 12': '((persistent-cleanup-candidates 12))',
+            'persistent-cleanup-propose pc-123 merge-duplicate exact duplicate review': '((persistent-cleanup-propose "pc-123" "merge-duplicate" "exact duplicate review"))',
+            'persistent-cleanup-commit pp-123': '((persistent-cleanup-commit "pp-123"))',
+            'cleanup-proposals': '((cleanup-proposals))',
+            'agenda-complete cleanup-test duplicate merged': '((agenda-complete "cleanup-test" "duplicate merged"))',
+            'belief-derived Omega autonomy relational 0.84 0.8': '((belief-derived "Omega autonomy relational 0.84 0.8"))',
+            'beliefs-for Omega': '((beliefs-for "Omega"))',
+            'events-recent': '((events-recent))',
+            'space-examples-default persistent': '((space-examples-default "persistent"))',
             'assimilate-world audio | obs123 | Person | preference | warm updates | 0.9': '((assimilate-world "audio | obs123 | Person | preference | warm updates | 0.9"))',
             'metta get-atoms &persistent': '((metta "(get-atoms &persistent)"))',
             'metta "(add-atom &persistent (PersistentNote "agent" "x" "0.8"))"': '((metta "(add-atom &persistent (PersistentNote \\"agent\\" \\"x\\" \\"0.8\\"))"))',

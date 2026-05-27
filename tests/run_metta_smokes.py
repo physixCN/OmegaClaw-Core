@@ -37,7 +37,7 @@ def _default_omegaclaw_root() -> pathlib.Path:
 
 OMEGACLAW_ROOT = _default_omegaclaw_root()
 
-LIVE_SPACE_NAMES = ("persistent", "agenda", "beliefs", "world", "events", "attention", "assume")
+LIVE_SPACE_NAMES = ("persistent", "agenda", "beliefs", "world", "events", "activity", "cleanup", "attention", "assume")
 
 LIVE_MEMORY_PATTERNS = {
     "imports-full-runtime": re.compile(r"lib_omegaclaw"),
@@ -46,6 +46,8 @@ LIVE_MEMORY_PATTERNS = {
     "mutates-beliefs": re.compile(r"(?:add|remove)-atom\s+&beliefs|export!\s+&beliefs"),
     "mutates-agenda": re.compile(r"(?:add|remove)-atom\s+&agenda|export!\s+&agenda"),
     "mutates-events": re.compile(r"(?:add|remove)-atom\s+&events|export!\s+&events"),
+    "mutates-activity": re.compile(r"(?:add|remove)-atom\s+&activity|export!\s+&activity"),
+    "mutates-cleanup": re.compile(r"(?:add|remove)-atom\s+&cleanup|export!\s+&cleanup"),
     "mutates-attention": re.compile(r"(?:add|remove)-atom\s+&attention|export!\s+&attention"),
     "mutates-assume": re.compile(r"(?:add|remove)-atom\s+&assume|export!\s+&assume"),
     "writes-files": re.compile(r"\b(?:write-file|append-file|write-file-base64|append-file-base64)\b"),

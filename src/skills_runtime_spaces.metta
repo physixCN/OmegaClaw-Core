@@ -47,12 +47,14 @@
           (register-space "world" &world memory)
           (register-space "events" &events memory)
           (register-space "activity" &activity memory)
+          (register-space "cleanup" &cleanup memory)
           (register-space-alias persistent "persistent")
           (register-space-alias agenda "agenda")
           (register-space-alias beliefs "beliefs")
           (register-space-alias world "world")
           (register-space-alias events "events")
           (register-space-alias activity "activity")
+          (register-space-alias cleanup "cleanup")
           (register-space-limit "persistent" &maxPersistentAtomsChars)
           (register-space-limit "agenda" &maxAgendaAtomsChars)
           (register-space-limit "beliefs" &maxBeliefAtomsChars)
@@ -65,6 +67,7 @@
           (register-space-persistence "world" (library OmegaClaw-Core ./memory/world.metta) runtime-state)
           (register-space-persistence "events" (library OmegaClaw-Core ./memory/events.metta) runtime-state)
           (register-space-persistence "activity" (library OmegaClaw-Core ./memory/activity.metta) runtime-state)
+          (register-space-persistence "cleanup" (library OmegaClaw-Core ./memory/cleanup.metta) runtime-state)
           DefaultRuntimeSpacesRegistered))
 
 (= (space-canonical-name $name)
@@ -197,6 +200,9 @@
 
 (= (space-examples $name $patternstr)
    (space-examples $name $patternstr 5))
+
+(= (space-examples-default $name)
+   (space-examples $name "$atom" 5))
 
 (= (space-pressure)
    (repr (collapse (match &self (SpaceRegistry $name $handle $role)

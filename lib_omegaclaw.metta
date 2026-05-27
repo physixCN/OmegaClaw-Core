@@ -44,3 +44,4 @@
 !(bind! &world (new-space))
 !(bind! &events (new-space))
 !(bind! &activity (new-space))
+!(bind! &cleanup (new-space))
