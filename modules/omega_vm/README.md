@@ -1,6 +1,10 @@
-# Tiny VM Module
+# Tiny VM Module (POC)
 
 This module gives the agent a tiny ephemeral Linux workspace-device.
+
+Status: POC / optional. It is not default-enabled for out-of-box operation
+until the QEMU dependency path, resource boundaries, and command safety model
+have had more review.
 
 The VM is represented symbolically as MeTTa atoms and executed through a QEMU
 membrane. The agent can inspect the module, decide whether to use it, run a

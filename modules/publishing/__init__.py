@@ -1,1 +1,0 @@
-"""Publishing skill module."""

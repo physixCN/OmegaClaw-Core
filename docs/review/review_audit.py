@@ -83,15 +83,12 @@ BODY_PATCHES = {
 
 FORBIDDEN_CORE_DIFF_PATHS = (
     "web/",
-    "src/webhost.py",
     "channels/whatsapp_bridge/auth",
     "memory/web/",
 )
 
 FORBIDDEN_BODY_DIFF_PATHS = (
     "web/",
-    "src/webhost.py",
-    "tests/test_webhost_local.py",
     "tests/test_omega_surface.py",
 )
 
@@ -102,14 +99,12 @@ FORBIDDEN_DIFF_PATH_FRAGMENTS = (
 )
 
 FORBIDDEN_CORE_STRINGS = (
-    "omega." + "groveybaby.family",
     "Grovey " + "Baby",
 )
 
 FORBIDDEN_BODY_STRINGS = (
     "auth_" + "omega",
     "the agent" + "- ",
-    "omega." + "groveybaby.family",
     "Grovey " + "Baby",
 )
 
@@ -273,10 +268,6 @@ def check_patch_boundaries() -> list[Finding]:
                     findings.append(
                         Finding("patch-boundary", f"{rel(patch)} contains deployment-specific default {needle!r}")
                     )
-        if name not in LOCAL_ONLY_PATCHES and any(path.startswith("web/omega-os/") for path in paths):
-            findings.append(
-                Finding("patch-boundary", f"{rel(patch)} contains the agent OS web assets outside local patch")
-            )
     return findings
 
 

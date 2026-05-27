@@ -1,8 +1,8 @@
 ; Isolated smoke for large modules: operating surfaces and simulations.
-; This proves the same module atom contract can represent a whole UI world or
+; This proves the same module atom contract can represent a whole operator surface or
 ; game world, not only a small callable skill.
 
-!(import! &self (library OmegaClaw-Core ./tests/fixtures/modules/omega_os_surface/entry.metta))
+!(import! &self (library OmegaClaw-Core ./tests/fixtures/modules/operator_console_surface/entry.metta))
 !(import! &self (library OmegaClaw-Core ./tests/fixtures/modules/metta_maze_game/entry.metta))
 
 !(println! MODULE-WORLDS-KINDS)

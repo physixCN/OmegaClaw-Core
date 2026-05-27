@@ -58,14 +58,6 @@ EXIT_PRESETS = [
         "access": "high",
     },
     {
-        "name": "webhost",
-        "purpose": "Cloudflare tunnel and public the agent site",
-        "hosts": ["*.cloudflare.com", "*.argotunnel.com"],
-        "risk": "published artifacts become externally visible",
-        "necessity": "required",
-        "access": "medium",
-    },
-    {
         "name": "github",
         "purpose": "repo review, patch sharing, upstream collaboration",
         "hosts": ["github.com", "api.github.com", "raw.githubusercontent.com"],

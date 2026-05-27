@@ -1,6 +1,6 @@
 (SkillCatalog "VM policy immune organ: vm-policy-status, vm-policy-exits, vm-policy-atoms, vm-policy-connections, vm-policy-metrics, vm-policy-audit, vm-policy-enforcement-plan, vm-policy-maintenance-window, vm-policy-record-exit, vm-policy-exit-history, vm-policy-exit-summary, vm-policy-last-trace")
 (SkillHelp "vm-policy" "vm-policy-status - inspect the VM containment boundary: mounts, privileged groups, firewall tools, active listeners, and enforcement mode")
-(SkillHelp "vm-policy" "vm-policy-exits - list named external exits the agent may need: model, messaging, house, webhost, github, packages, search")
+(SkillHelp "vm-policy" "vm-policy-exits - list named external exits the agent may need: model, messaging, house, github, packages, search")
 (SkillHelp "vm-policy" "vm-policy-atoms - return clean MeTTa atoms for VM exits, risks, mode, and boundary facts")
 (SkillHelp "vm-policy" "vm-policy-connections - observe live VM network connections as MeTTa atoms")
 (SkillHelp "vm-policy" "vm-policy-metrics - expose VM runtime metrics as MeTTa atoms")

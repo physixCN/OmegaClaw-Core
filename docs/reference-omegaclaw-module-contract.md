@@ -123,15 +123,15 @@ The agent can ask which channels can send files:
 (match &self (ChannelCapability $channel file-send) $channel)
 ```
 
-Large modules use the same pattern. A spatial operating surface can be declared
+Large modules use the same pattern. An operator console or other operating surface can be declared
 as an organ/world:
 
 ```metta
-(Module omegaclaw.os.omega-surface)
-(ModuleKind omegaclaw.os.omega-surface operating-surface)
-(Surface omega-os)
-(Provides omegaclaw.os.omega-surface (Skill open-window))
-(SurfaceCapability omega-os live-mind-map)
+(Module openclaw.surface.operator-console)
+(ModuleKind openclaw.surface.operator-console operating-surface)
+(Surface operator-console)
+(Provides openclaw.surface.operator-console (Skill open-panel))
+(SurfaceCapability operator-console runtime-state-view)
 ```
 
 A game or simulation can be declared similarly:

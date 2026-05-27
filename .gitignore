@@ -75,7 +75,6 @@ channels/whatsapp_bridge/*.bak-*
 channels/*.bak-*
 src/*.bak-*
 memory/*.bak-*
-web/omega-os/node_modules/
 
 # Credentials and local runtime config
 memory/home_assistant.json

@@ -20,7 +20,7 @@ class VMPolicyModuleTests(unittest.TestCase):
     def test_exits_are_named_and_include_required_body_channels(self):
         exits = vm_policy.vm_policy_exits()
         self.assertIn("VM-POLICY-EXITS", exits)
-        for name in ("model", "messaging", "house", "webhost", "github", "packages", "search"):
+        for name in ("model", "messaging", "house", "github", "packages", "search"):
             self.assertIn(f"{name}:", exits)
 
     def test_atoms_surface_vm_boundary_as_metta(self):

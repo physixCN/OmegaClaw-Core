@@ -22,7 +22,6 @@
 !(import! &self (library OmegaClaw-Core ./modules/gameboy/entry.metta))
 !(import! &self (library OmegaClaw-Core ./modules/home_assistant/entry.metta))
 !(import! &self (library OmegaClaw-Core ./modules/omega_vm/entry.metta))
-!(import! &self (library OmegaClaw-Core ./modules/publishing/entry.metta))
 !(import! &self (library OmegaClaw-Core ./modules/scratch_space/entry.metta))
 !(import! &self (library OmegaClaw-Core ./modules/vm_policy/entry.metta))
 !(import! &self (library OmegaClaw-Core ./modules/sense_router/entry.metta))

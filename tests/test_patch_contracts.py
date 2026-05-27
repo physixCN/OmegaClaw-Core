@@ -147,7 +147,6 @@ class PatchBoundaryContractTests(unittest.TestCase):
         loader = read("modules/loader.metta")
         self.assertIn("modules/sense_vision/entry.metta", loader)
         self.assertIn("modules/channel_router/entry.metta", loader)
-        self.assertIn("modules/publishing/entry.metta", loader)
         self.assertIn("modules/gameboy/entry.metta", loader)
         self.assertIn("modules/omega_vm/entry.metta", loader)
         self.assertNotIn("skill_catalog_web.metta", body)
@@ -434,7 +433,6 @@ class PatchBoundaryContractTests(unittest.TestCase):
         files = [
             "run.metta",
             "lib_omegaclaw_attention.metta",
-            "modules/publishing/entry.metta",
             "modules/body_container/entry.metta",
             "modules/gameboy/entry.metta",
             "modules/omega_vm/entry.metta",

@@ -30,7 +30,7 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             'remember "user said test carefully before changing syntax"': '((remember "user said test carefully before changing syntax"))',
             'pin "WARM | testing quoted rest args | next replay"': '((pin "WARM | testing quoted rest args | next replay"))',
             'send "Line one_newline_Line two: still same send"': '((send "Line one Line two: still same send"))',
-            'shell "grep -n PAGE_MEMBER_HINTS src/webhost.py"': '((shell "grep -n PAGE_MEMBER_HINTS src/webhost.py"))',
+            'shell "grep -n SkillSignature src/skills_runtime_spaces.metta"': '((shell "grep -n SkillSignature src/skills_runtime_spaces.metta"))',
             "send Dinner (pasta) is ready": '((send "Dinner (pasta) is ready"))',
             "shell find memory/web -maxdepth 2 -type f": '((shell "find memory/web -maxdepth 2 -type f"))',
             "remember UI preference: warm | simple | private": '((remember "UI preference: warm | simple | private"))',

@@ -32,4 +32,4 @@ This branch collects the portable core-readiness layers prepared after live Omeg
 
 ### Not included
 
-- Deployment-specific glue such as live webhost proxy configuration, live run-script endpoint values, WhatsApp channels, and Home Assistant body-app experiments.
+- Deployment-specific glue such as live run-script endpoint values, WhatsApp channels, and Home Assistant body-app experiments.

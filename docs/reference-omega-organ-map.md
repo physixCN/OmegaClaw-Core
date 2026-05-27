@@ -23,12 +23,12 @@ Example shapes:
 ## Voice
 
 Voice surfaces send the agent's chosen expression through configured channels,
-files, and web publishing. Voice adapters should preserve formatting and report
+files. Voice adapters should preserve formatting and report
 delivery outcomes.
 
 ## Hands
 
-Hands execute actions such as house control, file sending, image/video generation, artifact publishing, and shell-confirm. A hand should expose affordances and outcomes, not intentions.
+Hands execute actions such as house control, file sending, image/video generation, artifact handling, and shell-confirm. A hand should expose affordances and outcomes, not intentions.
 
 Example shapes:
 
