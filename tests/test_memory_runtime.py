@@ -33,6 +33,30 @@ class MemoryRuntimeTests(unittest.TestCase):
                 "EPISODES-NOT-FOUND 2026-05-17 21:00:00",
             )
 
+    def test_date_only_episodes_returns_recent_index_not_truncated_midnight_blob(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            memory_dir = pathlib.Path(tmpdir)
+            history_path = memory_dir / "history.metta"
+            history_path.write_text(
+                '("2026-05-27 00:01:00"\n'
+                ' ((write-file-base64 "/tmp/big" "' + ("A" * 2000) + '"))\n'
+                ' "RESULTS: " "ok"\n)\n'
+                '("2026-05-27 01:55:14"\n'
+                ' "HUMAN_MESSAGE: " WHATSAPP: Jon: Omega?\n'
+                ' ((reply-whatsapp-to "523@lid" "I used 🛉 here"))\n'
+                ' "RESULTS: " "ok"\n)\n',
+                encoding="utf-8",
+            )
+            helper_history = self.import_with_memory("helper_history", memory_dir)
+
+            result = helper_history.episodes_at("2026-05-27", k=20, max_chars=1200)
+
+            self.assertIn("EPISODES-ON 2026-05-27", result)
+            self.assertIn("2026-05-27 01:55:14", result)
+            self.assertIn("🛉", result)
+            self.assertIn("<long-token chars=2000>", result)
+            self.assertNotIn("EPISODES-CONTEXT-TRUNCATED", result)
+
     def test_context_history_compacts_skill_declared_payloads_only(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             memory_dir = pathlib.Path(tmpdir)
@@ -64,7 +88,7 @@ class MemoryRuntimeTests(unittest.TestCase):
             big_payload = "quoted command mention " * 120
             history = (
                 '(remember "literal syntax mention: '
-                f'(write-file \\"memory/page.html\\" \\"{big_payload}\\")'
+                f'(write-file \"memory/page.html\" \"{big_payload}\")'
                 ' should remain thought text")\n'
             )
             history_path = memory_dir / "history.metta"

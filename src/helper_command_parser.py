@@ -28,6 +28,7 @@ SIGNATURE_NO_ACTION_HEADS = set()
 
 
 SIGNATURE_MULTILINE_LOWERING = {}
+SIGNATURE_PROSE_FALLBACK = ""
 SIGNATURE_SHORTHANDS = {}
 SIGNATURE_RECOVERY_HINTS = {}
 SIGNATURE_SKILL_CARDS = {}
@@ -44,6 +45,7 @@ SIGNATURE_ARG_TYPES = {
     "optional-number",
     "optional-rest-text",
     "pipe-fields",
+    "base64-utf8",
     "pipe-spec",
     "rest-text",
     "shell-command",
@@ -322,6 +324,30 @@ def _load_signature_lowerings(path=SIGNATURE_DECLARATIONS_PATH, fallback=None):
     return lowerings
 
 
+def _load_signature_prose_fallback(path=SIGNATURE_DECLARATIONS_PATH, fallback=""):
+    selected = fallback or ""
+    loaded = []
+    for signature_path in _signature_declaration_paths(path):
+        try:
+            text = pathlib.Path(signature_path).read_text(encoding="utf-8")
+        except Exception:
+            continue
+        for line_number, raw_line in enumerate(text.splitlines(), 1):
+            line = _strip_signature_comment(raw_line)
+            if not line:
+                continue
+            if not line.startswith("(SignatureProseFallback"):
+                continue
+            match = re.match(r"^\(SignatureProseFallback\s+([^\s()]+)\)$", line)
+            if not match:
+                _signature_decl_error(signature_path, line_number, "malformed SignatureProseFallback declaration", line)
+            loaded.append(f"{signature_path}:{line_number}")
+            selected = match.group(1)
+    if len(loaded) > 1:
+        _signature_decl_error(loaded[-1], 0, "duplicate SignatureProseFallback", "")
+    return selected
+
+
 def _load_signature_no_action_heads(path=SIGNATURE_DECLARATIONS_PATH):
     heads = set()
     for signature_path in _signature_declaration_paths(path):
@@ -445,6 +471,7 @@ def _load_signature_shorthands(path=SIGNATURE_DECLARATIONS_PATH):
 SIGNATURE_COMMANDS = _load_signature_commands(fallback=SIGNATURE_BOOTSTRAP_COMMANDS)
 SIGNATURE_KNOWN_SPACES = _load_signature_spaces(fallback=SIGNATURE_BOOTSTRAP_SPACES)
 SIGNATURE_MULTILINE_LOWERING = _load_signature_lowerings()
+SIGNATURE_PROSE_FALLBACK = _load_signature_prose_fallback()
 SIGNATURE_NO_ACTION_HEADS = _load_signature_no_action_heads()
 SIGNATURE_SHORTHANDS = _load_signature_shorthands()
 SIGNATURE_RECOVERY_HINTS = _load_signature_recovery_hints()
@@ -464,6 +491,11 @@ def signature_spaces_from(path=SIGNATURE_DECLARATIONS_PATH):
 def signature_lowerings_from(path=SIGNATURE_DECLARATIONS_PATH):
     """Read SignatureLowering atoms from MeTTa declaration files."""
     return _load_signature_lowerings(path=path)
+
+
+def signature_prose_fallback_from(path=SIGNATURE_DECLARATIONS_PATH):
+    """Read the declared fallback command for plain human-facing prose."""
+    return _load_signature_prose_fallback(path=path)
 
 
 def signature_no_action_heads_from(path=SIGNATURE_DECLARATIONS_PATH):
@@ -717,6 +749,7 @@ def _signature_split_commands(raw):
         continuing = in_block or in_quote
         stripped = line.strip()
         if not stripped and not in_block and not in_quote:
+            logical.append("")
             continue
         buffered = line if continuing else stripped
         current.append(buffered)
@@ -752,11 +785,69 @@ def _signature_explicit_command_head(line):
     return head if head in SIGNATURE_COMMANDS else ""
 
 
+def _signature_base64ish_text(text):
+    value = str(text or "").strip().strip('"')
+    return bool(value) and bool(re.fullmatch(r"[A-Za-z0-9+/=_-]+", value))
+
+
+def _signature_accepts_base64_continuation(head):
+    signature = SIGNATURE_COMMANDS.get(head, ())
+    return bool(signature) and signature[-1][0] in {"base64", "base64-utf8"}
+
+
 def _signature_accepts_unquoted_continuation(head):
     if head in {"wait", "query", "web-search", "search", "shell", "shell-confirm"}:
         return False
     signature = SIGNATURE_COMMANDS.get(head, ())
     return any(arg_type in {"rest-text", "multiline"} for arg_type, _ in signature)
+
+
+def _signature_append_base64_continuation(previous, continuation):
+    clean = str(continuation or "").strip().strip('"')
+    prev = str(previous or "").rstrip()
+    if prev.endswith('"'):
+        return prev[:-1] + clean + '"'
+    return prev + clean
+
+
+def _signature_validate_base64_token(token, require_utf8=False):
+    token = str(token or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9+/=_-]*", token):
+        raise SignatureParseError("invalid base64-ish payload")
+    normalized = token.replace("-", "+").replace("_", "/")
+    padded = normalized + ("=" * ((4 - len(normalized) % 4) % 4))
+    try:
+        decoded = base64.b64decode(padded, validate=True)
+    except Exception:
+        raise SignatureParseError("invalid base64 payload")
+    if require_utf8:
+        try:
+            decoded.decode("utf-8")
+        except UnicodeDecodeError:
+            raise SignatureParseError("base64 payload must decode as utf-8")
+    return token
+
+
+def _signature_looks_like_primary_prose(text):
+    """Detect human-facing prose that should be sent to the control route."""
+    if not SIGNATURE_PROSE_FALLBACK:
+        return False
+    if SIGNATURE_PROSE_FALLBACK not in SIGNATURE_COMMANDS:
+        return False
+    raw = str(text or "").replace("_quote_", '"').replace("_newline_", "\n").strip()
+    if not raw or raw.startswith("("):
+        return False
+    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    if not lines:
+        return False
+    if any(_signature_explicit_command_head(line) for line in lines):
+        return False
+    return len(lines) > 1
+
+
+def _signature_render_prose_fallback(text):
+    payload = base64.b64encode(str(text or "").encode("utf-8")).decode("ascii")
+    return f"(({SIGNATURE_PROSE_FALLBACK} {_signature_quote(payload)}))"
 
 
 def _signature_merge_continuations(lines):
@@ -766,6 +857,9 @@ def _signature_merge_continuations(lines):
         head = _signature_explicit_command_head(line)
         if merged and not head and _signature_accepts_unquoted_continuation(current_head):
             merged[-1] = merged[-1] + "\n" + line
+            continue
+        if merged and not head and _signature_accepts_base64_continuation(current_head) and _signature_base64ish_text(line):
+            merged[-1] = _signature_append_base64_continuation(merged[-1], line)
             continue
         merged.append(line)
         current_head = head
@@ -873,9 +967,10 @@ def _signature_parse_prefix_args(signature, rest):
             args.append(_signature_quote(token))
         elif arg_type == "base64":
             token, rest = _signature_consume_token(rest)
-            if not re.fullmatch(r"[A-Za-z0-9+/=_-]*", token or ""):
-                raise SignatureParseError("invalid base64-ish payload")
-            args.append(_signature_quote(token))
+            args.append(_signature_quote(_signature_validate_base64_token(token)))
+        elif arg_type == "base64-utf8":
+            token, rest = _signature_consume_token(rest)
+            args.append(_signature_quote(_signature_validate_base64_token(token, require_utf8=True)))
         elif arg_type == "number":
             token, rest = _signature_consume_token(rest)
             if not re.fullmatch(r"-?\d+(\.\d+)?", token or ""):
@@ -898,9 +993,13 @@ def _signature_parse_prefix_args(signature, rest):
                 raise SignatureParseError(_signature_space_error(token))
             args.append(_signature_quote(token))
         elif arg_type == "metta":
+            if not rest.strip():
+                raise SignatureParseError(f"missing {name}")
             expr, rest = _signature_consume_metta(rest, consume_all=index == len(signature) - 1)
             args.append(_signature_quote(expr))
         elif arg_type == "metta-raw":
+            if not rest.strip():
+                raise SignatureParseError(f"missing {name}")
             expr, rest = _signature_consume_metta(rest, consume_all=index == len(signature) - 1)
             args.append(expr)
         else:
@@ -983,9 +1082,9 @@ def _signature_render_typed_value(arg_type, name, value):
             raise SignatureParseError(f"{name} must be number")
         return value
     if arg_type == "base64":
-        if not re.fullmatch(r"[A-Za-z0-9+/=_-]*", value or ""):
-            raise SignatureParseError("invalid base64-ish payload")
-        return _signature_quote(value)
+        return _signature_quote(_signature_validate_base64_token(value))
+    if arg_type == "base64-utf8":
+        return _signature_quote(_signature_validate_base64_token(value, require_utf8=True))
     if arg_type == "rest-text":
         return _signature_quote(_signature_one_line(value))
     if arg_type in {"text", "jid", "filepath", "shell-command"}:
@@ -1146,9 +1245,10 @@ def _signature_parse_one(line):
             args.append(_signature_quote(token))
         elif arg_type == "base64":
             token, rest = _signature_consume_token(rest)
-            if not re.fullmatch(r"[A-Za-z0-9+/=_-]*", token or ""):
-                raise SignatureParseError("invalid base64-ish payload")
-            args.append(_signature_quote(token))
+            args.append(_signature_quote(_signature_validate_base64_token(token)))
+        elif arg_type == "base64-utf8":
+            token, rest = _signature_consume_token(rest)
+            args.append(_signature_quote(_signature_validate_base64_token(token, require_utf8=True)))
         elif arg_type == "number":
             token, rest = _signature_consume_token(rest)
             if not re.fullmatch(r"-?\d+(\.\d+)?", token or ""):
@@ -1179,9 +1279,13 @@ def _signature_parse_one(line):
                 raise SignatureParseError(_signature_space_error(token))
             args.append(_signature_quote(token))
         elif arg_type == "metta":
+            if not rest.strip():
+                raise SignatureParseError(f"missing {name}")
             expr, rest = _signature_consume_metta(rest, consume_all=index == len(signature) - 1)
             args.append(_signature_quote(expr))
         elif arg_type == "metta-raw":
+            if not rest.strip():
+                raise SignatureParseError(f"missing {name}")
             expr, rest = _signature_consume_metta(rest, consume_all=index == len(signature) - 1)
             args.append(expr)
         elif arg_type == "pipe-fields":
@@ -1218,6 +1322,8 @@ def signature_balance_parentheses(s):
     if '\\"' in s and not _has_unescaped_quote(s):
         s = re.sub(r'\\+"', '"', s)
     stripped = s.strip()
+    if _signature_looks_like_primary_prose(stripped):
+        return _signature_render_prose_fallback(stripped)
     if stripped and "\n" not in stripped and '"""' not in stripped and not stripped.startswith("(("):
         try:
             return "(" + _signature_parse_one(stripped) + ")"
@@ -1241,10 +1347,12 @@ def reload_signature_commands(path=SIGNATURE_DECLARATIONS_PATH):
     able to expose new SkillSignature atoms without editing this parser module.
     """
     global SIGNATURE_COMMANDS, SIGNATURE_KNOWN_SPACES, SIGNATURE_MULTILINE_LOWERING
-    global SIGNATURE_NO_ACTION_HEADS, SIGNATURE_SHORTHANDS, SIGNATURE_RECOVERY_HINTS, SIGNATURE_SKILL_CARDS
+    global SIGNATURE_PROSE_FALLBACK, SIGNATURE_NO_ACTION_HEADS, SIGNATURE_SHORTHANDS
+    global SIGNATURE_RECOVERY_HINTS, SIGNATURE_SKILL_CARDS
     SIGNATURE_COMMANDS = _load_signature_commands(path=path, fallback=SIGNATURE_BOOTSTRAP_COMMANDS)
     SIGNATURE_KNOWN_SPACES = _load_signature_spaces(path=path, fallback=SIGNATURE_BOOTSTRAP_SPACES)
     SIGNATURE_MULTILINE_LOWERING = _load_signature_lowerings(path=path)
+    SIGNATURE_PROSE_FALLBACK = _load_signature_prose_fallback(path=path)
     SIGNATURE_NO_ACTION_HEADS = _load_signature_no_action_heads(path=path)
     SIGNATURE_SHORTHANDS = _load_signature_shorthands(path=path)
     SIGNATURE_RECOVERY_HINTS = _load_signature_recovery_hints(path=path)
