@@ -59,7 +59,7 @@ User-facing MeTTa skills the agent invokes. Each page follows the template **Sig
 - [reference-configuration.md](./reference-configuration.md) — `configure` form and all runtime parameters
 - [reference-channels.md](./reference-channels.md) — IRC, Telegram, Mattermost, and websearch adapters plus the channel contract
 - [reference-python-bridges.md](./reference-python-bridges.md) — `lib_llm_ext.py`, `modules/agentverse/src/agentverse_bridge.py`, `src/helper.py`, `src/skills.pl`
-- [reference-testing-benchmarks.md](./reference-testing-benchmarks.md) — required tests, smoke classification, optional skips, and reviewer benchmarks
+- [reference-testing-benchmarks.md](./reference-testing-benchmarks.md) — required tests, smoke classification, optional skips, reviewer benchmarks, and demo suite
 
 ### Internals
 

@@ -85,6 +85,23 @@ For a quick parser-only latency check:
 PYTHONPATH=src python3 tests/bench_parser_latency.py
 ```
 
+## Demo Suite
+
+The demo suite is separate from the benchmark suite. Benchmarks quantify parser,
+context, and footprint cost; demos show what the patch family actually does in
+reviewable scenarios.
+
+```bash
+PYTHONPATH=src python3 docs/review/demo_suite.py \
+  --output docs/review/v0.01a-demo-results.md
+```
+
+The demos are sanitized and local by default. They cover syntax-membrane repair,
+large payload context compaction with raw history preserved, bounded episode
+recall, module/skill surface, AgentVerse module surface, and the Assume/FabricPC
+story when FabricPC is configured. FabricPC absence is reported as `SKIP`, not a
+core failure.
+
 ## Optional Module Tests
 
 Some tests are intentionally skip-safe:

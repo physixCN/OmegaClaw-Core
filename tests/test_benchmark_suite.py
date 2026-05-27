@@ -6,10 +6,19 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BENCHMARK = ROOT / "docs" / "review" / "benchmark_suite.py"
+DEMO_SUITE = ROOT / "docs" / "review" / "demo_suite.py"
 
 
 def load_benchmark():
     spec = importlib.util.spec_from_file_location("benchmark_suite", BENCHMARK)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_demo_suite():
+    spec = importlib.util.spec_from_file_location("demo_suite", DEMO_SUITE)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -72,6 +81,31 @@ class BenchmarkSuiteTests(unittest.TestCase):
         })
         self.assertIn("Baseline ref: `origin/main`", text)
         self.assertIn("Assume/Fabric demo", text)
+
+
+    def test_demo_suite_context_payload_demo_proves_raw_history_preserved(self):
+        demo = load_demo_suite()
+
+        section = demo.context_payload_demo()
+
+        self.assertEqual(section.status, "PASS")
+        text = "\n".join(section.lines)
+        self.assertIn("raw history", text)
+        self.assertIn("context-omitted-payload", text)
+        self.assertIn("Prompt-view reduction", text)
+
+    def test_demo_suite_report_contains_reviewer_sections(self):
+        demo = load_demo_suite()
+        sections = [
+            demo.DemoSection("Syntax Membrane", "PASS", ["ok"]),
+            demo.DemoSection("Context Payload Compaction", "PASS", ["ok"]),
+        ]
+
+        text = demo.build_report(sections)
+
+        self.assertIn("v0.01a Demo Suite Results", text)
+        self.assertIn("Syntax Membrane", text)
+        self.assertIn("Context Payload Compaction", text)
 
 
 if __name__ == "__main__":
