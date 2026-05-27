@@ -446,7 +446,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         prompt = (ROOT / "memory" / "prompt.txt").read_text(encoding="utf-8")
         self.assertIn("warm is the default quiet cognition mode", energy_affordance)
         self.assertIn("asleep means dormant rest-only", energy_affordance)
-        self.assertIn("During active requested work", prompt)
+        self.assertTrue("During active requested work" in prompt or "During active human-requested work" in prompt)
 
     def test_cycle_counting_is_a_body_affordance_not_shell_memory(self):
         loop = (ROOT / "src" / "loop.metta").read_text(encoding="utf-8")

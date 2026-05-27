@@ -577,3 +577,10 @@
 (SkillTrigger "assume-observe-writeback" "mentions-word:writeback" 0.76 "writeback wording should recall preview before commit")
 (SkillTrigger "assume-review-mutation" "mentions-word:mutation" 0.70 "mutation wording should recall review before commit")
 (SkillTrigger "assume-demo-list" "mentions-word:demo" 0.58 "demo wording can start from available Assume demo graphs")
+
+; Skill-card hygiene: every callable signature has a visible card and argument shape.
+(SkillArg "assume-status" 0 "none" "none")
+(SkillArg "assume-review" 0 "none" "none")
+(SkillArg "assume-demo-list" 0 "none" "none")
+(SkillArg "assume-clear-work" 0 "none" "none")
+(SkillArg "assume-work" 0 "none" "none")

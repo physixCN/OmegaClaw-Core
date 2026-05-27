@@ -1021,6 +1021,45 @@ def run_metta_file(path, timeout_seconds=20, max_chars=12000):
     except Exception as exc:
         return f"RUN-METTA-FILE-ERROR {type(exc).__name__}: {exc}"
 
+def _safe_readable_path(raw):
+    raw = _resolve_runtime_path(raw)
+    if not raw:
+        return None, "empty filepath"
+    raw_is_tmp = raw == "/tmp" or raw.startswith("/tmp/")
+    candidate = pathlib.Path(raw).expanduser()
+    if not candidate.is_absolute():
+        candidate = (OMEGACLAW_ROOT / candidate).resolve()
+    else:
+        candidate = candidate.resolve()
+    try:
+        candidate.relative_to(OMEGACLAW_ROOT)
+    except ValueError:
+        if not raw_is_tmp:
+            return None, f"path outside OmegaClaw or /tmp: {candidate}"
+    return candidate, None
+
+
+def read_file_text(path):
+    target, error = _safe_readable_path(path)
+    if error:
+        return f"READ-FILE-ERROR {error}"
+    if not target.exists():
+        return f"READ-FILE-ERROR missing file: {target}"
+    if not target.is_file():
+        return f"READ-FILE-ERROR not a file: {target}"
+    try:
+        data = target.read_bytes()
+    except Exception as exc:
+        return f"READ-FILE-ERROR {type(exc).__name__}: {exc}"
+    if b"\x00" in data[:4096]:
+        return f"READ-FILE-ERROR binary-file path={target} MESSAGE-NOT-DELIVERED use inspect-image/observe-image for media, gb-observe for Game Boy state, or shell/file tools only if explicitly debugging bytes"
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        suffix = target.suffix.lower().lstrip(".") or "unknown"
+        return f"READ-FILE-ERROR non-utf8-file type={suffix} path={target} MESSAGE-NOT-DELIVERED use inspect-image/observe-image for media, gb-observe for Game Boy state, or a base64/binary-specific tool"
+
+
 def _safe_writable_path(raw):
     raw = _resolve_runtime_path(raw)
     if not raw:

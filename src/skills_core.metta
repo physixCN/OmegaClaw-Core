@@ -1,9 +1,7 @@
 !(import_prolog_functions_from_file (library OmegaClaw-Core ./src/skills.pl) (shell shell_confirm first_char gc read_file_tail))
 
 (= (read-file $file)
-   (progn (translatePredicate (exists_file $file))
-          (translatePredicate (read_file_to_string $file $content ()))
-          $content))
+   (py-call (helper.read_file_text $file)))
 
 (= (write-file $file $str)
    (progn (translatePredicate (open $file write $Out))

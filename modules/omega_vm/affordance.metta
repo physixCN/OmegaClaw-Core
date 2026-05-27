@@ -14,3 +14,15 @@
 
 (Risk "vm-shell" "nested-vm-command")
 (Effect "vm-shell" "vm-device-action")
+
+; Skill-card hygiene: every callable signature has a visible card and argument shape.
+(Skill "vm-boot")
+(Skill "vm-last-trace")
+(Skill "vm-shell")
+(Skill "vm-status")
+(SkillArg "vm-status" 0 "none" "none")
+(SkillArg "vm-boot" 0 "none" "none")
+(SkillCardLine "vm-boot" "vm-boot - vm skill; inspect this card before use when syntax or purpose is uncertain")
+(SkillArg "vm-shell" 1 "rest-text" "command")
+(SkillArg "vm-last-trace" 0 "none" "none")
+(SkillCardLine "vm-last-trace" "vm-last-trace - vm skill; inspect this card before use when syntax or purpose is uncertain")

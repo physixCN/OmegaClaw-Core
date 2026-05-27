@@ -19,7 +19,7 @@ ROM_DIR = pathlib.Path(os.environ.get("OMEGACLAW_GAMEBOY_ROM_DIR", STATE_DIR / "
 SCREENSHOT_DIR = STATE_DIR / "screens"
 SAVE_DIR = STATE_DIR / "states"
 TRACE_FILE = STATE_DIR / "trace.jsonl"
-DEFAULT_GAME = "pokemon-yellow"
+DEFAULT_GAME = os.environ.get("OMEGACLAW_GAMEBOY_DEFAULT_GAME", "demo")
 DEFAULT_FRAMES = 30
 MAX_FRAMES = 600
 ALLOWED_BUTTONS = {"a", "b", "start", "select", "up", "down", "left", "right"}
@@ -101,7 +101,7 @@ def _safe_name(name: str) -> str:
 
 def _require_loaded():
     if _pyboy is None:
-        raise RuntimeError("no game loaded; use gb-load demo or gb-load pokemon-yellow")
+        raise RuntimeError("no game loaded; use gb-load demo or gb-load <private-rom-name>")
     return _pyboy
 
 

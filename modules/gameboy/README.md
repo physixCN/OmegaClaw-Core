@@ -8,7 +8,7 @@ The module does not include commercial ROMs. ROMs belong in ignored runtime
 storage:
 
 ```text
-memory/runtime/gameboy/roms/pokemon-yellow.gb
+memory/runtime/gameboy/roms/<private-rom-name>.gb
 ```
 
 For smoke testing, `gb-load demo` uses PyBoy's bundled default ROM.

@@ -161,3 +161,15 @@
 !(add-atom &skills (SituationFeature "direct-symbolic-query" "direct-symbolic-query"))
 !(add-atom &skills (SituationFeature "reason-with-pln" "pln-inheritance-or-implication"))
 !(add-atom &skills (SituationFeature "reason-with-nal" "nars-style-inference"))
+
+; Skill-card hygiene: every callable signature has a visible card and argument shape.
+!(add-atom &skills (Skill "remember"))
+!(add-atom &skills (Skill "test-metta"))
+!(add-atom &skills (SkillArg "skill-trigger-candidates" 0 "none" "none"))
+!(add-atom &skills (SkillArg "skill-alias-candidates" 0 "none" "none"))
+
+; Skill-card hygiene follow-up for cross-module aliases and triggers.
+!(add-atom &skills (SkillArg "remember" 1 "rest-text" "lesson"))
+!(add-atom &skills (SkillCardLine "remember" "remember lesson - store compact future-useful continuity; query before answering if relevant memory may exist"))
+!(add-atom &skills (SkillArg "test-metta" 1 "rest-text" "expression"))
+!(add-atom &skills (SkillCardLine "test-metta" "test-metta expression - test a MeTTa expression shape before relying on it"))

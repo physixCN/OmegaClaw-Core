@@ -3,7 +3,7 @@
 ; The affordance organ is a symbolic skill directory. It helps the agent ask which
 ; body part/module fits a situation while leaving the final choice to the agent.
 
-(SkillContextHint "affordance" "Discovery: skill-help topic, query-skill-space topic, choose-skill-for situation, explain-skill skill, skill-card skill. Use skill-aliases topic when wording misses.")
+(SkillContextHint "affordance" "Discovery: skill-help, query-skill-space, choose-skill-for, skill-card, skill-aliases.")
 (SkillCatalog "Affordance: query-skill-space topic, choose-skill-for situation, explain-skill skill, skill-card skill")
 (SkillCatalog "Attention triggers: skill-suggestions-for signal, suggest-skill-trigger skill signal confidence reason, promote-skill-trigger skill signal confidence reason, add-skill-trigger skill signal confidence reason, skill-trigger-candidates")
 (SkillCatalog "Skill aliases: skill-aliases topic, suggest-skill-alias alias topic confidence reason, promote-skill-alias alias topic confidence reason, add-skill-alias alias topic confidence reason, skill-alias-candidates")

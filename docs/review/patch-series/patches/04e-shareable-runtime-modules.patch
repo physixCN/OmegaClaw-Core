@@ -1814,7 +1814,7 @@ index 0000000..0000000
 +storage:
 +
 +```text
-+memory/runtime/gameboy/roms/pokemon-yellow.gb
++memory/runtime/gameboy/roms/<private-rom-name>.gb
 +```
 +
 +For smoke testing, `gb-load demo` uses PyBoy's bundled default ROM.
@@ -1875,7 +1875,7 @@ index 0000000..0000000
 +
 +(SkillCatalog "Game Boy simulation: gb-status, gb-load game, gb-observe, gb-step buttons frames, gb-screenshot, gb-save-state name, gb-load-state name, gb-stop, gb-last-trace")
 +(SkillHelp "gameboy" "gb-status, gb-load game, gb-observe, gb-step buttons frames, gb-screenshot, gb-save-state name, gb-load-state name, gb-stop, gb-last-trace")
-+(SkillHelp "gameboy" "ROMs are private runtime artifacts. Put your own dump at memory/runtime/gameboy/roms/pokemon-yellow.gb or use gb-load demo for the bundled PyBoy demo ROM.")
++(SkillHelp "gameboy" "ROMs are private runtime artifacts. Put your own dump at memory/runtime/gameboy/roms/<private-rom-name>.gb or use gb-load demo for the bundled PyBoy demo ROM.")
 diff --git a/modules/gameboy/entry.metta b/modules/gameboy/entry.metta
 new file mode 100644
 index 0000000..0000000
@@ -2062,7 +2062,7 @@ index 0000000..0000000
 +SCREENSHOT_DIR = STATE_DIR / "screens"
 +SAVE_DIR = STATE_DIR / "states"
 +TRACE_FILE = STATE_DIR / "trace.jsonl"
-+DEFAULT_GAME = "pokemon-yellow"
++DEFAULT_GAME = os.environ.get("OMEGACLAW_GAMEBOY_DEFAULT_GAME", "demo")
 +DEFAULT_FRAMES = 30
 +MAX_FRAMES = 600
 +ALLOWED_BUTTONS = {"a", "b", "start", "select", "up", "down", "left", "right"}
@@ -2144,7 +2144,7 @@ index 0000000..0000000
 +
 +def _require_loaded():
 +    if _pyboy is None:
-+        raise RuntimeError("no game loaded; use gb-load demo or gb-load pokemon-yellow")
++        raise RuntimeError("no game loaded; use gb-load demo or gb-load <private-rom-name>")
 +    return _pyboy
 +
 +
