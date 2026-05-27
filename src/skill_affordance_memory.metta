@@ -87,6 +87,8 @@
 !(add-atom &skills (PreferredWhen "belief-claim" "uncertain-revisable-claim" 0.86 "store uncertainty as revisable belief rather than fact"))
 !(add-atom &skills (Effect "belief-claim" "writes-beliefs"))
 !(add-atom &skills (SkillCardLine "belief-claim" "belief-claim domain relation value frequency confidence - store uncertain revisable belief"))
+!(add-atom &skills (SkillCardLine "belief-claim" "belief-claim is five fields, not a prose sentence: domain relation value frequency confidence; frequency/confidence are numeric."))
+!(add-atom &skills (SkillCardLine "belief-claim" "Example: belief-claim biology cmn-narrative contested 0.78 0.72"))
 
 !(add-atom &skills (Skill "agenda-goal"))
 !(add-atom &skills (SkillTopic "agenda-goal" "memory"))

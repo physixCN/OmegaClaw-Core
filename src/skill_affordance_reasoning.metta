@@ -31,7 +31,9 @@
 !(add-atom &skills (SkillArg "nal-step" 2 "metta" "premise2"))
 !(add-atom &skills (PreferredWhen "nal-step" "nars-style-inference" 0.78 "inspect NAL derivation with NAL copulas"))
 !(add-atom &skills (Effect "nal-step" "nal-derivation"))
-!(add-atom &skills (SkillCardLine "nal-step" "nal-step premise1 premise2 - inspect NAL derivation; use -->, ==> or <->"))
+!(add-atom &skills (SkillCardLine "nal-step" "nal-step premise1 premise2 - inspect NAL derivation; use -->, ==> or <-> in prefix MeTTa form"))
+!(add-atom &skills (SkillCardLine "nal-step" "NAL inheritance shape: quote each premise as ((--> A B) (stv frequency confidence)); the arrow is not infix."))
+!(add-atom &skills (SkillCardLine "nal-step" "Example: nal-step \"((--> Endoriftia symbiont) (stv 0.9 0.8))\" \"((--> symbiont primary-producer) (stv 0.8 0.7))\""))
 
 !(add-atom &skills (Skill "pln-step"))
 !(add-atom &skills (SkillTopic "pln-step" "reasoning"))

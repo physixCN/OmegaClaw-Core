@@ -11,7 +11,7 @@
 (SkillHelp "memory" "retire-persistent-expression expression reason - reviewed persistent cleanup gesture")
 (SkillHelp "memory" "persistent-merge-atoms pattern replacement reason - preferred for reviewed persistent duplicate cleanup; exact pattern match; saves persistent; no separate commit step")
 (SkillHelp "memory" "world-fact subject relation object confidence - stable people, rooms, devices, aliases; confidence must be numeric")
-(SkillHelp "memory" "belief-claim domain relation value frequency confidence - uncertain/revisable claim; frequency and confidence must be numeric")
+(SkillHelp "memory" "belief-claim domain relation value frequency confidence - uncertain/revisable claim; five fields, not prose; frequency and confidence must be numeric")
 (SkillHelp "memory" "belief-revision-candidate domain relation value frequency confidence - inspect candidate revision truth")
 (SkillHelp "memory" "agenda-goal name status priority next - status active/waiting/blocked/scheduled/dormant; priority low/medium/high")
 (SkillHelp "memory" "event-note source kind summary confidence - compact meaningful event; confidence must be numeric or the write warns and no event atom is added")
