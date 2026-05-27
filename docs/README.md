@@ -67,6 +67,7 @@ User-facing MeTTa skills the agent invokes. Each page follows the template **Sig
 - [review/v0.01a-benchmark-results.md](./review/v0.01a-benchmark-results.md) — baseline-vs-candidate benchmark artifact.
 - [review/v0.01a-demo-results.md](./review/v0.01a-demo-results.md) — deterministic demo results showing what the changes do.
 - [review/v0.01a-security-name-audit.md](./review/v0.01a-security-name-audit.md) — reviewer-facing name, secret, and private-state boundary notes.
+- [review/v0.01a-module-profile-recommendations.md](./review/v0.01a-module-profile-recommendations.md) — recommended clean-core vs Live-situated module defaults.
 
 ### Internals
 

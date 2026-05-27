@@ -15,7 +15,6 @@
 (SkillCardLine "gb-screenshot" "gb-screenshot - capture current emulator frame")
 
 (SkillTrigger "gb-observe" "mentions-word:gameboy" 0.82 "Game Boy wording may need emulator observation")
-(SkillTrigger "gb-observe" "mentions-word:pokemon" 0.78 "Pokemon wording may need emulator observation")
 (SkillTrigger "gb-observe" "mentions-word:emulator" 0.76 "emulator wording may need simulator observation")
 (SkillTrigger "gb-observe" "mentions-word:rom" 0.62 "ROM wording may need emulator state")
 

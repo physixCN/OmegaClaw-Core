@@ -239,7 +239,7 @@ def agentverse_surface_demo() -> DemoSection:
 
 def assume_story_demo() -> DemoSection:
     env = dict(os.environ)
-    fabric_repo = pathlib.Path(env.get("FABRICPC_REPO", "/home/jon/OmegaClaw/repos/FabricPC"))
+    fabric_repo = pathlib.Path(env.get("FABRICPC_REPO", str(ROOT.parent / "FabricPC")))
     fabric_python = pathlib.Path(env.get("FABRICPC_PYTHON", str(fabric_repo / ".venv" / "bin" / "python")))
     if fabric_python.exists():
         env["FABRICPC_REPO"] = str(fabric_repo)

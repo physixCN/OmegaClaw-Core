@@ -27,7 +27,7 @@ This reads a command-line override via `argk` (`name=value` on the MeTTa command
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `maxFeedback` | 50000 (chars) | Ceiling on `LAST_SKILL_USE_RESULTS` text fed back into the prompt. |
+| `maxFeedback` | 40000 (chars) | Ceiling on `LAST_SKILL_USE_RESULTS` text fed back into the prompt. |
 | `maxRecallItems` | 20 | Items returned by `query`. |
 | `maxEpisodeRecallLines` | 20 | Lines returned by `episodes`. |
 | `maxHistory` | 30000 (chars) | Tail of `memory/history.metta` included in the prompt. |
@@ -37,7 +37,7 @@ This reads a command-line override via `argk` (`name=value` on the MeTTa command
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `commchannel` | `irc` | Active channel — `irc`, `telegram`, `slack`, or `mattermost`. |
+| `commchannel` | `irc` | Legacy channel selector for generic channel runs. Module channels are enabled by `modules/loader.metta` and runtime config. |
 | `IRC_channel` | `##omegaclaw` | IRC channel to join. |
 | `IRC_server` | `irc.quakenet.org` | IRC server hostname. |
 | `IRC_port` | 6667 | IRC port. |
@@ -48,8 +48,8 @@ This reads a command-line override via `argk` (`name=value` on the MeTTa command
 | `SL_BOT_TOKEN` | *(empty — set at runtime)* | Slack bot token (`xoxb-...`). |
 | `SL_CHANNEL_ID` | *(empty — auto-bind supported)* | Optional Slack channel ID where OmegaClaw reads/writes messages. Leave empty to auto-bind on first valid inbound auth/message. |
 | `SL_POLL_INTERVAL` | 60 | Slack poll interval in seconds (minimum effective value is 60). |
-| `MM_URL` | `https://chat.singularitynet.io` | Mattermost base URL. |
-| `MM_CHANNEL_ID` | `8fjrmabjx7gupy7e5kjznpt5qh` | Target channel ID. |
+| `MM_URL` | *(empty — set at runtime)* | Mattermost base URL. |
+| `MM_CHANNEL_ID` | *(empty — set at runtime)* | Target channel ID. |
 | `MM_BOT_TOKEN` | *(empty — set at runtime)* | Bot auth token. |
 
 ## Command-line overrides

@@ -21,14 +21,20 @@ This branch collects the portable core-readiness layers prepared after live Omeg
   module surfaces, AgentVerse surface, and Assume/FabricPC story evidence.
 - Current v0.01a technical walkthrough and name/security audit for outside
   research review.
+- Reviewer module-profile recommendations separating clean-core defaults from
+  Live Omega's situated deployment profile.
 
 ### Changed
 
 - Core context now uses compact bootstrap skill hints; full help and cards remain inspectable through symbolic affordance skills.
+- `sense_router` observation aliases now live in MeTTa-visible `Observation*Route`
+  atoms; Python only normalizes input and dispatches the declared membrane call.
 - Parser errors now fail closed with recovery hints and relevant skill-card lines when available.
 - PLN/NAL guidance now distinguishes NAL copulas from truth-valued PLN statements.
 - Generated runtime memory files are ignored except curated prompt/history seed files.
 - Remote-agent support moved behind the module boundary; old hardcoded Agentverse core bridge was removed.
+- Retired scratch-space legacy notes were removed from the review artifact; the
+  current scratch module remains under `modules/scratch_space`.
 
 ### Validation
 

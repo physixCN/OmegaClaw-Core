@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "modules" / "sense_router" / "src"))
 
 import observation  # noqa: E402
 
@@ -19,7 +19,7 @@ class ObserveRouterTests(unittest.TestCase):
         fake = self.module(gb_observe=lambda: "GB")
         with patch.dict(sys.modules, {"gameboy": fake}):
             self.assertEqual(observation.observe("gameboy"), "GB")
-            self.assertEqual(observation.observe("pokemon yellow"), "GB")
+            self.assertEqual(observation.observe("gb"), "GB")
 
     def test_house_room_device_routes(self):
         calls = []
@@ -30,7 +30,7 @@ class ObserveRouterTests(unittest.TestCase):
             observe_device=lambda device: calls.append(("device", device)) or f"DEVICE:{device}",
             observe_house_affordances=lambda: calls.append(("affordances",)) or "AFFORDANCES",
         )
-        with patch.dict(sys.modules, {"home": fake}):
+        with patch.dict(sys.modules, {"home_assistant": fake}):
             self.assertEqual(observation.observe("house"), "HOUSE")
             self.assertEqual(observation.observe("house full"), "FULL")
             self.assertEqual(observation.observe("room Living Room"), "ROOM:Living Room")
@@ -60,6 +60,17 @@ class ObserveRouterTests(unittest.TestCase):
         result = observation.observe("something mysterious")
         self.assertIn("OBSERVE-UNKNOWN-TARGET", result)
         self.assertIn("observe gameboy", result)
+
+    def test_routes_are_symbolically_declared_not_python_alias_sets(self):
+        routes = (ROOT / "modules" / "sense_router" / "routes.metta").read_text(encoding="utf-8")
+        source = (ROOT / "modules" / "sense_router" / "src" / "observation.py").read_text(encoding="utf-8")
+        self.assertIn('(ObservationExactRoute "gameboy"', routes)
+        self.assertIn('(ObservationPrefixRoute "room"', routes)
+        self.assertIn('(ObservationQuestionRoute "webcam"', routes)
+        self.assertNotIn('normalized in {', source)
+        private_game_name = 'poke' + 'mon'
+        self.assertNotIn(private_game_name, source.lower())
+        self.assertNotIn(private_game_name, routes.lower())
 
 
 if __name__ == "__main__":

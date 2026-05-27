@@ -182,17 +182,17 @@ class MemoryRuntimeTests(unittest.TestCase):
             history_path.write_text(
                 '("2026-05-27 10:00:00"\n'
                 ' "HUMAN_MESSAGE: " WHATSAPP: PRIMARY id=primary@lid::m1 at=2026-05-27T10:00:00Z: SpeakerA: I love dogs\n'
-                ' ((reply-whatsapp-to "lydia" "noted"))\n'
+                ' ((reply-whatsapp-to "contact-a" "noted"))\n'
                 ' "RESULTS: " "ok"\n'
                 ')\n'
                 '("2026-05-27 10:01:00"\n'
                 ' "HUMAN_MESSAGE: " WHATSAPP: OTHER id=other@lid::m2 at=2026-05-27T10:01:00Z: SpeakerB: I like tea\n'
-                ' ((reply-whatsapp-to "dad" "heard"))\n'
+                ' ((reply-whatsapp-to "contact-b" "heard"))\n'
                 ' "RESULTS: " "ok"\n'
                 ')\n'
                 '("2026-05-27 10:02:00"\n'
                 ' "HUMAN_MESSAGE: " WHATSAPP: PRIMARY id=primary@lid::m3 at=2026-05-27T10:02:00Z: SpeakerC: Coffee is too bitter for me\n'
-                ' ((reply-whatsapp-to "jon" "heard"))\n'
+                ' ((reply-whatsapp-to "primary-operator" "heard"))\n'
                 ' "RESULTS: " "ok"\n'
                 ')\n',
                 encoding="utf-8",
@@ -224,7 +224,7 @@ class MemoryRuntimeTests(unittest.TestCase):
             self.assertIn("SpeakerA: I love dogs", embedded[1])
             self.assertIn("SpeakerC: Coffee is too bitter for me", embedded[1])
             self.assertIn("SpeakerA: I don't like it", embedded[1])
-            self.assertNotIn("Dad: I like tea", embedded[1])
+            self.assertNotIn("SpeakerB: I like tea", embedded[1])
             self.assertIn(
                 'DIALOGUE_FRAME view_kind=recent-speaker-turns-no-resolution current_speaker="SpeakerA" current_channel="WHATSAPP:primary@lid"',
                 view,

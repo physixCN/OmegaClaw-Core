@@ -15,7 +15,9 @@ modules/<module-id>/
   module.toml
   entry.metta
   catalog.metta
+  affordance.metta
   signatures.metta
+  skills.metta
   README.md
   src/ or bridge/ if needed
   tests/
@@ -56,6 +58,17 @@ OMEGACLAW_WA_AUTH_DIR = { required = false, runtime_state = true }
 (ChannelCapability whatsapp text-send)
 (TraceWrites omegaclaw.channel.whatsapp ChannelMessageReceived)
 ```
+
+`signatures.metta`, `catalog.metta`, `affordance.metta`, and `skills.metta`
+are separate on purpose:
+
+- `signatures.metta` declares parser-visible call shapes.
+- `catalog.metta` declares queryable help and full catalogue text.
+- `affordance.metta` declares topics, cards, arguments, risks, effects, and preferred-use hints.
+- `skills.metta` owns the actual callable MeTTa definitions.
+
+Keeping them separate lets Omega inspect a module without conflating parser
+syntax, attention hints, documentation, and execution.
 
 ## Principles
 
@@ -144,6 +157,5 @@ A game or simulation can be declared similarly:
 (SimulationCapability metta-maze state-observable)
 ```
 
-This keeps modules shareable like packages while preserving the core
-core rule: the final affordance surface is symbolic, inspectable, and
-composable.
+This keeps modules shareable like packages while preserving the core rule: the
+final affordance surface is symbolic, inspectable, and composable.

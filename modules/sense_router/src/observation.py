@@ -1,13 +1,23 @@
 """General observation membrane for situated OmegaClaw bodies.
 
-This module intentionally stays thin: it maps the agent's chosen observation target
-onto the appropriate sense/app organ. It does not decide what the agent should care
-about, mark conversations handled, or take actions.
+Route meanings live in ../routes.metta as MeTTa-visible atoms. This membrane
+normalizes input, dispatches the selected module function, and fails closed when
+no symbolic route matches.
 """
 
 from __future__ import annotations
 
+import importlib
+import pathlib
 import re
+
+
+ROUTES_FILE = pathlib.Path(__file__).resolve().parents[1] / "routes.metta"
+QUOTED = r'"((?:\\.|[^"\\])*)"'
+
+
+def _unescape(value):
+    return bytes(value, "utf-8").decode("unicode_escape")
 
 
 def _norm(value):
@@ -26,13 +36,37 @@ def _drop_prefix(text, *prefixes):
     return raw
 
 
+def _route_atoms(kind):
+    if not ROUTES_FILE.exists():
+        return []
+    text = ROUTES_FILE.read_text(encoding="utf-8")
+    pattern = re.compile(rf"\({kind}\s+{QUOTED}\s+{QUOTED}\s+{QUOTED}(?:\s+{QUOTED})?\)")
+    rows = []
+    for match in pattern.finditer(text):
+        rows.append(tuple(_unescape(group) for group in match.groups() if group is not None))
+    return rows
+
+
+def _unknown_examples():
+    if not ROUTES_FILE.exists():
+        return []
+    text = ROUTES_FILE.read_text(encoding="utf-8")
+    pattern = re.compile(rf"\(ObservationUnknownExample\s+{QUOTED}\)")
+    return [_unescape(match.group(1)) for match in pattern.finditer(text)]
+
+
+def _call(module_name, function_name, *args):
+    module = importlib.import_module(module_name)
+    return getattr(module, function_name)(*args)
+
+
 def _unknown(target):
+    examples = _unknown_examples()
+    hint = " | ".join(examples[:10]) if examples else "observe target"
     return (
         "OBSERVE-UNKNOWN-TARGET "
         f"target={target!r} "
-        "try: observe gameboy | observe house | observe house full | "
-        "observe room Kitchen | observe device light.kitchen | observe glucose Patient | "
-        "observe whatsapp | observe webcam | observe image IMAGE_ID | observe audio AUDIO_ID"
+        f"try: {hint}"
     )
 
 
@@ -43,59 +77,22 @@ def observe(target):
     if not normalized:
         return _unknown(raw)
 
-    if normalized in {"gameboy", "game boy", "gb", "pokemon", "pokemon yellow", "emulator", "game"}:
-        import gameboy
-        return gameboy.gb_observe()
+    for alias, module_name, function_name in _route_atoms("ObservationExactRoute"):
+        if normalized == _norm(alias):
+            return _call(module_name, function_name)
 
-    if normalized in {"house", "home", "home assistant", "ha"}:
-        import home_assistant
-        return home_assistant.observe_house()
+    for alias, module_name, function_name, question in _route_atoms("ObservationQuestionRoute"):
+        if normalized == _norm(alias):
+            return _call(module_name, function_name, question)
 
-    if normalized in {"house full", "full house", "home full", "full home", "devices", "all devices"}:
-        import home_assistant
-        return home_assistant.observe_house_full()
-
-    if normalized in {"house affordances", "home affordances", "affordances", "house skills", "home skills"}:
-        import home_assistant
-        return home_assistant.observe_house_affordances()
-
-    if normalized.startswith("room ") or normalized.startswith("area "):
-        import home_assistant
-        room = _drop_prefix(raw, "room", "area")
-        return home_assistant.observe_room(room)
-
-    if normalized.startswith("device ") or normalized.startswith("entity "):
-        import home_assistant
-        device = _drop_prefix(raw, "device", "entity")
-        return home_assistant.observe_device(device)
-
-
-    if normalized.startswith("glucose ") or normalized.startswith("blood sugar ") or normalized.startswith("libre "):
-        import glucose
-        person = _drop_prefix(raw, "glucose", "blood sugar", "libre")
-        if not person:
+    for prefix, module_name, function_name in _route_atoms("ObservationPrefixRoute"):
+        normalized_prefix = _norm(prefix)
+        if normalized == normalized_prefix:
             return _unknown(raw)
-        return glucose.observe_glucose(person)
-
-    if normalized in {"glucose", "blood sugar", "libre", "diabetes"}:
-        return _unknown(raw)
-
-    if normalized in {"whatsapp", "wa", "inbox", "messages", "chats"}:
-        import whatsapp
-        return whatsapp.inbox()
-
-    if normalized in {"webcam", "camera", "sight", "vision", "room camera"}:
-        import webcam
-        return webcam.inspect_webcam("What is visible right now? Describe only what the camera can actually see.")
-
-    if normalized.startswith("image "):
-        import vision
-        image_id = _drop_prefix(raw, "image")
-        return vision.observe_image(image_id)
-
-    if normalized.startswith("audio ") or normalized.startswith("sound "):
-        import audio
-        audio_id = _drop_prefix(raw, "audio", "sound")
-        return audio.observe_audio(audio_id)
+        if normalized.startswith(normalized_prefix + " "):
+            argument = _drop_prefix(raw, prefix)
+            if not argument:
+                return _unknown(raw)
+            return _call(module_name, function_name, argument)
 
     return _unknown(raw)
