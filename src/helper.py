@@ -21,6 +21,7 @@ try:
         OMEGACLAW_ROOT,
         context_prompt,
         context_history_tail,
+        context_recent_history_entries,
         context_last_results,
         context_current_frame,
         ensure_runtime_memory_files,
@@ -90,6 +91,8 @@ try:
     from .helper_recall import (
         context_input_recall,
         context_input_recall_text,
+        dialogue_frame,
+        dialogue_recall_basis_text,
     )
     from .helper_skill_recall import (
         input_skill_signals,
@@ -127,6 +130,7 @@ except Exception:
         OMEGACLAW_ROOT,
         context_prompt,
         context_history_tail,
+        context_recent_history_entries,
         context_last_results,
         context_current_frame,
         ensure_runtime_memory_files,
@@ -196,6 +200,8 @@ except Exception:
     from helper_recall import (
         context_input_recall,
         context_input_recall_text,
+        dialogue_frame,
+        dialogue_recall_basis_text,
     )
     from helper_skill_recall import (
         input_skill_signals,

@@ -6,6 +6,7 @@ import os
 import pathlib
 import sys
 import tempfile
+import types
 import unittest
 from unittest import mock
 
@@ -99,6 +100,122 @@ class MemoryRuntimeTests(unittest.TestCase):
             self.assertIn("literal syntax mention", view)
             self.assertIn(big_payload, view)
             self.assertNotIn("<context-omitted-payload", view)
+
+    def test_current_frame_reads_real_commands_not_quoted_result_payloads(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            memory_dir = pathlib.Path(tmpdir)
+            helper_metta = self.import_with_memory("helper_metta", memory_dir)
+            history_path = memory_dir / "history.metta"
+            history_path.write_text(
+                '("2026-05-27 10:00:00"\n'
+                ' ((pin "REAL | current task | next action"))\n'
+                ' "RESULTS: " "(RESULTS: ((COMMAND_RETURN: ((query _quote_x_quote_) [[_apostrophe_t_apostrophe_, _apostrophe_(pin \\"STALE | quoted result\\")_apostrophe_]]))))"\n'
+                ')\n',
+                encoding="utf-8",
+            )
+
+            frame = helper_metta.context_current_frame(" DO NOT RE-SEND OR SPAM!", "", 1400)
+
+            self.assertIn("latest_pin=REAL | current task | next action", frame)
+            self.assertNotIn("STALE | quoted result", frame)
+            self.assertIn("view_policy=no interpretation", frame)
+
+    def test_recent_history_uses_whole_entries_with_result_size_markers(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            memory_dir = pathlib.Path(tmpdir)
+            helper_metta = self.import_with_memory("helper_metta", memory_dir)
+            history_path = memory_dir / "history.metta"
+            history_path.write_text(
+                '("2026-05-27 10:00:00"\n'
+                ' ((query "first"))\n'
+                ' "RESULTS: " "' + ("A" * 3000) + '"\n'
+                ')\n'
+                '("2026-05-27 10:01:00"\n'
+                ' ((pin "SECOND | intact"))\n'
+                ' "RESULTS: " "ok"\n'
+                ')\n',
+                encoding="utf-8",
+            )
+
+            view = helper_metta.context_recent_history_entries(1800, 2)
+
+            self.assertIn("ENTRY line=1 time=2026-05-27 10:00:00 results=present raw_result_chars=3000", view)
+            self.assertIn("ENTRY line=5 time=2026-05-27 10:01:00 results=present raw_result_chars=2", view)
+            self.assertIn('((pin "SECOND | intact"))', view)
+            self.assertNotIn("A" * 500, view)
+            self.assertIn("truncation_policy=drop-oldest-whole-entry", view)
+
+            tiny_view = helper_metta.context_recent_history_entries(360, 2)
+
+            self.assertTrue(tiny_view.startswith("RECENT-HISTORY view_kind=whole-top-level-entries"))
+            self.assertNotIn("first", tiny_view)
+            self.assertIn("ENTRY line=5 time=2026-05-27 10:01:00", tiny_view)
+            self.assertIn("older_entries_omitted=1", tiny_view)
+
+    def test_input_recall_uses_recent_dialogue_topic_for_pronoun_utterance(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            memory_dir = pathlib.Path(tmpdir)
+            history_path = memory_dir / "history.metta"
+            history_path.write_text(
+                '("2026-05-27 10:00:00"\n'
+                ' "HUMAN_MESSAGE: " WHATSAPP: FAMILY id=family@lid::m1 at=2026-05-27T10:00:00Z: Lydia: I love dogs\n'
+                ' ((reply-whatsapp-to "lydia" "noted"))\n'
+                ' "RESULTS: " "ok"\n'
+                ')\n'
+                '("2026-05-27 10:01:00"\n'
+                ' "HUMAN_MESSAGE: " WHATSAPP: OTHER id=other@lid::m2 at=2026-05-27T10:01:00Z: Dad: I like tea\n'
+                ' ((reply-whatsapp-to "dad" "heard"))\n'
+                ' "RESULTS: " "ok"\n'
+                ')\n'
+                '("2026-05-27 10:02:00"\n'
+                ' "HUMAN_MESSAGE: " WHATSAPP: FAMILY id=family@lid::m3 at=2026-05-27T10:02:00Z: Jon: Coffee is too bitter for me\n'
+                ' ((reply-whatsapp-to "jon" "heard"))\n'
+                ' "RESULTS: " "ok"\n'
+                ')\n',
+                encoding="utf-8",
+            )
+            helper_recall = self.import_with_memory("helper_recall", memory_dir)
+            embedded = []
+
+            fake_llm = types.SimpleNamespace(
+                useLocalEmbedding=lambda text: embedded.append(text) or [0.1, 0.2],
+                initLocalEmbedding=lambda: None,
+            )
+            fake_chroma = types.SimpleNamespace(
+                query_with_ids_and_dists=lambda embedding, count: [
+                    ("coffee-id", "2026-05-27 10:01:00", "Jon dislikes bitter coffee", 0.11),
+                    ("dogs-id", "2026-05-27 10:00:00", "Lydia likes dogs", 0.42),
+                ]
+            )
+
+            with mock.patch.dict(sys.modules, {"lib_llm_ext": fake_llm, "lib_chromadb": fake_chroma}):
+                current = "WHATSAPP: FAMILY id=family@lid::m4 at=2026-05-27T10:03:00Z: Lydia: I don't like it"
+                view = helper_recall.context_input_recall_text(
+                    current,
+                    max_items=2,
+                    current_time=0,
+                )
+
+            self.assertEqual(len(embedded), 2)
+            self.assertEqual(embedded[0], current)
+            self.assertIn("Lydia: I love dogs", embedded[1])
+            self.assertIn("Jon: Coffee is too bitter for me", embedded[1])
+            self.assertIn("Lydia: I don't like it", embedded[1])
+            self.assertNotIn("Dad: I like tea", embedded[1])
+            self.assertIn(
+                'DIALOGUE_FRAME view_kind=recent-speaker-turns-no-resolution current_speaker="Lydia" current_channel="WHATSAPP:family@lid"',
+                view,
+            )
+            self.assertIn(
+                'TURN rel=-2 speaker_relation=same-speaker source="WHATSAPP" channel="WHATSAPP:family@lid" time="2026-05-27 10:00:00" age_seconds=180',
+                view,
+            )
+            self.assertIn('same_speaker_gap_seconds=180 speaker="Lydia" text="I don\'t like it"', view)
+            self.assertIn("channel_gap_seconds=60 same_speaker_gap_seconds=180", view)
+            self.assertIn("Coffee is too bitter for me", view)
+            self.assertNotIn("I like tea", view)
+            self.assertIn("LANE current_utterance_semantic", view)
+            self.assertIn("LANE dialogue_context_semantic", view)
 
     def test_runtime_memory_files_and_promotion_db_use_configured_memory_dir(self):
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -40,7 +40,7 @@
    (py-call (helper.context_prompt)))
 
 (= (getHistory)
-   (py-call (helper.context_history_tail (maxHistory))))
+   (py-call (helper.context_recent_history_entries (maxHistory) 12)))
 
 (= (historyResults $results)
    (last_chars (string-safe (repr $results)) (maxHistoryResultChars)))

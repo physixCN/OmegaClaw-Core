@@ -5,6 +5,11 @@ import pathlib
 import re
 import subprocess
 
+try:
+    from .helper_history import _iter_history_entries, _compact_long_history_tokens
+except Exception:  # pragma: no cover - direct script import fallback
+    from helper_history import _iter_history_entries, _compact_long_history_tokens
+
 CORE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 OMEGACLAW_ROOT = CORE_ROOT.parents[1]
 MEMORY_DIR = pathlib.Path(os.environ.get("OMEGACLAW_MEMORY_DIR", CORE_ROOT / "memory"))
@@ -206,16 +211,62 @@ def context_history_tail(max_chars=30000):
     return text
 
 
-def _last_quoted_command_arg(text, command, limit=240):
-    pattern = re.compile(
-        r'\(' + re.escape(command) + r'\s+"((?:[^"\\]|\\.){0,' + str(int(limit)) + r'})"',
-        re.DOTALL,
-    )
-    matches = list(pattern.finditer(str(text or "")))
-    if not matches:
-        return ""
-    value = matches[-1].group(1)
-    return value.replace(r'\"', '"').replace(r"\\", "\\")
+def _read_metta_string_at(text, start, limit=240):
+    if start >= len(text) or text[start] != '"':
+        return "", start
+    out = []
+    esc = False
+    i = start + 1
+    while i < len(text):
+        ch = text[i]
+        if esc:
+            out.append(ch)
+            esc = False
+        elif ch == "\\":
+            esc = True
+        elif ch == '"':
+            return "".join(out)[:limit], i + 1
+        else:
+            out.append(ch)
+        i += 1
+    return "".join(out)[:limit], i
+
+
+def _quoted_command_args_outside_strings(text, command, limit=240):
+    text = str(text or "")
+    prefix = "(" + command
+    args = []
+    i = 0
+    in_str = False
+    esc = False
+    while i < len(text):
+        ch = text[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            i += 1
+            continue
+        if ch == '"':
+            in_str = True
+            i += 1
+            continue
+        if text.startswith(prefix, i):
+            after = i + len(prefix)
+            if after < len(text) and text[after] in {" ", "\t", "\r", "\n"}:
+                j = after
+                while j < len(text) and text[j] in {" ", "\t", "\r", "\n"}:
+                    j += 1
+                value, end = _read_metta_string_at(text, j, limit)
+                if value:
+                    args.append(value)
+                    i = end
+                    continue
+        i += 1
+    return args
 
 
 def _last_history_timestamp(text):
@@ -223,50 +274,75 @@ def _last_history_timestamp(text):
     return matches[-1].group(1) if matches else ""
 
 
-def _continuity_state_from_pin(pin, has_fresh_input):
-    pin_l = str(pin or "").lower()
-    if has_fresh_input:
-        return "fresh-input-open"
-    if any(marker in pin_l for marker in ("reply-debt", "verify", "report owed", "await feedback")):
-        return "open-loop"
-    if "complete" in pin_l and any(marker in pin_l for marker in ("await-new-input", "standby", "warm-standby")):
-        return "complete-standby"
-    if pin:
-        return "continue-pinned-work"
-    return "no-pin"
+def _history_entries_tail(max_entries=12, filename=None):
+    try:
+        entries = list(_iter_history_entries(filename))
+    except Exception:
+        return []
+    try:
+        max_entries = max(1, int(float(max_entries)))
+    except Exception:
+        max_entries = 12
+    return entries[-max_entries:]
+
+
+def _entry_before_results(entry):
+    text = str(entry or "")
+    marker = '\n "RESULTS: "'
+    idx = text.find(marker)
+    if idx >= 0:
+        return text[:idx]
+    marker = '"RESULTS: "'
+    idx = text.find(marker)
+    return text[:idx] if idx >= 0 else text
+
+
+def _compact_history_entry_for_context(lineno, ts, entry, max_entry_chars=2600):
+    pre_results = compact_history_context_view(_entry_before_results(entry))
+    pre_results = _compact_long_history_tokens(pre_results)
+    result_match = re.search(r'"RESULTS: "\s+"((?:[^"\\]|\\.)*)"', str(entry or ""), re.DOTALL)
+    result_status = "results=absent"
+    if result_match:
+        raw_result = result_match.group(1)
+        result_status = f"results=present raw_result_chars={len(raw_result)}"
+    body = pre_results.strip()
+    if len(body) > max_entry_chars:
+        body = body[: max(0, max_entry_chars - 80)].rstrip() + f" <entry-view-omitted chars={len(body)}>"
+    stamp = ts.strftime("%Y-%m-%d %H:%M:%S") if hasattr(ts, "strftime") else str(ts or "unknown")
+    return f"ENTRY line={lineno} time={stamp} {result_status}\n{body}"
 
 
 def context_current_frame(current_input="", last_results="", max_chars=2200):
-    """Return the final, decision-local continuity frame for the LLM prompt.
+    """Return a mechanical, decision-local continuity view for the LLM prompt.
 
-    This frame is intentionally built mechanically from recent history instead
-    of asking the model to infer current task state from old promoted memories or
-    a raw character tail.
+    This function must not interpret task state or choose what matters. It only
+    exposes recent raw continuity signals so Omega can think over them herself.
     """
-    path = MEMORY_DIR / "history.metta"
-    history = "" if not path.exists() else _read_text_tail_bytes(path, 180000)
-    if history.startswith("CONTEXT-READ-ERROR "):
-        history = ""
-    pin = _last_quoted_command_arg(history, "pin", 500)
-    wait_reason = _last_quoted_command_arg(history, "wait", 300)
-    timestamp = _last_history_timestamp(history)
+    entries = _history_entries_tail(24, MEMORY_DIR / "history.metta")
+    command_regions = [_entry_before_results(entry) for _, _, entry in entries]
+    command_view = "\n".join(command_regions)
+    pin_args = _quoted_command_args_outside_strings(command_view, "pin", 500)
+    wait_args = _quoted_command_args_outside_strings(command_view, "wait", 300)
+    pin = pin_args[-1] if pin_args else ""
+    wait_reason = wait_args[-1] if wait_args else ""
+    timestamp = entries[-1][1].strftime("%Y-%m-%d %H:%M:%S") if entries else ""
     current_input = str(current_input or "").strip()
-    has_fresh_input = (
-        bool(current_input)
-        and "DO NOT RE-SEND OR SPAM" not in current_input
-        and current_input != '""'
-    )
-    continuity_state = _continuity_state_from_pin(pin, has_fresh_input)
+    if not current_input:
+        input_kind = "empty"
+    elif "DO NOT RE-SEND OR SPAM" in current_input:
+        input_kind = "quiet-sentinel"
+    else:
+        input_kind = "inbound-or-runtime-input"
     result_view = context_last_results(last_results, 700)
     lines = [
-        f"fresh_input={str(has_fresh_input).lower()}",
-        f"continuity_state={continuity_state}",
+        "view_kind=mechanical-continuity-signals",
+        f"current_input_kind={input_kind}",
         f"current_input={current_input[:500] if current_input else '<none>'}",
         f"latest_pin={pin or '<none>'}",
         f"latest_wait_reason={wait_reason[:180] if wait_reason else '<none>'}",
         f"latest_history_time={timestamp or '<unknown>'}",
         f"last_result_tail={result_view}",
-        "decision_rule=honor fresh input first; if continuity_state=open-loop or continue-pinned-work, continue latest_pin; if complete-standby, do not resume secondary/stale work without explicit agenda selection; never let promoted background memories choose the next task",
+        "view_policy=no interpretation, no task selection, no semantic summary; Omega must reason from these signals",
     ]
     frame = "\n".join(lines)
     try:
@@ -276,6 +352,51 @@ def context_current_frame(current_input="", last_results="", max_chars=2200):
     if max_chars and len(frame) > max_chars:
         return frame[-max_chars:]
     return frame
+
+
+def context_recent_history_entries(max_chars=30000, max_entries=12):
+    """Render recent history as whole top-level entries, not an arbitrary tail."""
+    try:
+        max_entries = max(1, int(float(max_entries)))
+    except Exception:
+        max_entries = 12
+    try:
+        all_entries = list(_iter_history_entries(MEMORY_DIR / "history.metta"))
+    except Exception:
+        all_entries = []
+    if not all_entries:
+        return context_history_tail(max_chars)
+    entries = all_entries[-max_entries:]
+    older_omitted_by_count = max(0, len(all_entries) - len(entries))
+    try:
+        max_chars = max(0, int(float(max_chars)))
+    except Exception:
+        max_chars = 30000
+    per_entry = max(700, min(4000, max_chars // max(1, len(entries)))) if max_chars else 2600
+    entry_views = [
+        _compact_history_entry_for_context(lineno, ts, entry, per_entry)
+        for lineno, ts, entry in entries
+    ]
+
+    dropped_for_budget = 0
+
+    def render(shown):
+        older_omitted = older_omitted_by_count + dropped_for_budget
+        header = (
+            "RECENT-HISTORY view_kind=whole-top-level-entries "
+            f"entries_shown={len(shown)} selected_entries={len(entry_views)} "
+            f"older_entries_omitted={older_omitted} max_chars={max_chars} "
+            "truncation_policy=drop-oldest-whole-entry"
+        )
+        return header + ("\n" + "\n---\n".join(shown) if shown else "")
+
+    shown = list(entry_views)
+    rendered = render(shown)
+    while max_chars and shown and len(rendered) > max_chars:
+        shown.pop(0)
+        dropped_for_budget += 1
+        rendered = render(shown)
+    return rendered
 
 def context_last_results(results, max_chars=8000):
     """Return a bounded view of previous command results for prompt context.

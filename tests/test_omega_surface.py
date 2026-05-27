@@ -545,7 +545,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("(= (events-all)\n   (repr (collapse (match &events", skills)
         self.assertIn("(= (persistent-review)\n   (py-str (\"PERSISTENT-REVIEW", skills)
         self.assertIn("(= (getPrompt)\n   (py-call (helper.context_prompt)))", memory)
-        self.assertIn("(= (getHistory)\n   (py-call (helper.context_history_tail (maxHistory))))", memory)
+        self.assertIn("(= (getHistory)\n   (py-call (helper.context_recent_history_entries (maxHistory) 12)))", memory)
 
     def test_imported_metta_source_files_are_balanced(self):
         files = [ROOT / "lib_omegaclaw.metta", ROOT / "lib_omegaclaw_body.metta", ROOT / "run.metta"]
