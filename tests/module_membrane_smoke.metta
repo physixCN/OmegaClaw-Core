@@ -2,8 +2,8 @@
 ; WhatsApp is declared as a node bridge, echo as an opaque executable. the agent sees
 ; the same generic send-channel affordance through MeTTa either way.
 
-!(import! &self ./repos/OmegaClaw-Core/tests/fixtures/modules/whatsapp_channel/entry.metta)
-!(import! &self ./repos/OmegaClaw-Core/tests/fixtures/modules/echo_channel/entry.metta)
+!(import! &self (library OmegaClaw-Core ./tests/fixtures/modules/whatsapp_channel/entry.metta))
+!(import! &self (library OmegaClaw-Core ./tests/fixtures/modules/echo_channel/entry.metta))
 
 !(println! MODULE-MEMBRANE-SEND-PROVIDERS)
 !(println! (collapse (match &self (Provides $module (Skill send-channel)) $module)))

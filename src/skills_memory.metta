@@ -41,6 +41,13 @@
    (repr (collapse (match &cleanup (PersistentCleanupProposal $proposal $candidate $space $action $expr $replacement $reason $risk $confidence $status)
                           (PersistentCleanupProposal $proposal $candidate $space $action $expr $replacement $reason $risk $confidence $status)))))
 
+(= (persistent-cleanup-proposals)
+   (cleanup-proposals))
+
+(= (cleanup-proposals-for $space)
+   (repr (collapse (match &cleanup (PersistentCleanupProposal $proposal $candidate $space $action $expr $replacement $reason $risk $confidence $status)
+                          (PersistentCleanupProposal $proposal $candidate $space $action $expr $replacement $reason $risk $confidence $status)))))
+
 (= (persistent-cleanup-candidates)
    (persistent-cleanup-candidates 50))
 
@@ -49,7 +56,7 @@
                            (remove-atom &cleanup (PersistentCleanupCandidate $oldid $oldspace $oldexpr $oldpreview $oldkind $oldcount))))
           (collapse (match &persistent $atom
                            (let* (($expr (repr $atom))
-                                  ($id (py-call (helper.cleanup_candidate_id $expr)))
+                                  ($id (sread (py-call (helper.cleanup_candidate_id_atom $expr))))
                                   ($preview (py-call (helper.cleanup_preview $expr)))
                                   ($count (match-count &persistent $atom))
                                   ($kind (if (> $count 1) "duplicate-exact" "review")))
@@ -61,28 +68,34 @@
                                                 (PersistentCleanupCandidate $id "persistent" $preview $kind $count)))))))
 
 (= (persistent-cleanup-propose $candidate_id $action $reason)
-   (let $matched (match-count &cleanup (PersistentCleanupCandidate $candidate_id "persistent" $expr $preview $kind $count))
-        (if (> $matched 0)
-            (car-atom
-             (collapse
-              (match &cleanup (PersistentCleanupCandidate $candidate_id "persistent" $expr $preview $kind $count)
-                     (let $proposal_id (py-call (helper.cleanup_proposal_id $candidate_id $action $reason))
-                          (progn (collapse (match &cleanup (PersistentCleanupProposal $proposal_id $oldcandidate $oldspace $oldaction $oldexpr $oldreplacement $oldreason $oldrisk $oldconfidence $oldstatus)
-                                                   (remove-atom &cleanup (PersistentCleanupProposal $proposal_id $oldcandidate $oldspace $oldaction $oldexpr $oldreplacement $oldreason $oldrisk $oldconfidence $oldstatus))))
-                                 (add-atom &cleanup (PersistentCleanupProposal $proposal_id $candidate_id "persistent" $action $expr "" $reason "persistent-memory-mutation" "0.8" "pending"))
-                                 (trace-atom "write" "cleanup" (PersistentCleanupProposal $proposal_id $candidate_id "persistent" $action $expr "" $reason "persistent-memory-mutation" "0.8" "pending") $reason)
-                                 (save-runtime-space "cleanup")
-                                 (PersistentCleanupProposed $proposal_id $candidate_id $action $preview))))))
-            (CleanupProposalError "unknown cleanup candidate; run persistent-cleanup-candidates first" $candidate_id))))
+   (let $candidate_key (catch (sread (py-call (helper.cleanup_id_atom $candidate_id "pc-"))))
+        (if (== $candidate_key CleanupIdError)
+            (CleanupProposalError "bad cleanup candidate id; use a pc-... id from persistent-cleanup-candidates" $candidate_id)
+            (let $matched (match-count &cleanup (PersistentCleanupCandidate $candidate_key "persistent" $expr $preview $kind $count))
+                 (if (> $matched 0)
+                     (let $result (car-atom
+                                    (collapse
+                                     (match &cleanup (PersistentCleanupCandidate $candidate_key "persistent" $expr $preview $kind $count)
+                                            (let $proposal_id (sread (py-call (helper.cleanup_proposal_id_atom $candidate_key $action $reason)))
+                                                 (progn (collapse (match &cleanup (PersistentCleanupProposal $proposal_id $oldcandidate $oldspace $oldaction $oldexpr $oldreplacement $oldreason $oldrisk $oldconfidence $oldstatus)
+                                                                          (remove-atom &cleanup (PersistentCleanupProposal $proposal_id $oldcandidate $oldspace $oldaction $oldexpr $oldreplacement $oldreason $oldrisk $oldconfidence $oldstatus))))
+                                                        (add-atom &cleanup (PersistentCleanupProposal $proposal_id $candidate_key "persistent" $action $expr "" $reason "persistent-memory-mutation" "0.8" "pending"))
+                                                        (trace-atom "write" "cleanup" (PersistentCleanupProposal $proposal_id $candidate_key "persistent" $action $expr "" $reason "persistent-memory-mutation" "0.8" "pending") $reason)
+                                                        (PersistentCleanupProposed $proposal_id $candidate_key $action $preview))))))
+                          (progn (save-runtime-space "cleanup") $result))
+                     (CleanupProposalError "unknown or stale cleanup candidate; run persistent-cleanup-candidates again and use a pc-... id from the latest result" $candidate_id))))))
 
 (= (persistent-cleanup-commit $proposal_id)
-   (let $matched (match-count &cleanup (PersistentCleanupProposal $proposal_id $candidate_id "persistent" $action $expr $replacement $reason $risk $confidence "pending"))
-        (if (> $matched 0)
-            (car-atom
-             (collapse
-              (match &cleanup (PersistentCleanupProposal $proposal_id $candidate_id "persistent" $action $expr $replacement $reason $risk $confidence "pending")
-                     (persistent-cleanup-commit-proposal $proposal_id $candidate_id $action $expr $replacement $reason $risk $confidence))))
-            (CleanupCommitError "unknown or already-committed proposal" $proposal_id))))
+   (let $proposal_key (catch (sread (py-call (helper.cleanup_id_atom $proposal_id "pp-"))))
+        (if (== $proposal_key CleanupIdError)
+            (CleanupCommitError "bad cleanup proposal id; use a pp-... id from cleanup-proposals" $proposal_id)
+            (let $matched (match-count &cleanup (PersistentCleanupProposal $proposal_key $candidate_id "persistent" $action $expr $replacement $reason $risk $confidence "pending"))
+                 (if (> $matched 0)
+                     (car-atom
+                      (collapse
+                       (match &cleanup (PersistentCleanupProposal $proposal_key $candidate_id "persistent" $action $expr $replacement $reason $risk $confidence "pending")
+                              (persistent-cleanup-commit-proposal $proposal_key $candidate_id $action $expr $replacement $reason $risk $confidence))))
+                     (CleanupCommitError "unknown or already-committed proposal" $proposal_id))))))
 
 (= (persistent-cleanup-mark-committed $proposal_id $candidate_id $action $expr $replacement $reason $risk $confidence)
    (progn (remove-atom &cleanup (PersistentCleanupProposal $proposal_id $candidate_id "persistent" $action $expr $replacement $reason $risk $confidence "pending"))
@@ -267,9 +280,8 @@
                                     (Event $source $kind $summary $confidence))))))
 
 (= (export! $space $file)
-   (progn (write-file $file "")
-          (collapse (let $x (get-atoms $space)
-                         (append-file $file (repr $x))))))
+   (sread (py-call (helper.atomic_export_metta_atoms $file
+                     (repr (collapse (match $space $atom $atom)))))))
 
 (= (bound-space! $space $limit)
    (progn (change-state! &exportchars 0)

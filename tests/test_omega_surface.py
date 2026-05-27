@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "channels"))
 
 import helper  # noqa: E402
+import helper_metta  # noqa: E402
 
 
 def skill_implementation_source():
@@ -113,6 +114,39 @@ class HelperSurfaceTests(unittest.TestCase):
         self.assertRegex(proposal, r"^pp-[0-9a-f]{16}$")
         self.assertEqual(candidate, helper.cleanup_candidate_id(expr))
         self.assertIn("PersistentNote", helper.cleanup_preview(expr))
+        self.assertEqual(candidate, helper.cleanup_id_symbol(f'"{candidate}"', "pc-"))
+        self.assertEqual(proposal, helper.cleanup_id_symbol(f'"{proposal}"', "pp-"))
+        self.assertEqual(f'"{candidate}"', helper.cleanup_candidate_id_atom(expr))
+        self.assertEqual(f'"{candidate}"', helper.cleanup_id_atom(candidate, "pc-"))
+        self.assertEqual(
+            f'"{proposal}"',
+            helper.cleanup_proposal_id_atom(candidate, "merge-duplicate", "exact duplicate"),
+        )
+        self.assertEqual("CleanupIdError", helper.cleanup_id_symbol("../bad", "pc-"))
+        self.assertEqual("CleanupIdError", helper.cleanup_id_symbol(candidate, "pp-"))
+
+    def test_cleanup_preview_keeps_symbolic_atoms_exact(self):
+        expr = '(PersistentNote "omega" "' + ("exact-symbolic-cleanup-review " * 30).strip() + '" "0.8")'
+        self.assertEqual(" ".join(expr.split()), helper.cleanup_preview(expr))
+        self.assertNotIn("...", helper.cleanup_preview(expr))
+
+    def test_atomic_export_formats_collapsed_metta_atoms_as_lines(self):
+        self.assertEqual("", helper_metta._metta_atom_export_lines("()"))
+        self.assertEqual("(A 1)\n", helper_metta._metta_atom_export_lines("((A 1))"))
+        self.assertEqual(
+            '(A 1)\n(B "x y")\n',
+            helper_metta._metta_atom_export_lines('((A 1) (B "x y"))'),
+        )
+        self.assertEqual(
+            '(A "(paren) text")\n(B "quote \\" ok")\n',
+            helper_metta._metta_atom_export_lines('((A "(paren) text") (B "quote \\" ok"))'),
+        )
+        error = helper.atomic_export_metta_atoms("", "()")
+        self.assertTrue(error.startswith("(AtomicExportError "))
+        self.assert_metta_ok(error)
+        target, path_error = helper_metta._safe_writable_path("(library OmegaClaw-Core ./memory/runtime-test.metta)")
+        self.assertIsNone(path_error)
+        self.assertEqual(target, ROOT / "memory" / "runtime-test.metta")
 
     def test_event_note_rejects_prose_without_numeric_confidence(self):
         atom = helper.event_note_atom(
@@ -282,6 +316,10 @@ class HelperSurfaceTests(unittest.TestCase):
             '((space-count "world" "(Relation $a $b $c $d $e)"))',
         )
         self.assertEqual(
+            helper.balance_parentheses("save-runtime-space cleanup"),
+            '((save-runtime-space "cleanup"))',
+        )
+        self.assertEqual(
             helper.balance_parentheses('space-examples persistent "(PersistentNote $topic $note $conf)" 5'),
             '((space-examples "persistent" "(PersistentNote $topic $note $conf)" 5))',
         )
@@ -408,7 +446,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         prompt = (ROOT / "memory" / "prompt.txt").read_text(encoding="utf-8")
         self.assertIn("warm is the default quiet cognition mode", energy_affordance)
         self.assertIn("asleep means dormant rest-only", energy_affordance)
-        self.assertIn("During active human-requested work", prompt)
+        self.assertIn("During active requested work", prompt)
 
     def test_cycle_counting_is_a_body_affordance_not_shell_memory(self):
         loop = (ROOT / "src" / "loop.metta").read_text(encoding="utf-8")
@@ -458,8 +496,18 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("(= (persistent-cleanup-candidates $limit)", skills)
         self.assertIn("(= (persistent-cleanup-propose $candidate_id $action $reason)", skills)
         self.assertIn("(= (persistent-cleanup-commit $proposal_id)", skills)
+        self.assertIn("(= (persistent-cleanup-proposals)", skills)
+        self.assertIn("(= (cleanup-proposals-for $space)", skills)
         self.assertIn("(PersistentCleanupCandidate", skills)
         self.assertIn("(PersistentCleanupProposal", skills)
+        self.assertIn("helper.atomic_export_metta_atoms", skills)
+        self.assertIn("(sread (py-call (helper.atomic_export_metta_atoms", skills)
+        self.assertIn("(repr (collapse (match $space $atom $atom)))", skills)
+        self.assertIn("RuntimeSpaceSaveError", skills)
+        self.assertIn("(mark-runtime-space-loaded $canonical)", skills)
+        self.assertNotIn("helper.atomic_export_begin", skills)
+        self.assertNotIn("helper.atomic_export_finish", skills)
+        self.assertNotIn('(write-file $file "")', skills)
         self.assertIn("(repr (collapse (match &persistent $atom $atom)))", skills)
         self.assertNotIn("You can use: metta (add-atom &persistent sexpression)", skills)
 
@@ -532,6 +580,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         helper_source = (ROOT / "src" / "helper_metta.py").read_text(encoding="utf-8")
         self.assertIn("!(bind! &activity (new-space))", lib)
         self.assertIn("!(bind! &cleanup (new-space))", lib)
+        self.assertIn("(SignatureSpace cleanup)", signatures)
         self.assertIn(
             '(register-space-persistence "activity" (library OmegaClaw-Core ./memory/activity.metta) runtime-state)',
             skills,
@@ -608,6 +657,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("body-status", skills)
         self.assertIn("restart-self", skills)
         self.assertIn("reboot-self", skills)
+        self.assertIn("(save-runtime-spaces-by-role memory)", skills)
         self.assertIn("video-config-status", skills)
         self.assertIn("assimilate-event", skills)
         self.assertIn("assimilate-world", skills)

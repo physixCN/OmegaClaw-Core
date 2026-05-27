@@ -5,6 +5,7 @@ import os
 import pathlib
 import re
 import subprocess
+import ast
 
 try:
     from .helper_history import _iter_history_entries, _compact_long_history_tokens
@@ -14,6 +15,19 @@ except Exception:  # pragma: no cover - direct script import fallback
 CORE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 OMEGACLAW_ROOT = CORE_ROOT.parents[1]
 MEMORY_DIR = pathlib.Path(os.environ.get("OMEGACLAW_MEMORY_DIR", CORE_ROOT / "memory"))
+LIBRARY_PATH_RE = re.compile(r"^\(library\s+OmegaClaw-Core\s+([^)]+)\)$")
+
+
+def _resolve_runtime_path(raw):
+    text = str(raw or "").strip().strip('"')
+    match = LIBRARY_PATH_RE.fullmatch(text)
+    if match:
+        rel = match.group(1).strip()
+        if rel.startswith("./"):
+            rel = rel[2:]
+        return str(CORE_ROOT / rel)
+    return text
+
 CONTEXT_VIEW_POLICY_RE = re.compile(
     r'\(SkillContextView\s+"?([^"\s()]+)"?\s+"?([^"\s()]+)"?\s*\)'
 )
@@ -322,8 +336,9 @@ def context_current_frame(current_input="", last_results="", max_chars=2200):
     entries = _history_entries_tail(24, MEMORY_DIR / "history.metta")
     command_regions = [_entry_before_results(entry) for _, _, entry in entries]
     command_view = "\n".join(command_regions)
+    latest_command_view = command_regions[-1] if command_regions else ""
     pin_args = _quoted_command_args_outside_strings(command_view, "pin", 500)
-    wait_args = _quoted_command_args_outside_strings(command_view, "wait", 300)
+    wait_args = _quoted_command_args_outside_strings(latest_command_view, "wait", 300)
     pin = pin_args[-1] if pin_args else ""
     wait_reason = wait_args[-1] if wait_args else ""
     timestamp = entries[-1][1].strftime("%Y-%m-%d %H:%M:%S") if entries else ""
@@ -699,22 +714,132 @@ def cleanup_candidate_id(expr):
     return f"pc-{digest}"
 
 
+def cleanup_candidate_id_atom(expr):
+    return _metta_string(cleanup_candidate_id(expr))
+
+
 def cleanup_proposal_id(candidate_id, action, reason=""):
     text = "|".join([str(candidate_id or "").strip(), str(action or "").strip(), str(reason or "").strip()])
     digest = hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()[:16]
     return f"pp-{digest}"
 
 
-def cleanup_preview(expr, limit=140):
-    text = " ".join(str(expr or "").strip().split())
-    try:
-        limit = int(limit)
-    except Exception:
-        limit = 140
-    limit = max(40, min(limit, 400))
-    if len(text) > limit:
-        return text[: limit - 3] + "..."
+def cleanup_proposal_id_atom(candidate_id, action, reason=""):
+    candidate_text = cleanup_id_symbol(candidate_id, "pc-")
+    if candidate_text == "CleanupIdError":
+        return "CleanupIdError"
+    return _metta_string(cleanup_proposal_id(candidate_text, action, reason))
+
+
+def cleanup_id_symbol(value, expected_prefix=""):
+    text = str(value or "").strip()
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+        text = text[1:-1]
+    text = text.strip()
+    expected_prefix = str(expected_prefix or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", text):
+        return "CleanupIdError"
+    if expected_prefix and not text.startswith(expected_prefix):
+        return "CleanupIdError"
     return text
+
+
+def cleanup_id_atom(value, expected_prefix=""):
+    text = cleanup_id_symbol(value, expected_prefix)
+    if text == "CleanupIdError":
+        return text
+    return _metta_string(text)
+
+
+def cleanup_preview(expr, limit=None):
+    text = " ".join(str(expr or "").strip().split())
+    return text
+
+
+def _split_top_level_metta_forms(text):
+    """Split adjacent top-level MeTTa forms without interpreting their meaning."""
+    forms = []
+    depth = 0
+    start = None
+    in_string = False
+    escaped = False
+    for index, ch in enumerate(str(text or "")):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+            continue
+        if ch == "(":
+            if depth == 0:
+                start = index
+            depth += 1
+            continue
+        if ch == ")":
+            depth -= 1
+            if depth < 0:
+                return None
+            if depth == 0:
+                forms.append(text[start : index + 1])
+                start = None
+            continue
+        if depth == 0 and not ch.isspace():
+            return None
+    if depth != 0 or in_string:
+        return None
+    return forms
+
+
+def _metta_atom_export_lines(atoms_repr):
+    """Render collapsed MeTTa atom-list text as importable one-atom-per-line text.
+
+    This is an IO codec for atomic persistence. It does not inspect atom names,
+    fields, or meanings; it only preserves balanced top-level MeTTa forms.
+    """
+    text = str(atoms_repr or "").strip()
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+        try:
+            text = ast.literal_eval(text)
+        except Exception:
+            text = text[1:-1].replace(r"\\", "\\").replace(r"\"", '"')
+    text = text.strip()
+    if not text or text == "()":
+        return ""
+    if text.startswith("(") and text.endswith(")"):
+        inner = text[1:-1].strip()
+        forms = _split_top_level_metta_forms(inner)
+        if forms is not None:
+            return "".join(form.rstrip() + "\n" for form in forms)
+    return text.rstrip() + "\n"
+
+
+def atomic_export_metta_atoms(path, atoms_repr):
+    """Atomically write exact MeTTa atoms selected by the MeTTa runtime."""
+    target, error = _safe_writable_path(path)
+    if error:
+        return f"(AtomicExportError {_metta_string(error)})"
+    try:
+        text = _metta_atom_export_lines(atoms_repr)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_name(target.name + f".tmp-{os.getpid()}")
+        with tmp.open("w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, target)
+        return f"(AtomicExportSuccess {_metta_string(str(target))} {len(text.encode('utf-8'))})"
+    except Exception as exc:
+        try:
+            if "tmp" in locals() and tmp.exists():
+                tmp.unlink()
+        except Exception:
+            pass
+        return f"(AtomicExportError {_metta_string(f'{type(exc).__name__}: {exc}')})"
 
 
 def _pipe_parts(spec):
@@ -897,7 +1022,7 @@ def run_metta_file(path, timeout_seconds=20, max_chars=12000):
         return f"RUN-METTA-FILE-ERROR {type(exc).__name__}: {exc}"
 
 def _safe_writable_path(raw):
-    raw = str(raw or "").strip().strip('"')
+    raw = _resolve_runtime_path(raw)
     if not raw:
         return None, "empty filepath"
     raw_is_tmp = raw == "/tmp" or raw.startswith("/tmp/")

@@ -7,4 +7,4 @@
 !(bind! &attention (new-space))
 !(register-space "attention" &attention immune)
 !(register-space-alias attention "attention")
-!(register-space-persistence "attention" ./repos/OmegaClaw-Core/memory/attention.metta runtime-state)
+!(register-space-persistence "attention" (library OmegaClaw-Core ./memory/attention.metta) runtime-state)

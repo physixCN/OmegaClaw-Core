@@ -51,12 +51,6 @@
 (= (restart-omega $reason)
    (py-call (helper.restart_omega $reason)))
 
-(= (restart-self $reason)
-   (py-call (helper.restart_self $reason)))
-
-(= (reboot-self $reason)
-   (py-call (helper.reboot_self $reason)))
-
 (= (wait $reason)
    (py-str (WAITING: $reason)))
 

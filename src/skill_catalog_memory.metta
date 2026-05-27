@@ -1,15 +1,16 @@
 ; Memory skill catalog declarations.
 ; Imported as SkillCatalog / SkillHelp atoms by the core loader.
 
-(SkillContextHint "memory" "Brain spaces: agenda-active; beliefs-for domain or beliefs-about domain relation; world-person/world-room; events-recent/events-all; persistent-cleanup-candidates then propose/commit; scratch-status/scratch-find; attention-status.")
-(SkillCatalog "Memory spaces: persistent-note, persistent-fact, world-fact, belief-claim, agenda-goal, event-note, agenda-active, beliefs-for, events-recent, persistent-cleanup-candidates")
+(SkillContextHint "memory" "Brain spaces: persistent, agenda, beliefs, world, events, activity, attention, cleanup, skills, skill-triggers, scratch, scratch-ttl, assume. Inspect: space-registry, space-atoms, agenda-active, beliefs-for, world-person, events-recent.")
+(SkillCatalog "Memory spaces: persistent-note, persistent-fact, world-fact, belief-claim, agenda-goal, event-note, agenda-active, beliefs-for, events-recent, persistent-cleanup-candidates, cleanup-proposals")
 (SkillHelp "memory" "Memory and symbolic spaces:")
 (SkillHelp "memory" "persistent-note topic note confidence - rare durable principle; confidence must be numeric")
 (SkillHelp "memory" "persistent-fact subject relation object confidence - durable structured fact; confidence must be numeric")
 (SkillHelp "memory" "persistent-rule premise | relation | conclusion | confidence - durable rule; confidence must be numeric")
 (SkillHelp "memory" "persistent-expression expression - add a tested raw persistent atom; persistent-atoms and persistent-review inspect persistent")
-(SkillHelp "memory" "persistent-cleanup-candidates limit, persistent-cleanup-propose candidate-id action reason, cleanup-proposals, persistent-cleanup-commit proposal-id - safe proposal-first persistent cleanup")
+(SkillHelp "memory" "persistent-cleanup-candidates limit refreshes the current pc-... candidate set; persistent-cleanup-propose candidate-id action reason uses an id from that latest set; cleanup-proposals or persistent-cleanup-proposals shows pp-... ids; persistent-cleanup-commit proposal-id")
 (SkillHelp "memory" "cleanup actions: keep, retire, merge-duplicate; commit exact reviewed proposal ids only; every commit writes trace")
+(SkillHelp "memory" "cleanup proposal target space is stored inside the proposal atom; cleanup-proposals-for space filters by stored target space; commit takes a pp-... id, not a space name")
 (SkillHelp "memory" "retire-persistent-expression expression reason - expert exact-atom tool only; prefer persistent-cleanup workflow")
 (SkillHelp "memory" "persistent-merge-atoms pattern replacement reason - expert exact pattern/replacement tool only; prefer persistent-cleanup workflow")
 (SkillHelp "memory" "world-fact subject relation object confidence - stable people, rooms, devices, aliases; confidence must be numeric")

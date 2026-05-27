@@ -101,6 +101,8 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             'persistent-cleanup-propose pc-123 merge-duplicate exact duplicate review': '((persistent-cleanup-propose "pc-123" "merge-duplicate" "exact duplicate review"))',
             'persistent-cleanup-commit pp-123': '((persistent-cleanup-commit "pp-123"))',
             'cleanup-proposals': '((cleanup-proposals))',
+            'persistent-cleanup-proposals': '((persistent-cleanup-proposals))',
+            'cleanup-proposals-for persistent': '((cleanup-proposals-for "persistent"))',
             'agenda-complete cleanup-test duplicate merged': '((agenda-complete "cleanup-test" "duplicate merged"))',
             'belief-derived Omega autonomy relational 0.84 0.8': '((belief-derived "Omega autonomy relational 0.84 0.8"))',
             'beliefs-for Omega': '((beliefs-for "Omega"))',

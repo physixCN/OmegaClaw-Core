@@ -31,6 +31,7 @@ memory/*.metta
 memory/*.md
 memory/*.html
 memory/*.txt
+!memory/prompt.txt
 memory/cycle-counter.txt
 memory/reboot_note.txt
 memory/backups/

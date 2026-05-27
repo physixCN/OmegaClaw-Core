@@ -2,8 +2,8 @@
 ; This proves the same module atom contract can represent a whole UI world or
 ; game world, not only a small callable skill.
 
-!(import! &self ./repos/OmegaClaw-Core/tests/fixtures/modules/omega_os_surface/entry.metta)
-!(import! &self ./repos/OmegaClaw-Core/tests/fixtures/modules/metta_maze_game/entry.metta)
+!(import! &self (library OmegaClaw-Core ./tests/fixtures/modules/omega_os_surface/entry.metta))
+!(import! &self (library OmegaClaw-Core ./tests/fixtures/modules/metta_maze_game/entry.metta))
 
 !(println! MODULE-WORLDS-KINDS)
 !(println! (collapse (match &self (ModuleKind $module $kind)

@@ -130,9 +130,12 @@ class SkillAffordanceContractTests(unittest.TestCase):
             '(trace-atom "merge-remove" $space $pattern $reason)',
             'SkillTopic "persistent-merge-atoms" "persistent"',
             "EXPERT exact atom merge; prefer persistent-cleanup workflow",
-            "persistent-cleanup-candidates limit",
-            "persistent-cleanup-propose candidate-id action reason",
+            "persistent-cleanup-candidates limit - inspect persistent and refresh the current reviewable pc-... candidate id set",
+            "candidate-id must be a pc-... id from latest persistent-cleanup-candidates",
             "persistent-cleanup-commit proposal-id",
+            "persistent-cleanup-proposals - alias for cleanup-proposals",
+            "cleanup-proposals-for space",
+            "commit takes a pp-... proposal id, not a space",
             "merge same-space duplicates; exact pattern match; saves runtime space; no accept/finalize step",
             "move/rewrite atoms; exact pattern match; no accept/finalize step; use merge tools for same-space duplicates",
             "reviewed-cross-space-rewrite",
@@ -147,6 +150,8 @@ class SkillAffordanceContractTests(unittest.TestCase):
         self.assertIn("(SkillSignature persistent-cleanup-candidates", signatures)
         self.assertIn("(SkillSignature persistent-cleanup-propose", signatures)
         self.assertIn("(SkillSignature persistent-cleanup-commit", signatures)
+        self.assertIn("(SkillSignature persistent-cleanup-proposals", signatures)
+        self.assertIn("(SkillSignature cleanup-proposals-for", signatures)
 
 
     def test_pln_affordance_requires_truth_valued_premises(self):

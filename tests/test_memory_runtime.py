@@ -120,6 +120,29 @@ class MemoryRuntimeTests(unittest.TestCase):
             self.assertNotIn("STALE | quoted result", frame)
             self.assertIn("view_policy=no interpretation", frame)
 
+    def test_current_frame_wait_reason_is_latest_entry_only(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            memory_dir = pathlib.Path(tmpdir)
+            helper_metta = self.import_with_memory("helper_metta", memory_dir)
+            history_path = memory_dir / "history.metta"
+            history_path.write_text(
+                '("2026-05-27 10:00:00"\n'
+                ' ((pin "WAITING") (wait "old skill result"))\n'
+                ' "RESULTS: " "ok"\n'
+                ')\n'
+                '("2026-05-27 10:01:00"\n'
+                ' ((pin "MOVED ON") (reply-whatsapp-to "jid" "done"))\n'
+                ' "RESULTS: " "ok"\n'
+                ')\n',
+                encoding="utf-8",
+            )
+
+            frame = helper_metta.context_current_frame(" DO NOT RE-SEND OR SPAM!", "", 1400)
+
+            self.assertIn("latest_pin=MOVED ON", frame)
+            self.assertIn("latest_wait_reason=<none>", frame)
+            self.assertNotIn("old skill result", frame)
+
     def test_recent_history_uses_whole_entries_with_result_size_markers(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             memory_dir = pathlib.Path(tmpdir)

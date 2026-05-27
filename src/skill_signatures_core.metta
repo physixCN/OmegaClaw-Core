@@ -7,6 +7,7 @@
 (SignatureSpace world)
 (SignatureSpace events)
 (SignatureSpace activity)
+(SignatureSpace cleanup)
 (SkillSignature send (Arg rest-text message))
 (SkillSignature remember (Arg rest-text memory))
 (SkillSignature pin (Arg rest-text pin))

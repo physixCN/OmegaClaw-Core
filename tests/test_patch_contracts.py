@@ -204,7 +204,7 @@ class PatchBoundaryContractTests(unittest.TestCase):
             )
         self.assertIn("(register-default-runtime-spaces)", memory)
         self.assertIn("(load-runtime-spaces-by-role memory)", memory)
-        self.assertIn('(register-space-persistence "attention" ./repos/OmegaClaw-Core/memory/attention.metta runtime-state)', libs)
+        self.assertIn('(register-space-persistence "attention" (library OmegaClaw-Core ./memory/attention.metta) runtime-state)', libs)
         self.assertIn('(load-runtime-space "attention")', attention)
         self.assertIn("def ensure_runtime_memory_files", helper)
         self.assertNotIn('allowed = {"persistent"', helper)
