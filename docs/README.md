@@ -61,6 +61,13 @@ User-facing MeTTa skills the agent invokes. Each page follows the template **Sig
 - [reference-python-bridges.md](./reference-python-bridges.md) — `lib_llm_ext.py`, `modules/agentverse/src/agentverse_bridge.py`, `src/helper.py`, `src/skills.pl`
 - [reference-testing-benchmarks.md](./reference-testing-benchmarks.md) — required tests, smoke classification, optional skips, reviewer benchmarks, and demo suite
 
+### Review Materials
+
+- [review/v0.01a-technical-walkthrough.md](./review/v0.01a-technical-walkthrough.md) — chronological walkthrough of the v0.01a architecture changes, evidence, caveats, and confidence.
+- [review/v0.01a-benchmark-results.md](./review/v0.01a-benchmark-results.md) — baseline-vs-candidate benchmark artifact.
+- [review/v0.01a-demo-results.md](./review/v0.01a-demo-results.md) — deterministic demo results showing what the changes do.
+- [review/v0.01a-security-name-audit.md](./review/v0.01a-security-name-audit.md) — reviewer-facing name, secret, and private-state boundary notes.
+
 ### Internals
 
 - [reference-internals-loop.md](./reference-internals-loop.md) — `src/loop.metta` lifecycle and turn structure

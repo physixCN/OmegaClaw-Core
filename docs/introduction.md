@@ -1,10 +1,10 @@
 # Introduction
 
-OmegaClaw is a **hybrid agentic AI framework** implemented in MeTTa on OpenCog Hyperon. A large language model (LLM) works together with formal logic engines — **NAL** and **PLN** — to reason about the world, track uncertainty, combine evidence, and produce conclusions that are mathematically grounded rather than just plausible-sounding.
+OmegaClaw is a **hybrid agentic AI framework** implemented in MeTTa on OpenCog Hyperon. A large language model (LLM) works with symbolic memory, MeTTa/AtomSpace skills, and formal logic engines — **NAL** and **PLN** — so an agent can keep persistent state, inspect its own affordances, reason under uncertainty, and act through explicit membranes.
 
 The core agent loop is approximately **200 lines of MeTTa**.
 
-> Most AI assistants generate answers that sound right. OmegaClaw-hosted agents generate answers that come with a **mathematical receipt** showing exactly how confident each conclusion is and what evidence supports it. When the agent says it is 72% confident, that number comes from formal inference — not a feeling.
+> Most AI assistants generate answers that sound right. OmegaClaw tries to make the agent's reasoning substrate inspectable: when a conclusion is produced through NAL, PLN, or Assume/FabricPC, the premises, truth values, confidence propagation, traces, and action boundaries can be inspected. Not every utterance is formally derived; the architecture makes the difference visible.
 
 This page is the conceptual introduction: what OmegaClaw is, why the hybrid architecture exists, how the pieces connect at runtime, the vocabulary used throughout the rest of the docs, and the honest limits of the current system. For getting a running instance, see [installation instruction](/README.md#installation). For hands-on walkthroughs, see the tutorials listed at the end.
 
@@ -12,13 +12,13 @@ This page is the conceptual introduction: what OmegaClaw is, why the hybrid arch
 
 ## What OmegaClaw does
 
-- Runs a token-efficient agentic loop that receives messages, selects skills, and acts.
+- Runs a token-efficient agentic loop that receives messages, recalls context, selects skills, acts, verifies, and records trace.
 - Delegates reasoning to one of two formal engines, orchestrated by the LLM:
   - **NAL** — Non-Axiomatic Logic, symbolic inference under uncertainty.
   - **PLN** — Probabilistic Logic Networks, probabilistic higher-order reasoning.
   - ONA (OpenNARS for Applications) is a planned third engine but is **not installed by default** — see [reference-lib-ona.md](./reference-lib-ona.md) for the current experimental status.
-- Maintains a **three-tier memory** architecture (working, long-term, AtomSpace — described below).
-- Exposes an extensible **skill system** covering memory, shell and file I/O, communication channels, web search, remote agents, and formal reasoning.
+- Maintains exact raw history plus bounded context views and explicit runtime spaces for agenda, beliefs, world, events, activity, cleanup, skills, scratch, and assumptions.
+- Exposes an extensible **skill/module system** covering memory, shell and file I/O, communication channels, web search, senses, media, remote agents, Assume/FabricPC, and formal reasoning.
 
 ---
 
@@ -36,9 +36,9 @@ This page is the conceptual introduction: what OmegaClaw is, why the hybrid arch
 | Formal contradiction detection | ❌ | ✅ |
 | Auditable conclusion path | ❌ | ✅ |
 
-The LLM turns ambiguous natural language into structured atoms with explicit truth values. The formal engine takes those atoms and applies rules whose truth-value arithmetic is deterministic and auditable.
+The LLM turns ambiguous natural language into candidate commands, atoms, or premises. When those premises are sent to a formal engine, the engine applies deterministic truth-value arithmetic. When the agent acts through a tool, the syntax membrane and skill signatures decide whether the action is well-formed or must fail closed.
 
-When the agent outputs a conclusion, you can trace it back through every step: which premises fed into which rule, what truth value each premise carried, and what the math produced.
+When the agent outputs a formally derived conclusion, you can trace it back through every step: which premises fed into which rule, what truth value each premise carried, and what the math produced. When it outputs ordinary prose, that prose is still traceable as a loop decision, not silently promoted to formal truth.
 
 ### The orchestration cycle (call-and-wait)
 

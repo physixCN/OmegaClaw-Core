@@ -14,7 +14,7 @@ without becoming hidden cognition.
 This branch focuses on making the core work out of the box as a coherent
 research substrate: exact raw history, bounded context views, inspectable skill
 affordances, safer command parsing, restart-persistent runtime spaces, and
-default-off optional modules.
+explicitly loaded optional modules.
 
 ## What This Version Adds
 
@@ -29,11 +29,12 @@ default-off optional modules.
 - Bounded context views with mechanical payload compaction while preserving raw
   history exactly on disk.
 - Runtime spaces for agenda, beliefs, world, events, activity, assumptions,
-  attention, skills, scratch, and optional modules.
+  cleanup, attention, skills, skill-triggers, scratch, scratch-ttl, and optional
+  modules.
 - Core web-search surface, PLN/NAL guidance, continuity pinning, syntax
   recovery hints, and memory merge helpers.
-- Optional module loader boundary so installed extensions remain invisible until
-  explicitly enabled.
+- Module loader boundary so installed extensions become visible only through the
+  active loader composition.
 
 ## Repository Shape
 
@@ -131,14 +132,17 @@ sh run.sh run.metta provider=OpenAI LLM=gpt-4.1 commchannel=irc IRC_channel=##om
 | `wakeupInterval` | `900` | Idle time before a scheduled wake in seconds. |
 | `maxOutputToken` | `6000` | Output cap passed to the provider. |
 | `reasoningMode` | `medium` | Reasoning-effort hint where supported by the provider. |
-| `maxFeedback` | `50000` | Last-skill-result text included in active context. |
+| `maxFeedback` | `40000` | Last-skill-result text included in active context. |
 | `maxHistory` | `30000` | Bounded tail of exact raw history included in active context. |
 | `embeddingprovider` | `Local` | Local embeddings or optional OpenAI embeddings. |
 
 ## Channels
 
-Core includes IRC, Telegram, Slack, Mattermost, mock, and web-search adapters.
-Channel credentials and deployment endpoints should be supplied at runtime, not
+Core includes channel modules for Telegram, WhatsApp, Mattermost, web control,
+IRC, Slack, mock, and web search. The active out-of-box loader enables the
+router plus Telegram, WhatsApp, Mattermost, web control, and web search surfaces;
+IRC, Slack, and mock remain packaged but disabled until imported. Channel
+credentials and deployment endpoints should be supplied at runtime, not
 committed.
 
 | Parameter | Default | Meaning |
