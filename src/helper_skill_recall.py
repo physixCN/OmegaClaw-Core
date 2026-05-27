@@ -48,11 +48,7 @@ def _metta_string(value: str) -> str:
 
 
 def input_skill_signals(text: str, max_words: int = 24) -> list[str]:
-    """Return factual symbolic signals visible in the raw input text.
-
-    These are intentionally shallow observations such as mentions-word:metta or
-    has-question. Higher-level interpretation remains in MeTTa/LLM cognition.
-    """
+    """Return factual symbolic signals visible in the raw input text."""
 
     raw = str(text or "")
     lowered = raw.lower()

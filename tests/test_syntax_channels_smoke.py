@@ -10,9 +10,6 @@ import helper  # noqa: E402
 
 
 class ChannelSyntaxSmokeTests(unittest.TestCase):
-    def setUp(self):
-        helper.reload_signature_commands()
-
     def assert_metta_ok(self, expression):
         self.assertEqual(helper.test_metta_expression(expression), "METTA-SYNTAX-OK")
 
@@ -27,12 +24,20 @@ class ChannelSyntaxSmokeTests(unittest.TestCase):
             "send-whatsapp Dinner (pasta) is ready": '((send-whatsapp "Dinner (pasta) is ready"))',
             "send-whatsapp-to 12345@lid hello: from agent": '((send-whatsapp-to "12345@lid" "hello: from agent"))',
             "reply-whatsapp-to 12345@lid hello: from agent": '((reply-whatsapp-to "12345@lid" "hello: from agent"))',
+            "reply-whatsapp-to-message 12345@lid 12345@lid::abc123 hello: specific message": '((reply-whatsapp-to-message "12345@lid" "12345@lid::abc123" "hello: specific message"))',
+            "react-whatsapp-message 12345@lid 12345@lid::abc123 thanks": '((react-whatsapp-message "12345@lid" "12345@lid::abc123" "thanks"))',
+            "unreact-whatsapp-message 12345@lid 12345@lid::abc123": '((unreact-whatsapp-message "12345@lid" "12345@lid::abc123"))',
+            "edit-whatsapp-message 12345@lid::own123 corrected: text": '((edit-whatsapp-message "12345@lid::own123" "corrected: text"))',
+            "delete-whatsapp-message 12345@lid::own123": '((delete-whatsapp-message "12345@lid::own123"))',
+            "send-primary-operator urgent: please check loop": '((send-primary-operator "urgent: please check loop"))',
             "send-file-caption /tmp/frame.png here is the frame: live": '((send-file-caption "/tmp/frame.png" "here is the frame: live"))',
             "send-whatsapp-file-to 12345@lid /tmp/frame.png": '((send-whatsapp-file-to "12345@lid" "/tmp/frame.png"))',
             "reply-whatsapp-file-to 12345@lid /tmp/frame.png": '((reply-whatsapp-file-to "12345@lid" "/tmp/frame.png"))',
             "reply-whatsapp-file-caption-to 12345@lid /tmp/frame.png here is the frame: live": '((reply-whatsapp-file-caption-to "12345@lid" "/tmp/frame.png" "here is the frame: live"))',
             "send-whatsapp-base64 RGlubmVyIGlzIHJlYWR5OgotIHBsYXRlcyBvdXQ=": '((send-whatsapp-base64 "RGlubmVyIGlzIHJlYWR5OgotIHBsYXRlcyBvdXQ="))',
             "reply-whatsapp-to 12345@lid Dinner is ready:\n- plates are out": '((reply-whatsapp-to-base64 "12345@lid" "RGlubmVyIGlzIHJlYWR5OgotIHBsYXRlcyBhcmUgb3V0"))',
+            "reply-whatsapp-to-message 12345@lid 12345@lid::abc123 Dinner is ready:\n- plates are out": '((reply-whatsapp-to-message-base64 "12345@lid" "12345@lid::abc123" "RGlubmVyIGlzIHJlYWR5OgotIHBsYXRlcyBhcmUgb3V0"))',
+            "edit-whatsapp-message 12345@lid::own123 Corrected:\n- line": '((edit-whatsapp-message-base64 "12345@lid::own123" "Q29ycmVjdGVkOgotIGxpbmU="))',
             "mark-whatsapp-read 12345@lid": '((mark-whatsapp-read "12345@lid"))',
             "web-search OpenCog Hyperon": '((web-search "OpenCog Hyperon"))',
             "web-search OpenCog Hyperon\nsend done": '((web-search "OpenCog Hyperon") (send "done"))',

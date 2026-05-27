@@ -53,7 +53,7 @@
                   (if (== $mode "listening")
                       (set-loop-energy 5 2 3 300 $reason)
 	                      (if (== $mode "warm")
-	                          (set-loop-energy 12 6 3 900 $reason)
+	                          (set-loop-energy 12 8 3 300 $reason)
 	                          (if (== $mode "focused")
 	                              (set-loop-energy 30 20 3 300 $reason)
 	                              (set-loop-energy 60 20 3 120 $reason))))))

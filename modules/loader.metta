@@ -1,12 +1,29 @@
-; Optional module enablement point.
-;
-; A module is enabled only when this file imports its entry.metta file:
-;
-; !(import! &self (library OmegaClaw-Core ./modules/example/entry.metta))
-;
-; The syntax and catalog membranes read this same loader to decide which
-; modules can contribute signatures.metta and catalog.metta declarations. Module
-; entry files should also import their affordance.metta files so skill cards and
-; general SkillTrigger words become active only when the module is enabled. This
-; keeps installed-but-disabled module folders from becoming parser-visible or
-; context-visible.
+; Enabled modules for this OmegaClaw deployment.
+; Parser/catalog membranes read this file, so a module is callable only when imported here.
+!(import! &self (library OmegaClaw-Core ./modules/channel_telegram/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/channel_whatsapp/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/channel_web_control/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/channel_mattermost/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/channel_irc/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/channel_slack/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/channel_mock/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/web_search/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/health_glucose/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/channel_router/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/sense_vision/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/sense_webcam/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/sense_audio/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/media_imagegen/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/media_videogen/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/agentverse/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/assume/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/body_container/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/codex_code/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/gameboy/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/home_assistant/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/omega_vm/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/publishing/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/scratch_space/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/vm_policy/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/sense_router/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/scheduler_reminders/entry.metta))

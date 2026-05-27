@@ -21,7 +21,7 @@ provider calls, command syntax, and reviewed space mutation.
 
 These organs are intentionally optional body/app surfaces:
 
-- `src/assume_fabricd.py` requires FabricPC plus `jax` and `optax`. It should be
+- `modules/assume/src/assume_fabricd.py` requires FabricPC plus `jax` and `optax`. It should be
   reviewed as the Assume/FabricPC predictive organ, not as a mandatory chatbot
   dependency.
 - `src/audio.py` can use `imageio_ffmpeg` and `whisper` when audio inspection is
@@ -60,7 +60,7 @@ Implementations live in the organ files:
 - `src/skills_core.metta`
 - `src/skills_memory.metta`
 - `src/skills_energy.metta`
-- `src/skills_assume.metta`
+- `modules/assume/skills.metta`
 - `src/skills_body.metta`
 - `src/skills_reasoning_spaces.metta`
 - `src/skills_attention.metta`

@@ -20,6 +20,8 @@ Truth values share NAL's `(stv frequency confidence)` format, interpreted probab
 
 `|~` applies PLN rules. OmegaClaw's current deployment supports a useful subset; the rest are left to NAL or future work.
 
+Use the plain MeTTa relation names used by `lib_pln.metta`: `Inheritance`, `Implication`, `Similarity`, `Evaluation`, and so on. Do not use OpenCog-style `InheritanceLink` or `ImplicationLink` names with `pln-step`; those are different atoms and will not match the current rules.
+
 ---
 
 ## Rule catalogue — confirmed

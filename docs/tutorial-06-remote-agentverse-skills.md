@@ -1,59 +1,58 @@
 # Tutorial 06 — Remote Agentverse Skills
 
-**Goal:** understand how OmegaClaw can delegate work to optional remote agents
-without making remote services look like built-in cognition.
+**Goal:** use Agentverse as a discoverable remote-agent network without
+collapsing the runtime into a generic agent wrapper.
 
-Core OmegaClaw should work without remote Agentverse skills. For live web
-research, use the core `web-search` skill. Remote agents are optional extension
-organs: useful when installed, but not assumed by the default runtime.
+The agent can ask Agentverse for specialist agents, inspect candidates, register a
+chosen endpoint in `&agentverse`, and call it later. The transport is Python and
+uAgents; the decision surface is MeTTa.
 
-## Why Remote Agents Are Optional
+## Why This Is A Module
 
-A remote agent crosses a network boundary, depends on another service, and may
-have a different failure mode than local MeTTa/Python skills. Treat it as an
-installed organ with an explicit contract, not as hidden cognition.
+Agentverse is an external-agent organ. It is not the mind, memory, identity,
+or provider. It belongs in `modules/agentverse` because it has its own network
+dependency, runtime traces, and optional availability.
 
-Good remote-agent modules expose:
-
-- MeTTa skill signatures
-- catalog/help text
-- symbolic affordance cards
-- request and response schemas
-- local traces for calls and failures
-- a clear unavailable/offline result
-
-## Core Web Search
-
-For ordinary current or external facts, use:
+## Discovery-First Workflow
 
 ```metta
-(web-search "OpenCog Hyperon")
+(agentverse-discover "agent that can check weather is:active")
 ```
 
-Legacy `(search "query")` delegates to `web-search`, but new docs and prompts
-should prefer the canonical name.
+This writes an `AgentverseDiscovery` atom into `&agentverse` and returns
+candidate atoms. The agent can reason over the address, status, type, protocol
+summary, and readme/description excerpt.
 
-## Adding A Remote Skill
-
-1. Pick or implement the remote service.
-2. Add a local bridge function or module-local transport wrapper.
-3. Expose a MeTTa skill in the module.
-4. Add signatures, catalog/help, and affordance atoms.
-5. Return a visible error/status when the remote service is unavailable.
-6. Keep durable conclusions in normal memory only after the agent reviews them.
-
-Example shape:
+When the agent chooses one:
 
 ```metta
-(= (my-remote-skill $arg)
-   (py-call (my_remote_bridge.call $arg)))
+(agentverse-register-agent "weather-helper" "agent1..." "Message" "weather")
 ```
 
-## Limits
+Then call it:
 
-Remote-agent output quality depends on the remote service. The local agent must
-still reason over results, check provenance, and store only compact conclusions
-that are worth remembering.
+```metta
+(agentverse-call "weather-helper" "weather in London today")
+```
+
+For a raw one-off call:
+
+```metta
+(agentverse-ask "agent1..." "Message" "hello")
+```
+
+## Why Not Hardcode Skills?
+
+The old proof of concept exposed `tavily-search` and `technical-analysis`
+directly from core. That worked as a demo, but it made two remote agents feel
+like built-in cognition. The module version instead makes remote agents
+discoverable, registerable, inspectable, and replaceable.
+
+## Trace And Memory
+
+The organ writes request/response/error/discovery traces to
+`memory/runtime/agentverse/`. Meaningful conclusions from remote results should
+still be deliberately promoted into normal memory by the agent.
 
 ## See Also
 

@@ -205,6 +205,78 @@ def context_history_tail(max_chars=30000):
         return text[-max_chars:]
     return text
 
+
+def _last_quoted_command_arg(text, command, limit=240):
+    pattern = re.compile(
+        r'\(' + re.escape(command) + r'\s+"((?:[^"\\]|\\.){0,' + str(int(limit)) + r'})"',
+        re.DOTALL,
+    )
+    matches = list(pattern.finditer(str(text or "")))
+    if not matches:
+        return ""
+    value = matches[-1].group(1)
+    return value.replace(r'\"', '"').replace(r"\\", "\\")
+
+
+def _last_history_timestamp(text):
+    matches = list(re.finditer(r'\("([^"\n]{10,32})"\s', str(text or "")))
+    return matches[-1].group(1) if matches else ""
+
+
+def _continuity_state_from_pin(pin, has_fresh_input):
+    pin_l = str(pin or "").lower()
+    if has_fresh_input:
+        return "fresh-input-open"
+    if any(marker in pin_l for marker in ("reply-debt", "verify", "report owed", "await feedback")):
+        return "open-loop"
+    if "complete" in pin_l and any(marker in pin_l for marker in ("await-new-input", "standby", "warm-standby")):
+        return "complete-standby"
+    if pin:
+        return "continue-pinned-work"
+    return "no-pin"
+
+
+def context_current_frame(current_input="", last_results="", max_chars=2200):
+    """Return the final, decision-local continuity frame for the LLM prompt.
+
+    This frame is intentionally built mechanically from recent history instead
+    of asking the model to infer current task state from old promoted memories or
+    a raw character tail.
+    """
+    path = MEMORY_DIR / "history.metta"
+    history = "" if not path.exists() else _read_text_tail_bytes(path, 180000)
+    if history.startswith("CONTEXT-READ-ERROR "):
+        history = ""
+    pin = _last_quoted_command_arg(history, "pin", 500)
+    wait_reason = _last_quoted_command_arg(history, "wait", 300)
+    timestamp = _last_history_timestamp(history)
+    current_input = str(current_input or "").strip()
+    has_fresh_input = (
+        bool(current_input)
+        and "DO NOT RE-SEND OR SPAM" not in current_input
+        and current_input != '""'
+    )
+    continuity_state = _continuity_state_from_pin(pin, has_fresh_input)
+    result_view = context_last_results(last_results, 700)
+    lines = [
+        f"fresh_input={str(has_fresh_input).lower()}",
+        f"continuity_state={continuity_state}",
+        f"current_input={current_input[:500] if current_input else '<none>'}",
+        f"latest_pin={pin or '<none>'}",
+        f"latest_wait_reason={wait_reason[:180] if wait_reason else '<none>'}",
+        f"latest_history_time={timestamp or '<unknown>'}",
+        f"last_result_tail={result_view}",
+        "decision_rule=honor fresh input first; if continuity_state=open-loop or continue-pinned-work, continue latest_pin; if complete-standby, do not resume secondary/stale work without explicit agenda selection; never let promoted background memories choose the next task",
+    ]
+    frame = "\n".join(lines)
+    try:
+        max_chars = max(0, int(float(max_chars)))
+    except Exception:
+        max_chars = 2200
+    if max_chars and len(frame) > max_chars:
+        return frame[-max_chars:]
+    return frame
+
 def context_last_results(results, max_chars=8000):
     """Return a bounded view of previous command results for prompt context.
 

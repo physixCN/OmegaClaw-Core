@@ -1,0 +1,3452 @@
+diff --git a/channels/mattermost.py b/channels/mattermost.py
+index 7f97008..f052519 100644
+--- a/channels/mattermost.py
++++ b/channels/mattermost.py
+@@ -16,10 +16,10 @@ _auth_lock = threading.Lock()
+ _auth_secret = ""
+ _authenticated_user_id = None
+ 
+-# ---- Mattermost config (dummy token ok) ----
+-MM_URL = "https://chat.singularitynet.io"
+-CHANNEL_ID = "8fjrmabjx7gupy7e5kjznpt5qh" #NOT AN ID JUST NAME: "omegaclaw"x
+-BOT_TOKEN = ""
++# ---- Mattermost config ----
++MM_URL = os.environ.get("MATTERMOST_URL", "https://chat.singularitynet.io")
++CHANNEL_ID = os.environ.get("MATTERMOST_CHANNEL_ID", "8fjrmabjx7gupy7e5kjznpt5qh")
++BOT_TOKEN = os.environ.get("MATTERMOST_BOT_TOKEN", "")
+ 
+ def _get_bot_user_id():
+     global headers
+diff --git a/channels/telegram.py b/channels/telegram.py
+index f980578..ea21d59 100644
+--- a/channels/telegram.py
++++ b/channels/telegram.py
+@@ -1,9 +1,13 @@
+ import json
++import mimetypes
+ import os
++import pathlib
++import re
+ import threading
+ import time
+ import urllib.parse
+ import urllib.request
++import uuid
+ 
+ _running = False
+ _last_message = ""
+@@ -101,6 +105,121 @@ def _api_call(method, params=None, timeout=30, use_post=False):
+     return payload.get("result")
+ 
+ 
++
++def _core_dir():
++    return pathlib.Path(__file__).resolve().parent.parent
++
++
++def _inbox_dir():
++    inbox = _core_dir() / "memory" / "inbox" / "telegram"
++    inbox.mkdir(parents=True, exist_ok=True)
++    return inbox
++
++
++def _sanitize_filename(name):
++    name = str(name or "telegram_file").strip()
++    name = pathlib.Path(name).name
++    name = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("._")
++    return name or "telegram_file"
++
++
++def _file_download_url(file_path):
++    quoted = urllib.parse.quote(str(file_path), safe="/")
++    return f"https://api.telegram.org/file/bot{_bot_token}/{quoted}"
++
++
++def _download_file(file_id, fallback_name):
++    if not file_id:
++        return ""
++
++    info = _api_call("getFile", {"file_id": file_id}, timeout=20) or {}
++    file_path = info.get("file_path", "")
++    if not file_path:
++        return ""
++
++    filename = _sanitize_filename(fallback_name or pathlib.Path(file_path).name)
++    target = _inbox_dir() / f"{int(time.time())}_{uuid.uuid4().hex[:8]}_{filename}"
++    with urllib.request.urlopen(_file_download_url(file_path), timeout=60) as response:
++        target.write_bytes(response.read())
++    return str(target)
++
++
++def _largest_photo(photos):
++    if not photos:
++        return None
++    return max(
++        photos,
++        key=lambda p: int(p.get("file_size") or (p.get("width", 0) * p.get("height", 0)) or 0),
++    )
++
++
++def _extract_file_notice(message, display_name):
++    entries = [
++        ("document", message.get("document"), "file_name", "document.bin"),
++        ("audio", message.get("audio"), "file_name", "audio.bin"),
++        ("video", message.get("video"), "file_name", "video.mp4"),
++        ("voice", message.get("voice"), None, "voice.ogg"),
++        ("animation", message.get("animation"), "file_name", "animation.gif"),
++    ]
++
++    for kind, payload, name_key, fallback in entries:
++        if isinstance(payload, dict):
++            file_id = payload.get("file_id", "")
++            fallback_name = payload.get(name_key, fallback) if name_key else fallback
++            path = _download_file(file_id, fallback_name)
++            if path:
++                caption = str(message.get("caption", "")).strip()
++                suffix = f" caption: {caption}" if caption else ""
++                return f"{display_name} sent {kind} saved at {path}{suffix}"
++
++    photo = _largest_photo(message.get("photo") or [])
++    if isinstance(photo, dict):
++        fallback = f"photo_{message.get('message_id', int(time.time()))}.jpg"
++        path = _download_file(photo.get("file_id", ""), fallback)
++        if path:
++            caption = str(message.get("caption", "")).strip()
++            suffix = f" caption: {caption}" if caption else ""
++            return f"{display_name} sent photo saved at {path}{suffix}"
++
++    return ""
++
++
++def _api_multipart(method, fields, file_field, file_path, timeout=60):
++    if not _api_base:
++        raise RuntimeError("Telegram adapter not initialized")
++
++    path = pathlib.Path(str(file_path)).expanduser()
++    if not path.exists() or not path.is_file():
++        raise FileNotFoundError(str(path))
++
++    boundary = f"----OmegaClaw{uuid.uuid4().hex}"
++    chunks = []
++    for key, value in (fields or {}).items():
++        chunks.append(f"--{boundary}\r\n".encode())
++        chunks.append(f'Content-Disposition: form-data; name="{key}"\r\n\r\n'.encode())
++        chunks.append(str(value).encode("utf-8"))
++        chunks.append(b"\r\n")
++
++    mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
++    filename = _sanitize_filename(path.name)
++    chunks.append(f"--{boundary}\r\n".encode())
++    chunks.append(
++        f'Content-Disposition: form-data; name="{file_field}"; filename="{filename}"\r\n'.encode()
++    )
++    chunks.append(f"Content-Type: {mime}\r\n\r\n".encode())
++    chunks.append(path.read_bytes())
++    chunks.append(b"\r\n")
++    chunks.append(f"--{boundary}--\r\n".encode())
++
++    req = urllib.request.Request(f"{_api_base}/{method}", data=b"".join(chunks))
++    req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
++    with urllib.request.urlopen(req, timeout=timeout) as response:
++        payload = json.loads(response.read().decode("utf-8", errors="ignore"))
++    if not payload.get("ok"):
++        raise RuntimeError(payload.get("description", f"{method} failed"))
++    return payload.get("result")
++
++
+ def _initialize_offset():
+     global _offset
+     try:
+@@ -171,9 +290,8 @@ def _poll_loop():
+                 if not isinstance(message, dict):
+                     continue
+ 
+-                text = message.get("text")
+-                if not text:
+-                    continue
++                text = str(message.get("text", "") or "").strip()
++                caption = str(message.get("caption", "") or "").strip()
+ 
+                 chat = message.get("chat") or {}
+                 user = message.get("from") or {}
+@@ -182,10 +300,15 @@ def _poll_loop():
+                 if not chat_id or not user_id:
+                     continue
+ 
+-                state = _is_allowed_message(chat_id, user_id, text)
++                state = _is_allowed_message(chat_id, user_id, text or caption)
+                 display_name = _display_name(user, chat)
+                 if state == "allow":
+-                    _set_last(f"{display_name}: {text}")
++                    if text:
++                        _set_last(f"{display_name}: {text}")
++                    else:
++                        notice = _extract_file_notice(message, display_name)
++                        if notice:
++                            _set_last(notice)
+                 elif state == "auth_bound":
+                     send_message(f"Authentication successful for {display_name}.")
+         except Exception as exc:
+@@ -255,3 +378,31 @@ def send_message(text):
+         except Exception as exc:
+             print(f"[TELEGRAM] Send failed: {exc}")
+             return
++
++def send_file(path, caption=""):
++    with _state_lock:
++        target_chat = _chat_id
++
++    if not _connected or not target_chat:
++        return "TELEGRAM-SEND-FILE-NOT-CONNECTED"
++
++    try:
++        _api_multipart(
++            "sendDocument",
++            {"chat_id": target_chat, "caption": str(caption or "")},
++            "document",
++            path,
++            timeout=90,
++        )
++        return "TELEGRAM-SEND-FILE-SUCCESS"
++    except Exception as exc:
++        print(f"[TELEGRAM] Send file failed: {exc}")
++        return f"TELEGRAM-SEND-FILE-FAILED {exc}"
++
++
++def list_inbox():
++    inbox = _inbox_dir()
++    files = sorted([p for p in inbox.iterdir() if p.is_file()], key=lambda p: p.stat().st_mtime, reverse=True)
++    if not files:
++        return "TELEGRAM-INBOX-EMPTY"
++    return "\n".join(str(p) for p in files[:50])
+diff --git a/src/channels.metta b/src/channels.metta
+index 6db45cf..2ad8142 100644
+--- a/src/channels.metta
++++ b/src/channels.metta
+@@ -10,6 +10,10 @@
+ (= (TG_BOT_TOKEN) (empty))
+ (= (TG_CHAT_ID) (empty))
+ (= (TG_POLL_TIMEOUT) (empty))
++(= (WA_TARGET_JID) (empty))
++(= (WA_PORT) (empty))
++(= (WA_PREFIX) (empty))
++(= (WA_PRIMARY_JID) (empty))
+ (= (SL_BOT_TOKEN) (empty))
+ (= (SL_CHANNEL_ID) (empty))
+ (= (SL_POLL_INTERVAL) (empty))
+@@ -17,57 +21,208 @@
+ ;Connect all the channels:
+ (= (initChannels)
+    (progn (println! "Initializing channels")
+-          (configure commchannel irc)
+           (if (== (commchannel) irc)
+-              (progn (configure IRC_channel ##omegaclaw)
+-                     (configure IRC_server "irc.quakenet.org")
+-                     (configure IRC_port 6667)
+-                     (configure IRC_user omegaclaw)
+-                     (py-call (irc.start_irc (IRC_channel) (IRC_server) (IRC_port) (IRC_user))))
+-              (if (== (commchannel) telegram)
++              (py-call (irc.start_irc (IRC_channel) (IRC_server) (IRC_port) (IRC_user)))
++          (if (== (commchannel) telegram)
+                   (progn (configure TG_BOT_TOKEN "")
+                          (configure TG_CHAT_ID "")
+                          (configure TG_POLL_TIMEOUT 20)
+                          (py-call (telegram.start_telegram (TG_BOT_TOKEN) (TG_CHAT_ID) (TG_POLL_TIMEOUT))))
+-                  (if (== (commchannel) slack)
+-                      (progn (configure SL_BOT_TOKEN "")
+-                             (configure SL_CHANNEL_ID "")
+-                             (configure SL_POLL_INTERVAL 60)
+-                             (py-call (slack.start_slack (SL_BOT_TOKEN) (SL_CHANNEL_ID) (SL_POLL_INTERVAL))))
+-                      (if (== (commchannel) mattermost)
+-                          (progn (configure MM_URL "https://chat.singularitynet.io")
+-                                 (configure MM_CHANNEL_ID "8fjrmabjx7gupy7e5kjznpt5qh")
+-                                 (configure MM_BOT_TOKEN "")
+-                                 (py-call (mattermost.start_mattermost (MM_URL) (MM_CHANNEL_ID) (MM_BOT_TOKEN))))
+-                          (py-call (mock.start_mock))))))))
++                  (if (== (commchannel) multi)
++                      (progn (configure TG_BOT_TOKEN "")
++                             (configure TG_CHAT_ID "")
++                             (configure TG_POLL_TIMEOUT 20)
++                             (py-call (telegram.start_telegram (TG_BOT_TOKEN) (TG_CHAT_ID) (TG_POLL_TIMEOUT)))
++                             (py-call (whatsapp.start_whatsapp (WA_TARGET_JID) (WA_PORT) (WA_PREFIX) (WA_PRIMARY_JID))))
++                      (if (== (commchannel) whatsapp)
++                          (py-call (whatsapp.start_whatsapp (WA_TARGET_JID) (WA_PORT) (WA_PREFIX) (WA_PRIMARY_JID)))
++                          (if (== (commchannel) slack)
++                              (progn (configure SL_BOT_TOKEN "")
++                                     (configure SL_CHANNEL_ID "")
++                                     (configure SL_POLL_INTERVAL 60)
++                                     (py-call (slack.start_slack (SL_BOT_TOKEN) (SL_CHANNEL_ID) (SL_POLL_INTERVAL))))
++                              (if (== (commchannel) mattermost)
++                                  (progn (configure MM_URL "https://chat.singularitynet.io")
++                                         (configure MM_CHANNEL_ID "8fjrmabjx7gupy7e5kjznpt5qh")
++                                         (configure MM_BOT_TOKEN "")
++                                         (py-call (mattermost.start_mattermost (MM_URL) (MM_CHANNEL_ID) (MM_BOT_TOKEN))))
++                                  (py-call (mock.start_mock))))))))))
+ 
+ ;Receive the latest user message considering all communication channels:
+ (= (receive)
+    (if (== (commchannel) irc)
+        (py-call (irc.getLastMessage))
+-       (if (== (commchannel) telegram)
++           (if (== (commchannel) telegram)
+            (py-call (telegram.getLastMessage))
+-           (if (== (commchannel) slack)
+-               (py-call (slack.getLastMessage))
+-               (if (== (commchannel) mattermost)
+-                   (py-call (mattermost.getLastMessage))
+-                   (py-call (mock.getLastMessage)))))))
++           (if (== (commchannel) multi)
++               (py-call (router.receive))
++               (if (== (commchannel) whatsapp)
++                   (py-call (whatsapp.getLastMessage))
++                   (if (== (commchannel) slack)
++                       (py-call (slack.getLastMessage))
++                       (if (== (commchannel) mattermost)
++                           (py-call (mattermost.getLastMessage))
++                           (py-call (mock.getLastMessage)))))))))
+ 
+-;Send a message to all communication channels:
++;Send a message to the active or control channel. In multi-channel mode,
++;router chooses the latest primary source: web OS, WhatsApp primary, or Telegram.
+ !(change-state! &lastsend "")
+ (= (send $msg)
+    (if (!= $msg (get-state &lastsend))
+        (progn (change-state! &lastsend $msg)
+-              (let $safemsg (string-replace $msg  "\n" "\\n")
++              (let $safemsg (string-replace $msg  "
++" "\n")
+                    (if (== (commchannel) irc)
+-                       (let $temp (cut) (py-call (irc.send_message $safemsg)))
++                       (py-call (irc.send_message $safemsg))
+                        (if (== (commchannel) telegram)
+                            (let $temp (cut) (py-call (telegram.send_message $safemsg)))
+-                           (if (== (commchannel) slack)
+-                               (let $temp (cut) (py-call (slack.send_message $safemsg)))
+-                               (if (== (commchannel) mattermost)
+-                                   (let $temp (cut) (py-call (mattermost.send_message $safemsg)))
+-                                   (let $temp (cut) (py-call (mock.send_message $safemsg))))))))) _))
++                           (if (== (commchannel) multi)
++                               (let $temp (cut) (py-call (router.send_control $safemsg)))
++                               (if (== (commchannel) whatsapp)
++                                   (let $temp (cut) (py-call (whatsapp.send_message $safemsg)))
++                                   (if (== (commchannel) slack)
++                                       (let $temp (cut) (py-call (slack.send_message $safemsg)))
++                                       (if (== (commchannel) mattermost)
++                                           (let $temp (cut) (py-call (mattermost.send_message $safemsg)))
++                                           (let $temp (cut) (py-call (mock.send_message $safemsg))))))))))) _))
++
++(= (send-control $msg)
++   (send $msg))
++
++(= (send-control-base64 $payload)
++   (py-call (router.send_control_base64 $payload)))
++
++(= (send-web-control $msg)
++   (if (!= $msg (get-state &lastsend))
++       (progn (change-state! &lastsend $msg)
++              (let $safemsg (string-replace $msg "
++" "\n")
++                   (py-call (router.send_web_control $safemsg)))) _))
++
++(= (send-web-control-base64 $payload)
++   (py-call (router.send_web_control_base64 $payload)))
++
++(= (send-telegram $msg)
++   (if (!= $msg (get-state &lastsend))
++       (progn (change-state! &lastsend $msg)
++              (let $safemsg (string-replace $msg "
++" "\n")
++                   (if (== (commchannel) multi)
++                       (py-call (router.send_telegram $safemsg))
++                       (py-call (telegram.send_message $safemsg))))) _))
++
++(= (send-telegram-base64 $payload)
++   (py-call (router.send_telegram_base64 $payload)))
++
++(= (send-whatsapp $msg)
++   (if (!= $msg (get-state &lastsend))
++       (progn (change-state! &lastsend $msg)
++              (let $safemsg (string-replace $msg "
++" "\n")
++                   (py-call (router.send_family $safemsg)))) _))
++
++(= (send-whatsapp-base64 $payload)
++   (py-call (router.send_family_base64 $payload)))
++
++(= (send-family $msg)
++   (send-whatsapp $msg))
++
++(= (send-whatsapp-mention $phone $msg)
++   (let $safemsg (string-replace $msg "
++" "\n")
++        (py-call (router.send_family_mention $phone $safemsg))))
++
++(= (send-whatsapp-mention-to $jid $phone $msg)
++   (let $safemsg (string-replace $msg "
++" "\n")
++        (py-call (router.send_chat_mention $jid $phone $safemsg))))
++
++(= (send-family-mention $phone $msg)
++   (send-whatsapp-mention $phone $msg))
++
++(= (send-file $path)
++   (if (== (commchannel) telegram)
++       (py-call (telegram.send_file $path))
++       (if (== (commchannel) multi)
++           (py-call (router.send_control_file $path))
++           (if (== (commchannel) whatsapp)
++               (py-call (whatsapp.send_file $path))
++               SEND-FILE-ONLY-SUPPORTED-FOR-TELEGRAM-OR-WHATSAPP))))
++
++(= (send-file-caption $path $caption)
++   (if (== (commchannel) telegram)
++       (py-call (telegram.send_file $path $caption))
++       (if (== (commchannel) multi)
++           (py-call (router.send_control_file $path $caption))
++           (if (== (commchannel) whatsapp)
++               (py-call (whatsapp.send_file $path $caption))
++               SEND-FILE-ONLY-SUPPORTED-FOR-TELEGRAM-OR-WHATSAPP))))
++
++(= (send-whatsapp-file $path)
++   (py-call (router.send_family_file $path)))
++
++(= (send-whatsapp-file-caption $path $caption)
++   (py-call (router.send_family_file $path $caption)))
++
++(= (send-whatsapp-file-to $jid $path)
++   (py-call (router.send_chat_file $jid $path)))
++
++(= (send-whatsapp-file-caption-to $jid $path $caption)
++   (py-call (router.send_chat_file $jid $path $caption)))
++
++(= (reply-whatsapp-file-to $jid $path)
++   (py-call (router.reply_chat_file $jid $path)))
++
++(= (reply-whatsapp-file-caption-to $jid $path $caption)
++   (py-call (router.reply_chat_file $jid $path $caption)))
++
++(= (send-family-file $path)
++   (send-whatsapp-file $path))
++
++(= (send-family-file-caption $path $caption)
++   (send-whatsapp-file-caption $path $caption))
++
++(= (list-inbox)
++   (if (== (commchannel) telegram)
++       (py-call (telegram.list_inbox))
++       (if (== (commchannel) multi)
++           (py-call (whatsapp.list_chats))
++           (if (== (commchannel) whatsapp)
++               (py-call (whatsapp.list_chats))
++               LIST-INBOX-ONLY-SUPPORTED-FOR-TELEGRAM-OR-WHATSAPP))))
++
++(= (whatsapp-chats)
++   (py-call (whatsapp.list_chats)))
++
++(= (whatsapp-inbox)
++   (py-call (whatsapp.inbox)))
++
++(= (read-whatsapp-chat $jid)
++   (py-call (whatsapp.read_chat $jid)))
++
++(= (mark-whatsapp-read $jid)
++   (py-call (whatsapp.mark_read $jid)))
++
++(= (mark-whatsapp-unread $jid)
++   (py-call (whatsapp.mark_unread $jid)))
++
++(= (set-whatsapp-primary $jid)
++   (py-call (whatsapp.set_primary $jid)))
++
++(= (send-whatsapp-to $jid $msg)
++   (py-call (whatsapp.send_to_chat $jid $msg)))
++
++(= (send-whatsapp-to-base64 $jid $payload)
++   (py-call (router.send_chat_base64 $jid $payload)))
++
++(= (reply-whatsapp-to $jid $msg)
++   (py-call (whatsapp.reply_to_chat $jid $msg)))
++
++(= (reply-whatsapp-to-base64 $jid $payload)
++   (py-call (router.reply_chat_base64 $jid $payload)))
++
++(= (whatsapp-status)
++   (py-call (whatsapp.status)))
+ 
+ ;Search the internet for some information:
+ (= (search $msg)
+diff --git a/channels/router.py b/channels/router.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/channels/router.py
+@@ -0,0 +1,152 @@
++import base64
++
++import telegram
++import whatsapp
++import glucose
++import web_control
++
++_last_inbound_channel = "control"
++
++
++def _decode_rich_text(payload):
++    try:
++        raw = base64.b64decode(str(payload or "").strip(), validate=True)
++        text = raw.decode("utf-8")
++    except Exception as exc:
++        return None, f"RICH-TEXT-DECODE-FAILED {type(exc).__name__}: {exc}"
++    if not text.strip():
++        return None, "RICH-TEXT-DECODE-FAILED empty"
++    return text, ""
++
++
++def _rich_result(result, text):
++    advisory = ""
++    if len(text) > 4000:
++        advisory = f" advisory=long-message-consider-page-artifact-next-time chars={len(text)}"
++    return f"{result}{advisory}"
++
++
++def receive():
++    global _last_inbound_channel
++    items = []
++    channels = []
++    try:
++        msg = telegram.getLastMessage()
++        if msg:
++            items.append(f"TELEGRAM_CONTROL: {msg}")
++            channels.append("control")
++    except Exception as exc:
++        items.append(f"TELEGRAM_CONTROL_ERROR: {exc}")
++    try:
++        msg = whatsapp.getLastMessage()
++        if msg:
++            items.append(f"WHATSAPP: {msg}")
++            if "WHATSAPP_PRIMARY:" in msg:
++                channels.append("whatsapp_primary")
++    except Exception as exc:
++        items.append(f"WHATSAPP_ERROR: {exc}")
++    try:
++        msg = glucose.pending_glucose_rings()
++        if msg:
++            items.append(f"GLUCOSE_APP: {msg}")
++            channels.append("glucose_app")
++    except Exception as exc:
++        items.append(f"GLUCOSE_APP_ERROR: {exc}")
++    try:
++        msg = web_control.get_last_message()
++        if msg:
++            items.append(f"WEB_CONTROL: {msg}")
++            channels.append("web_control")
++    except Exception as exc:
++        items.append(f"WEB_CONTROL_ERROR: {exc}")
++    if channels:
++        _last_inbound_channel = "control" if "control" in channels else channels[-1]
++    return " | ".join(items)
++
++
++def send_control(text):
++    if _last_inbound_channel == "web_control":
++        return web_control.send_message(text)
++    if _last_inbound_channel == "whatsapp_primary":
++        return whatsapp.send_primary(text)
++    return telegram.send_message(text)
++
++
++def send_control_base64(payload):
++    text, error = _decode_rich_text(payload)
++    if error:
++        return error
++    return _rich_result(send_control(text) or "CONTROL-RICH-SEND-SUCCESS", text)
++
++
++def send_web_control(text):
++    return web_control.send_message(text)
++
++
++def send_web_control_base64(payload):
++    text, error = _decode_rich_text(payload)
++    if error:
++        return error
++    return _rich_result(web_control.send_message(text), text)
++
++
++def send_telegram(text):
++    return telegram.send_message(text)
++
++
++def send_telegram_base64(payload):
++    text, error = _decode_rich_text(payload)
++    if error:
++        return error
++    return _rich_result(telegram.send_message(text) or "TELEGRAM-RICH-SEND-SUCCESS", text)
++
++
++def send_family(text):
++    return whatsapp.send_message(text)
++
++
++def send_family_base64(payload):
++    text, error = _decode_rich_text(payload)
++    if error:
++        return error
++    return _rich_result(whatsapp.send_message(text), text)
++
++
++def send_family_mention(phone, text):
++    return whatsapp.send_mention(phone, text)
++
++
++def send_chat_base64(jid, payload):
++    text, error = _decode_rich_text(payload)
++    if error:
++        return error
++    return _rich_result(whatsapp.send_to_chat(jid, text), text)
++
++
++def reply_chat_base64(jid, payload):
++    text, error = _decode_rich_text(payload)
++    if error:
++        return error
++    return _rich_result(whatsapp.reply_to_chat(jid, text), text)
++
++
++def send_chat_mention(jid, phone, text):
++    return whatsapp.send_mention_to_chat(jid, phone, text)
++
++
++def send_control_file(path, caption=""):
++    if _last_inbound_channel == "whatsapp_primary":
++        return whatsapp.send_file(path, caption)
++    return telegram.send_file(path, caption)
++
++
++def send_family_file(path, caption=""):
++    return whatsapp.send_file(path, caption)
++
++
++def send_chat_file(jid, path, caption=""):
++    return whatsapp.send_file_to_chat(jid, path, caption)
++
++
++def reply_chat_file(jid, path, caption=""):
++    return whatsapp.reply_file_to_chat(jid, path, caption)
+diff --git a/channels/web_control.py b/channels/web_control.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/channels/web_control.py
+@@ -0,0 +1,127 @@
++import json
++import os
++import pathlib
++import time
++import uuid
++
++
++ROOT = pathlib.Path(__file__).resolve().parents[1]
++MEMORY_DIR = pathlib.Path(os.environ.get("OMEGACLAW_MEMORY_DIR", ROOT / "memory"))
++QUEUE_FILE = MEMORY_DIR / "web_control_queue.jsonl"
++CHAT_FILE = MEMORY_DIR / "web_control_chat.jsonl"
++STATE_FILE = MEMORY_DIR / "web_control_state.json"
++
++
++def _now():
++    return time.strftime("%Y-%m-%d %H:%M:%S")
++
++
++def _ensure_memory():
++    MEMORY_DIR.mkdir(parents=True, exist_ok=True)
++
++
++def _append_jsonl(path, record):
++    _ensure_memory()
++    with path.open("a", encoding="utf-8") as handle:
++        handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
++
++
++def _read_jsonl(path, limit=None):
++    if not path.exists():
++        return []
++    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
++    if limit:
++        lines = lines[-int(limit):]
++    records = []
++    for line in lines:
++        try:
++            records.append(json.loads(line))
++        except Exception:
++            continue
++    return records
++
++
++def _load_state():
++    if not STATE_FILE.exists():
++        return {"last_seen": 0}
++    try:
++        state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
++    except Exception:
++        state = {}
++    return {"last_seen": int(state.get("last_seen", 0) or 0)}
++
++
++def _save_state(state):
++    _ensure_memory()
++    tmp = STATE_FILE.with_suffix(".tmp")
++    tmp.write_text(json.dumps(state, ensure_ascii=False, sort_keys=True), encoding="utf-8")
++    tmp.replace(STATE_FILE)
++
++
++def _trim(text, limit=2400):
++    cleaned = str(text or "").replace("\r\n", "\n").strip()
++    if len(cleaned) <= limit:
++        return cleaned
++    return cleaned[:limit] + f" ... [trimmed {len(cleaned) - limit} chars]"
++
++
++def enqueue_user_message(text, author="web"):
++    cleaned = _trim(text)
++    if not cleaned:
++        return {"ok": False, "error": "empty-message"}
++    record = {
++        "id": uuid.uuid4().hex[:12],
++        "at": _now(),
++        "from": str(author or "web"),
++        "direction": "inbound",
++        "text": cleaned,
++    }
++    _append_jsonl(CHAT_FILE, record)
++    _append_jsonl(QUEUE_FILE, record)
++    return {"ok": True, "message": record}
++
++
++def get_last_message():
++    state = _load_state()
++    queue = _read_jsonl(QUEUE_FILE)
++    index = int(state.get("last_seen", 0) or 0)
++    if index >= len(queue):
++        return ""
++    message = queue[index]
++    state["last_seen"] = index + 1
++    _save_state(state)
++    sender = message.get("from") or "web"
++    text = _trim(message.get("text") or "", limit=2200).replace("\n", "\\n")
++    return f"id={message.get('id')} at={message.get('at')} from={sender}: {text}"
++
++
++def send_message(text):
++    cleaned = _trim(text, limit=6000)
++    if not cleaned:
++        return "WEB-CONTROL-SEND-FAILED empty-message"
++    record = {
++        "id": uuid.uuid4().hex[:12],
++        "at": _now(),
++        "from": "agent",
++        "direction": "outbound",
++        "text": cleaned,
++    }
++    _append_jsonl(CHAT_FILE, record)
++    return "WEB-CONTROL-SEND-SUCCESS"
++
++
++def recent_messages(limit=80):
++    try:
++        count = max(1, min(300, int(limit)))
++    except Exception:
++        count = 80
++    return _read_jsonl(CHAT_FILE, limit=count)
++
++
++def web_control_status():
++    queue = _read_jsonl(QUEUE_FILE)
++    state = _load_state()
++    return (
++        f"WEB-CONTROL queue={len(queue)} seen={state.get('last_seen', 0)} "
++        f"chat={len(_read_jsonl(CHAT_FILE))}"
++    )
+diff --git a/channels/whatsapp.py b/channels/whatsapp.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/channels/whatsapp.py
+@@ -0,0 +1,316 @@
++import json
++import mimetypes
++import os
++import pathlib
++import subprocess
++import time
++import urllib.parse
++import urllib.error
++import urllib.request
++
++_proc = None
++_port = 3055
++_target_jid = ""
++_primary_jid = ""
++_prefix = ""
++_bridge_dir = pathlib.Path(__file__).resolve().parent / "whatsapp_bridge"
++
++
++def _url(path):
++    return f"http://127.0.0.1:{_port}{path}"
++
++
++def _json_request(method, path, payload=None, timeout=10):
++    data = None
++    headers = {}
++    if payload is not None:
++        data = json.dumps(payload).encode("utf-8")
++        headers["Content-Type"] = "application/json"
++    req = urllib.request.Request(_url(path), data=data, headers=headers, method=method)
++    try:
++        with urllib.request.urlopen(req, timeout=timeout) as response:
++            return json.loads(response.read().decode("utf-8", errors="ignore"))
++    except urllib.error.HTTPError as exc:
++        body = exc.read().decode("utf-8", errors="ignore")
++        try:
++            payload = json.loads(body) if body else {}
++        except Exception:
++            payload = {"error": body or str(exc)}
++        payload.setdefault("ok", False)
++        payload.setdefault("error", "HTTP %s: %s" % (exc.code, payload.get("error") or exc.reason))
++        return payload
++
++
++def _bridge_alive():
++    try:
++        payload = _json_request("GET", "/health", timeout=2)
++        return bool(payload.get("ok"))
++    except Exception:
++        return False
++
++
++def start_whatsapp(target_jid="", port=3055, prefix="", primary_jid=""):
++    global _proc, _port, _target_jid, _prefix, _primary_jid
++    _target_jid = str(target_jid or "").strip()
++    _primary_jid = str(primary_jid or "").strip()
++    _prefix = str(prefix or "")
++    try:
++        _port = int(port)
++    except Exception:
++        _port = 3055
++
++    # Reuse an already-linked bridge on the requested port. This lets the
++    # standard OmegaClaw run command coexist with a bridge started for QR
++    # setup or manual testing.
++    if _bridge_alive():
++        if _primary_jid:
++            try:
++                _json_request("POST", "/primary", {"jid": _primary_jid}, timeout=3)
++            except Exception:
++                pass
++        return _proc or "WHATSAPP-BRIDGE-EXISTING"
++
++    env = os.environ.copy()
++    env["OMEGACLAW_WA_PORT"] = str(_port)
++    env.setdefault("OMEGACLAW_WA_AUTH_DIR", str(_bridge_dir / "auth"))
++    env.setdefault("OMEGACLAW_WA_EXPECT_SELF_NAME", "")
++    env.setdefault("OMEGACLAW_WA_FORBID_SELF_NAMES", "")
++    env["OMEGACLAW_WA_TARGET_JID"] = _target_jid
++    env["OMEGACLAW_WA_PRIMARY_JID"] = _primary_jid
++    env["OMEGACLAW_WA_PREFIX"] = _prefix
++    env.setdefault("OMEGACLAW_WA_INCLUDE_OWN", "0")
++    env.setdefault("NODE_NO_WARNINGS", "1")
++    _proc = subprocess.Popen(
++        ["node", "bridge.mjs"],
++        cwd=str(_bridge_dir),
++        env=env,
++        stdout=None,
++        stderr=None,
++    )
++    return _proc
++
++
++def stop_whatsapp():
++    global _proc
++    if _proc and _proc.poll() is None:
++        _proc.terminate()
++        try:
++            _proc.wait(timeout=5)
++        except Exception:
++            _proc.kill()
++    _proc = None
++
++
++def getLastMessage():
++    try:
++        payload = _json_request("GET", "/messages", timeout=3)
++        return " | ".join(payload.get("messages") or [])
++    except Exception:
++        return ""
++
++
++def send_message(text):
++    try:
++        payload = _json_request("POST", "/send", {"text": str(text or ""), "to": _target_jid}, timeout=15)
++        if payload.get("ok"):
++            return f"WHATSAPP-SEND-SUCCESS handled={payload.get('handled')}"
++        return f"WHATSAPP-SEND-FAILED {payload.get('error')}"
++    except Exception as exc:
++        return f"WHATSAPP-SEND-FAILED {exc}"
++
++
++def send_primary(text):
++    try:
++        payload = _json_request("POST", "/send", {"text": str(text or ""), "to": _primary_jid}, timeout=15)
++        if payload.get("ok"):
++            return f"WHATSAPP-PRIMARY-SEND-SUCCESS handled={payload.get('handled')}"
++        return f"WHATSAPP-PRIMARY-SEND-FAILED {payload.get('error')}"
++    except Exception as exc:
++        return f"WHATSAPP-PRIMARY-SEND-FAILED {exc}"
++
++
++def send_mention(phone, text):
++    try:
++        payload = _json_request(
++            "POST",
++            "/send-mention",
++            {"phone": str(phone or ""), "text": str(text or ""), "to": _target_jid},
++            timeout=15,
++        )
++        if payload.get("ok"):
++            return f"WHATSAPP-MENTION-SEND-SUCCESS handled={payload.get('handled')}"
++        return f"WHATSAPP-MENTION-SEND-FAILED {payload.get('error')}"
++    except Exception as exc:
++        return f"WHATSAPP-MENTION-SEND-FAILED {exc}"
++
++
++def send_mention_to_chat(jid, phone, text):
++    try:
++        payload = _json_request(
++            "POST",
++            "/send-mention",
++            {"phone": str(phone or ""), "text": str(text or ""), "to": str(jid or "")},
++            timeout=15,
++        )
++        if payload.get("ok"):
++            return f"WHATSAPP-MENTION-TO-CHAT-SUCCESS handled={payload.get('handled')}"
++        return f"WHATSAPP-MENTION-TO-CHAT-FAILED {payload.get('error')}"
++    except Exception as exc:
++        return f"WHATSAPP-MENTION-TO-CHAT-FAILED {exc}"
++
++
++def send_file(path, caption=""):
++    file_path = pathlib.Path(str(path)).expanduser()
++    mimetype = mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
++    try:
++        payload = _json_request(
++            "POST",
++            "/send-file",
++            {"path": str(file_path), "caption": str(caption or ""), "mimetype": mimetype, "to": _target_jid},
++            timeout=90,
++        )
++        if payload.get("ok"):
++            return f"WHATSAPP-SEND-FILE-SUCCESS handled={payload.get('handled')}"
++        return f"WHATSAPP-SEND-FILE-FAILED {payload.get('error')}"
++    except Exception as exc:
++        return f"WHATSAPP-SEND-FILE-FAILED {exc}"
++
++
++def send_file_to_chat(jid, path, caption=""):
++    file_path = pathlib.Path(str(path)).expanduser()
++    mimetype = mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
++    try:
++        payload = _json_request(
++            "POST",
++            "/send-file",
++            {
++                "path": str(file_path),
++                "caption": str(caption or ""),
++                "mimetype": mimetype,
++                "to": str(jid or ""),
++            },
++            timeout=90,
++        )
++        if payload.get("ok"):
++            return f"WHATSAPP-SEND-FILE-TO-CHAT-SUCCESS handled={payload.get('handled')}"
++        return f"WHATSAPP-SEND-FILE-TO-CHAT-FAILED {payload.get('error')}"
++    except Exception as exc:
++        return f"WHATSAPP-SEND-FILE-TO-CHAT-FAILED {exc}"
++
++
++def reply_file_to_chat(jid, path, caption=""):
++    send_result = send_file_to_chat(jid, path, caption)
++    read_result = mark_read(jid)
++    return f"WHATSAPP-REPLY-FILE-TO-CHAT {send_result} read={read_result}"
++
++
++def list_chats():
++    try:
++        payload = _json_request("GET", "/chats", timeout=15)
++        chats = payload.get("chats") or []
++        if not chats:
++            return "WHATSAPP-CHATS-EMPTY"
++        return "\n".join(f"{c.get('jid')} {c.get('name')} {'primary' if c.get('jid') == _primary_jid else ''}".strip() for c in chats)
++    except Exception as exc:
++        return f"WHATSAPP-CHATS-FAILED {exc}"
++
++
++def inbox():
++    try:
++        payload = _json_request("GET", "/inbox", timeout=15)
++        items = payload.get("inbox") or []
++        if not items:
++            return "WHATSAPP-INBOX-EMPTY"
++        lines = [f"PRIMARY {payload.get('primaryJid') or 'none'}"]
++        for item in items:
++            marker = " PRIMARY" if item.get("primary") else ""
++            lines.append(
++                f"{item.get('jid')} {item.get('name')} unread={item.get('unread')} seen={item.get('seen', 0)} delivered={item.get('delivered', 0)} last_from={item.get('lastFrom')} kind={item.get('lastKind')}{marker}"
++            )
++        return "\n".join(lines)
++    except Exception as exc:
++        return f"WHATSAPP-INBOX-FAILED {exc}"
++
++
++def read_chat(jid, limit=20):
++    try:
++        safe_jid = str(jid or "").strip()
++        safe_limit = int(limit)
++        query = urllib.parse.urlencode({"jid": safe_jid, "limit": safe_limit})
++        payload = _json_request("GET", f"/chat-messages?{query}", timeout=15)
++        messages = payload.get("messages") or []
++        if not messages:
++            return "WHATSAPP-CHAT-EMPTY"
++        header = [
++            f"WHATSAPP_CHAT jid={safe_jid}",
++            f"REPLY_HERE: reply-whatsapp-to \"{safe_jid}\" \"message\"",
++            f"SEND_WITHOUT_MARKING_READ: send-whatsapp-to \"{safe_jid}\" \"message\"",
++            f"TAG_IN_THIS_CHAT: send-whatsapp-mention-to \"{safe_jid}\" \"phone\" \"message\"",
++            "ROUTING_LESSON: destination chat jid decides where a WhatsApp message goes; phone mention only tags a person inside that destination.",
++        ]
++        return "\n".join(header + messages)
++    except Exception as exc:
++        return f"WHATSAPP-CHAT-FAILED {exc}"
++
++
++def mark_read(jid):
++    try:
++        payload = _json_request("POST", "/chat-state", {"jid": str(jid or ""), "state": "read", "scope": "all"}, timeout=15)
++        if payload.get("ok"):
++            return f"WHATSAPP-MARK-READ-SUCCESS jid={payload.get('jid')} changed={payload.get('changed')} read_receipts={payload.get('readReceipts')}"
++        return f"WHATSAPP-MARK-READ-FAILED {payload.get('error')}"
++    except Exception as exc:
++        return f"WHATSAPP-MARK-READ-FAILED {exc}"
++
++
++def mark_unread(jid):
++    try:
++        payload = _json_request("POST", "/chat-state", {"jid": str(jid or ""), "state": "unread", "scope": "latest"}, timeout=15)
++        if payload.get("ok"):
++            return f"WHATSAPP-MARK-UNREAD-SUCCESS jid={payload.get('jid')} changed={payload.get('changed')}"
++        return f"WHATSAPP-MARK-UNREAD-FAILED {payload.get('error')}"
++    except Exception as exc:
++        return f"WHATSAPP-MARK-UNREAD-FAILED {exc}"
++
++
++def set_primary(jid):
++    global _primary_jid
++    try:
++        aliases = []
++        if _primary_jid and _primary_jid != str(jid or "").strip():
++            aliases.append(_primary_jid)
++        payload = _json_request("POST", "/primary", {"jid": str(jid or ""), "aliases": aliases}, timeout=15)
++        if payload.get("ok"):
++            _primary_jid = payload.get("primaryJid") or str(jid or "")
++            return f"WHATSAPP-PRIMARY-SET {_primary_jid}"
++        return f"WHATSAPP-PRIMARY-FAILED {payload.get('error')}"
++    except Exception as exc:
++        return f"WHATSAPP-PRIMARY-FAILED {exc}"
++
++
++def send_to_chat(jid, text):
++    try:
++        payload = _json_request("POST", "/send", {"text": str(text or ""), "to": str(jid or "")}, timeout=15)
++        if payload.get("ok"):
++            return f"WHATSAPP-SEND-TO-CHAT-SUCCESS handled={payload.get('handled')}"
++        return f"WHATSAPP-SEND-TO-CHAT-FAILED {payload.get('error')}"
++    except Exception as exc:
++        return f"WHATSAPP-SEND-TO-CHAT-FAILED {exc}"
++
++
++def reply_to_chat(jid, text):
++    """Send a deliberate reply gesture, then mark that chat handled/read."""
++    safe_jid = str(jid or "")
++    send_result = send_to_chat(safe_jid, text)
++    if not send_result.startswith("WHATSAPP-SEND-TO-CHAT-SUCCESS"):
++        return f"WHATSAPP-REPLY-TO-CHAT-FAILED send={send_result}"
++    read_result = mark_read(safe_jid)
++    return f"WHATSAPP-REPLY-TO-CHAT-SUCCESS send={send_result} read={read_result}"
++
++
++def status():
++    try:
++        payload = _json_request("GET", "/health", timeout=3)
++        return json.dumps(payload, sort_keys=True)
++    except Exception as exc:
++        return f"WHATSAPP-STATUS-FAILED {exc}"
+diff --git a/channels/whatsapp_bridge/bridge.mjs b/channels/whatsapp_bridge/bridge.mjs
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/channels/whatsapp_bridge/bridge.mjs
+@@ -0,0 +1,672 @@
++import makeWASocket, {
++  DisconnectReason,
++  downloadMediaMessage,
++  fetchLatestBaileysVersion,
++  getContentType,
++  useMultiFileAuthState,
++} from '@whiskeysockets/baileys'
++import http from 'node:http'
++import fs from 'node:fs'
++import path from 'node:path'
++import crypto from 'node:crypto'
++import { fileURLToPath } from 'node:url'
++import qrcodeTerminal from 'qrcode-terminal'
++import QRCode from 'qrcode'
++import pino from 'pino'
++
++process.umask(0o077)
++
++const __dirname = path.dirname(fileURLToPath(import.meta.url))
++const coreDir = path.resolve(__dirname, '..', '..')
++const authDir = process.env.OMEGACLAW_WA_AUTH_DIR || path.join(__dirname, 'auth')
++const authLabel = path.basename(authDir).replace(/[^A-Za-z0-9_-]+/g, '_') || 'auth'
++const inboxDir = path.join(coreDir, 'memory', 'inbox', `whatsapp_${authLabel}`)
++const inboxLog = path.join(coreDir, 'memory', `whatsapp_inbox_${authLabel}.jsonl`)
++const qrPng = path.join(coreDir, 'memory', `whatsapp_qr_${authLabel}.png`)
++const qrTxt = path.join(coreDir, 'memory', `whatsapp_qr_${authLabel}.txt`)
++const port = Number(process.env.OMEGACLAW_WA_PORT || '3055')
++const targetJid = process.env.OMEGACLAW_WA_TARGET_JID || ''
++const outboundPrefix = Object.prototype.hasOwnProperty.call(process.env, 'OMEGACLAW_WA_PREFIX')
++  ? process.env.OMEGACLAW_WA_PREFIX
++  : ''
++const primaryJidInitial = normalizeJid(process.env.OMEGACLAW_WA_PRIMARY_JID || '')
++const primaryAliasesInitial = new Set(
++  (process.env.OMEGACLAW_WA_PRIMARY_ALIASES || '')
++    .split(',')
++    .map(s => normalizeJid(s))
++    .filter(Boolean)
++)
++const pairingPhone = (process.env.OMEGACLAW_WA_PAIR_PHONE || '').replace(/[^0-9]/g, '')
++const listenJids = new Set((process.env.OMEGACLAW_WA_LISTEN_JIDS || '').split(',').map(s => s.trim()).filter(Boolean))
++const includeOwnMessages = process.env.OMEGACLAW_WA_INCLUDE_OWN === '1'
++
++fs.mkdirSync(inboxDir, { recursive: true, mode: 0o700 })
++fs.mkdirSync(authDir, { recursive: true, mode: 0o700 })
++try {
++  fs.chmodSync(authDir, 0o700)
++} catch {}
++
++function assertExpectedIdentity() {
++  const credsPath = path.join(authDir, 'creds.json')
++  if (!fs.existsSync(credsPath)) return
++  try {
++    const creds = JSON.parse(fs.readFileSync(credsPath, 'utf8'))
++    const me = creds?.me || {}
++    const name = String(me.name || '')
++    const id = String(me.id || '')
++    const lid = String(me.lid || '')
++    const expected = (process.env.OMEGACLAW_WA_EXPECT_SELF_NAME || '').split(',').map(s => s.trim()).filter(Boolean)
++    const forbidden = (process.env.OMEGACLAW_WA_FORBID_SELF_NAMES || '').split(',').map(s => s.trim()).filter(Boolean)
++    if (forbidden.includes(name) && process.env.OMEGACLAW_WA_ALLOW_FORBIDDEN_IDENTITY !== '1') {
++      throw new Error(`Refusing WhatsApp bridge: auth identity name=${name} id=${id} lid=${lid}`)
++    }
++    if (expected.length && !expected.includes(name)) {
++      throw new Error(`Refusing WhatsApp bridge: expected identity ${expected.join('/')} but found name=${name} id=${id} lid=${lid}`)
++    }
++  } catch (err) {
++    console.error('[WHATSAPP] Identity guard failed:', err?.message || err)
++    process.exit(78)
++  }
++}
++assertExpectedIdentity()
++
++let sock = null
++let connected = false
++let status = 'starting'
++let lastQr = ''
++let pairingRequested = false
++let pairingCode = ''
++let chats = new Map()
++let queue = []
++let primaryJid = primaryJidInitial
++let primaryAliases = primaryAliasesInitial
++let inboxByJid = new Map()
++let remindedUnreadByJid = new Map()
++let bridgeSentIds = new Set()
++let seenMessageIds = new Set()
++const bridgeStartedAtSeconds = Math.floor(Date.now() / 1000)
++const STATE_RANK = { unread: 0, delivered: 1, seen: 2, read: 3 }
++
++function normalizeJid(value) {
++  const raw = String(value || '').trim()
++  if (!raw) return ''
++  const messageKeyMatch = raw.match(/^(.+?@(lid|g\.us|s\.whatsapp\.net|broadcast|newsletter))(?:[:].*)?$/)
++  if (messageKeyMatch) return messageKeyMatch[1]
++  if (raw.includes('@')) return raw
++  const digits = raw.replace(/[^0-9]/g, '')
++  return digits ? `${digits}@s.whatsapp.net` : ''
++}
++
++function isPrimaryJid(jid) {
++  return Boolean(jid && (jid === primaryJid || primaryAliases.has(jid)))
++}
++
++function rememberBridgeSent(result) {
++  const id = result?.key?.id
++  if (!id) return
++  bridgeSentIds.add(id)
++  if (bridgeSentIds.size > 500) {
++    const keep = Array.from(bridgeSentIds).slice(-250)
++    bridgeSentIds = new Set(keep)
++  }
++}
++
++function safeName(name) {
++  const base = path.basename(String(name || 'whatsapp_file'))
++  return base.replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^[._]+|[._]+$/g, '') || 'whatsapp_file'
++}
++
++function extFor(kind, mimetype) {
++  if (mimetype?.includes('jpeg')) return '.jpg'
++  if (mimetype?.includes('png')) return '.png'
++  if (mimetype?.includes('webp')) return '.webp'
++  if (mimetype?.includes('mp4')) return '.mp4'
++  if (mimetype?.includes('ogg')) return '.ogg'
++  if (mimetype?.includes('mpeg')) return '.mp3'
++  if (mimetype?.includes('pdf')) return '.pdf'
++  if (kind === 'imageMessage') return '.jpg'
++  if (kind === 'videoMessage') return '.mp4'
++  if (kind === 'audioMessage') return '.ogg'
++  return '.bin'
++}
++
++function mediaPayload(msg, kind) {
++  if (!kind) return null
++  const payload = msg.message?.[kind]
++  if (!payload) return null
++  if (['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage'].includes(kind)) return payload
++  return null
++}
++
++function extractText(msg) {
++  const m = msg.message || {}
++  if (m.conversation) return m.conversation
++  if (m.extendedTextMessage?.text) return m.extendedTextMessage.text
++  const kind = getContentType(m)
++  const payload = mediaPayload(msg, kind)
++  if (payload?.caption) return payload.caption
++  return ''
++}
++
++function senderName(msg) {
++  if (msg.key.fromMe) return process.env.OMEGACLAW_WA_SELF_NAME || 'self'
++  return msg.pushName || msg.key.participant || msg.key.remoteJid || 'whatsapp_user'
++}
++
++function mentionJid(phone) {
++  const digits = String(phone || '').replace(/[^0-9]/g, '')
++  if (!digits) return ''
++  return `${digits}@s.whatsapp.net`
++}
++
++function mentionText(phone) {
++  const digits = String(phone || '').replace(/[^0-9]/g, '')
++  return digits ? `@${digits}` : ''
++}
++
++function withMentionText(text, phone) {
++  const mention = mentionText(phone)
++  const base = String(text || '').trim()
++  if (!mention) return base
++  if (base.includes(mention)) return base
++  return base ? `${base} ${mention}` : mention
++}
++
++function chatLabel(jid) {
++  const known = chats.get(jid)
++  return known?.name || known?.subject || jid
++}
++
++async function saveMedia(msg, kind) {
++  const payload = mediaPayload(msg, kind)
++  if (!payload) return ''
++  const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage })
++  const original = payload.fileName || `${kind}${extFor(kind, payload.mimetype || '')}`
++  const filename = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}_${safeName(original)}`
++  const target = path.join(inboxDir, filename)
++  fs.writeFileSync(target, buffer)
++  return target
++}
++
++function pushNotice(notice, delivery = null) {
++  queue.push({ notice, delivery })
++  if (queue.length > 200) queue = queue.slice(-200)
++}
++
++function rememberChat(jid, name = '') {
++  if (!jid) return
++  const known = chats.get(jid) || {}
++  chats.set(jid, {
++    jid,
++    name: name || known.name || jid,
++    isGroup: jid.endsWith('@g.us'),
++  })
++}
++
++function rememberInbox(jid, item) {
++  if (item.messageId && seenMessageIds.has(item.messageId)) return { item, fresh: false }
++  if (item.messageId) seenMessageIds.add(item.messageId)
++  if (!item.state) item.state = item.fromMe ? 'read' : 'unread'
++  const list = inboxByJid.get(jid) || []
++  list.push(item)
++  inboxByJid.set(jid, list.slice(-100))
++  try {
++    fs.appendFileSync(inboxLog, JSON.stringify(item) + '\n')
++  } catch (err) {
++    console.log('[WHATSAPP] Inbox trace write failed:', err?.message || err)
++  }
++  return { item, fresh: true }
++}
++
++function loadInboxTrace() {
++  try {
++    if (!fs.existsSync(inboxLog)) return
++    const lines = fs.readFileSync(inboxLog, 'utf8').split('\n').filter(Boolean).slice(-1000)
++    for (const line of lines) {
++      try {
++        const item = JSON.parse(line)
++        if (!item?.jid) continue
++        if (item.event === 'read-state') {
++          if (item.scope === 'ids') markMessageIdsState(item.jid, item.ids || [], item.state, false)
++          else markChatState(item.jid, item.state, item.scope || 'all', false)
++          continue
++        }
++        rememberChat(item.jid, item.chatName || item.jid)
++        const list = inboxByJid.get(item.jid) || []
++        if (item.messageId && seenMessageIds.has(item.messageId)) continue
++        if (item.messageId) seenMessageIds.add(item.messageId)
++        if (!item.state) item.state = item.fromMe ? 'read' : 'read'
++        list.push(item)
++        inboxByJid.set(item.jid, list.slice(-100))
++      } catch {}
++    }
++  } catch (err) {
++    console.log('[WHATSAPP] Inbox trace load failed:', err?.message || err)
++  }
++}
++
++function inboxSummary() {
++  return Array.from(inboxByJid.entries()).map(([jid, items]) => {
++    const meta = chats.get(jid) || { jid, name: jid, isGroup: jid.endsWith('@g.us') }
++    const last = items[items.length - 1] || {}
++    const unread = items.filter(item => item.state === 'unread').length
++    const delivered = items.filter(item => item.state === 'delivered').length
++    const seen = items.filter(item => item.state === 'seen').length
++    return {
++      jid,
++      name: meta.name || jid,
++      isGroup: Boolean(meta.isGroup),
++      primary: isPrimaryJid(jid),
++      unread,
++      delivered,
++      seen,
++      lastFrom: last.from || '',
++      lastKind: last.kind || '',
++      lastAt: last.at || '',
++    }
++  }).sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)))
++}
++
++function formatMessage(item) {
++  const marker = item.state === 'unread' ? ' [unread]' : item.state === 'seen' ? ' [seen]' : item.state === 'delivered' ? ' [delivered]' : ''
++  if (item.saved) return `${item.at}${marker} ${item.from}: sent ${item.kind} saved at ${item.saved}${item.caption ? ` caption: ${item.caption}` : ''}`
++  return `${item.at}${marker} ${item.from}: ${item.text}`
++}
++
++function noticeMeta(item) {
++  const id = item.messageId ? ` id=${item.messageId}` : ''
++  const at = item.at ? ` at=${item.at}` : ''
++  return `${id}${at}`
++}
++
++function unreadReminderNotices() {
++  const notices = []
++  const summaries = inboxSummary().filter(item => item.unread > 0)
++  for (const summary of summaries) {
++    const items = inboxByJid.get(summary.jid) || []
++    const unread = items.filter(item => item.state === 'unread' && !item.fromMe)
++    if (!unread.length) continue
++    const latest = unread[unread.length - 1]
++    const key = `${latest.messageId || latest.at || 'unknown'}:${unread.length}`
++    if (remindedUnreadByJid.get(summary.jid) === key) continue
++    remindedUnreadByJid.set(summary.jid, key)
++    if (isPrimaryJid(summary.jid)) {
++      notices.push({
++        notice: `WHATSAPP_UNREAD_PRIMARY${noticeMeta(latest)}: ${latest.from}: ${latest.text || latest.kind || 'message'} jid=${summary.jid} unread=${unread.length} read_with=read-whatsapp-chat "${summary.jid}"`,
++        delivery: { jid: summary.jid, ids: unread.map(item => item.messageId).filter(Boolean), state: 'delivered' },
++      })
++    } else {
++      const where = summary.isGroup ? ` in ${summary.name}` : ''
++      notices.push({ notice: `WHATSAPP_UNREAD_NOTICE${noticeMeta(latest)}: unread ${latest.kind || 'message'} from ${latest.from}${where} jid=${summary.jid} unread=${unread.length}` })
++    }
++  }
++  return notices.slice(0, 5)
++}
++
++function messageIdFor(msg, jid) {
++  const id = msg?.key?.id || ''
++  const participant = msg?.key?.participant || ''
++  if (id) return `${jid}:${participant}:${id}`
++  return ''
++}
++
++function messageKeyFor(msg, jid) {
++  const id = msg?.key?.id || ''
++  if (!id) return null
++  const key = { remoteJid: jid, id, fromMe: Boolean(msg?.key?.fromMe) }
++  if (msg?.key?.participant) key.participant = msg.key.participant
++  return key
++}
++
++function messageKeyForItem(item) {
++  if (item?.waKey?.remoteJid && item?.waKey?.id) return item.waKey
++  if (!item?.messageId) return null
++  const first = item.messageId.indexOf(':')
++  const last = item.messageId.lastIndexOf(':')
++  if (first < 0 || last <= first) return null
++  const remoteJid = item.messageId.slice(0, first)
++  const participant = item.messageId.slice(first + 1, last)
++  const id = item.messageId.slice(last + 1)
++  if (!remoteJid || !id) return null
++  const key = { remoteJid, id, fromMe: false }
++  if (participant) key.participant = participant
++  return key
++}
++
++function messageTimestampSeconds(msg) {
++  const raw = msg?.messageTimestamp
++  if (!raw) return 0
++  if (typeof raw === 'number') return raw
++  if (typeof raw === 'object' && typeof raw.low === 'number') return raw.low
++  const parsed = Number(raw)
++  return Number.isFinite(parsed) ? parsed : 0
++}
++
++function shouldTransitionState(current, next) {
++  if (next === 'unread' || next === 'read') return current !== next
++  return (STATE_RANK[current] ?? 0) < (STATE_RANK[next] ?? 0)
++}
++
++function markChatState(jid, state, scope = 'all', writeTrace = true) {
++  const list = inboxByJid.get(jid) || []
++  if (!list.length) return 0
++  const candidates = scope === 'latest' ? list.slice(-1) : list
++  let changed = 0
++  for (const item of candidates) {
++    if (shouldTransitionState(item.state, state)) {
++      item.state = state
++      changed += 1
++    }
++  }
++  if (changed && writeTrace) {
++    try {
++      fs.appendFileSync(inboxLog, JSON.stringify({ event: 'read-state', at: new Date().toISOString(), jid, state, scope }) + '\n')
++    } catch (err) {
++      console.log('[WHATSAPP] Read-state trace write failed:', err?.message || err)
++    }
++  }
++  return changed
++}
++
++function markMessageIdsState(jid, ids, state, writeTrace = true) {
++  const wanted = new Set((ids || []).filter(Boolean))
++  if (!wanted.size) return 0
++  const list = inboxByJid.get(jid) || []
++  let changed = 0
++  for (const item of list) {
++    if (wanted.has(item.messageId) && shouldTransitionState(item.state, state)) {
++      item.state = state
++      changed += 1
++    }
++  }
++  if (changed && writeTrace) {
++    try {
++      fs.appendFileSync(inboxLog, JSON.stringify({ event: 'read-state', at: new Date().toISOString(), jid, state, scope: 'ids', ids: Array.from(wanted) }) + '\n')
++    } catch (err) {
++      console.log('[WHATSAPP] Read-state trace write failed:', err?.message || err)
++    }
++  }
++  return changed
++}
++
++function applyDeliveryState(delivery) {
++  if (!delivery?.jid) return 0
++  if (delivery.ids?.length) return markMessageIdsState(delivery.jid, delivery.ids, delivery.state || 'delivered')
++  return markChatState(delivery.jid, delivery.state || 'delivered', delivery.scope || 'all')
++}
++
++function readReceiptKeys(jid, scope = 'all') {
++  const list = inboxByJid.get(jid) || []
++  const candidates = scope === 'latest' ? list.slice(-1) : list
++  const keys = []
++  const seen = new Set()
++  for (const item of candidates) {
++    if (item.fromMe || item.state === 'read') continue
++    const key = messageKeyForItem(item)
++    if (!key?.remoteJid || !key?.id) continue
++    const signature = `${key.remoteJid}:${key.participant || ''}:${key.id}`
++    if (seen.has(signature)) continue
++    seen.add(signature)
++    keys.push(key)
++  }
++  return keys
++}
++
++async function sendReadReceiptsFor(jid, scope = 'all') {
++  const keys = readReceiptKeys(jid, scope)
++  if (!keys.length) return { attempted: 0, sent: 0 }
++  if (!sock?.readMessages) return { attempted: keys.length, sent: 0, error: 'readMessages unavailable' }
++  try {
++    await sock.readMessages(keys)
++    return { attempted: keys.length, sent: keys.length }
++  } catch (err) {
++    console.log('[WHATSAPP] Read receipt failed:', err?.message || err)
++    return { attempted: keys.length, sent: 0, error: err?.message || String(err) }
++  }
++}
++
++async function markOutboundHandled(jid) {
++  const readReceipts = await sendReadReceiptsFor(jid, 'all')
++  const changed = markChatState(jid, 'read', 'all')
++  return { changed, readReceipts }
++}
++
++async function refreshChats() {
++  if (!sock) return []
++  try {
++    const groups = await sock.groupFetchAllParticipating()
++    for (const [jid, group] of Object.entries(groups || {})) {
++      rememberChat(jid, group.subject || jid)
++    }
++  } catch (err) {
++    // Individual chat inventory is opportunistic in Baileys. Group fetch is enough for setup.
++  }
++  const visible = Array.from(chats.values())
++  return visible.sort((a, b) => String(a.name).localeCompare(String(b.name)))
++}
++
++async function startSocket() {
++  const { state, saveCreds } = await useMultiFileAuthState(authDir)
++  const { version } = await fetchLatestBaileysVersion()
++  sock = makeWASocket({
++    version,
++    auth: state,
++    printQRInTerminal: false,
++    logger: pino({ level: 'silent' }),
++    markOnlineOnConnect: false,
++    syncFullHistory: false,
++  })
++
++  sock.ev.on('creds.update', saveCreds)
++  if (pairingPhone && !state.creds.registered && !pairingRequested) {
++    pairingRequested = true
++    setTimeout(async () => {
++      try {
++        pairingCode = await sock.requestPairingCode(pairingPhone)
++        status = 'pairing-code'
++        console.log(`[WHATSAPP] Pairing code for ${pairingPhone}: ${pairingCode}`)
++      } catch (err) {
++        console.log('[WHATSAPP] Pairing code failed:', err?.message || err)
++      }
++    }, 2000)
++  }
++  sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
++    if (qr && !pairingPhone) {
++      lastQr = qr
++      status = 'qr'
++      console.log('[WHATSAPP] Scan this QR with WhatsApp Linked Devices')
++      qrcodeTerminal.generate(qr, { small: true })
++      fs.writeFileSync(qrTxt, qr)
++      QRCode.toFile(qrPng, qr, { width: 512 }).catch(err => console.log('[WHATSAPP] QR PNG failed:', err?.message || err))
++    }
++    if (connection === 'open') {
++      connected = true
++      status = 'connected'
++      console.log('[WHATSAPP] Connected')
++      await refreshChats()
++    }
++    if (connection === 'close') {
++      connected = false
++      const code = lastDisconnect?.error?.output?.statusCode
++      status = `closed:${code || 'unknown'}`
++      console.log(`[WHATSAPP] Closed ${code || ''}`)
++      if (code !== DisconnectReason.loggedOut) setTimeout(startSocket, 3000)
++    }
++  })
++
++  sock.ev.on('messages.upsert', async ({ messages, type }) => {
++    for (const msg of messages || []) {
++      try {
++        if (!msg.message) continue
++        if (msg.key.fromMe && bridgeSentIds.has(msg.key.id)) continue
++        const jid = msg.key.remoteJid || ''
++        const isGroup = jid.endsWith('@g.us')
++        const kind = getContentType(msg.message)
++        const text = extractText(msg)
++        if (msg.key.fromMe && !includeOwnMessages) continue
++        const from = senderName(msg)
++        rememberChat(jid, chatLabel(jid))
++        const where = isGroup ? ` in ${chatLabel(jid)}` : ''
++        const prefix = `${from}${where}`
++        const payload = mediaPayload(msg, kind)
++        const waTimestamp = messageTimestampSeconds(msg)
++        const oldReplay = waTimestamp && waTimestamp < bridgeStartedAtSeconds - 60
++        const item = {
++          at: new Date().toISOString(),
++          waTimestamp,
++          messageId: messageIdFor(msg, jid),
++          jid,
++          chatName: chatLabel(jid),
++          from,
++          fromMe: Boolean(msg.key.fromMe),
++          kind: kind || 'text',
++          text,
++          waKey: messageKeyFor(msg, jid),
++          state: (msg.key.fromMe || oldReplay) ? 'read' : 'unread',
++        }
++        if (payload) {
++          const saved = await saveMedia(msg, kind)
++          const caption = text ? ` caption: ${text}` : ''
++          item.saved = saved
++          item.caption = text || ''
++          const remembered = rememberInbox(jid, item)
++          if (!remembered.fresh || msg.key.fromMe || oldReplay) continue
++          const unread = (inboxByJid.get(jid) || []).filter(entry => entry.state === 'unread').length
++          if (!primaryJid || isPrimaryJid(jid)) pushNotice(`WHATSAPP_PRIMARY${noticeMeta(item)}: ${prefix} sent ${kind.replace('Message', '')} saved at ${saved}${caption}`, { jid, ids: item.messageId ? [item.messageId] : [], state: 'delivered' })
++          else pushNotice(`WHATSAPP_INBOX_NOTICE${noticeMeta(item)}: new ${kind.replace('Message', '')} from ${from}${where} jid=${jid} unread=${unread} saved at ${saved}${caption}`)
++        } else if (text) {
++          const remembered = rememberInbox(jid, item)
++          if (!remembered.fresh || msg.key.fromMe || oldReplay) continue
++          const unread = (inboxByJid.get(jid) || []).filter(entry => entry.state === 'unread').length
++          if (!primaryJid || isPrimaryJid(jid)) pushNotice(`WHATSAPP_PRIMARY${noticeMeta(item)}: ${prefix}: ${text}`, { jid, ids: item.messageId ? [item.messageId] : [], state: 'delivered' })
++          else pushNotice(`WHATSAPP_INBOX_NOTICE${noticeMeta(item)}: new message from ${from}${where} jid=${jid} unread=${unread}`)
++        }
++      } catch (err) {
++        console.log('[WHATSAPP] Message handling failed:', err?.message || err)
++      }
++    }
++  })
++}
++
++function readJson(req) {
++  return new Promise((resolve, reject) => {
++    let data = ''
++    req.on('data', chunk => { data += chunk })
++    req.on('end', () => {
++      if (!data) return resolve({})
++      try { resolve(JSON.parse(data)) } catch (err) { reject(err) }
++    })
++  })
++}
++
++function sendJson(res, statusCode, body) {
++  const data = JSON.stringify(body)
++  res.writeHead(statusCode, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) })
++  res.end(data)
++}
++
++async function handle(req, res) {
++  const url = new URL(req.url, `http://127.0.0.1:${port}`)
++  try {
++    if (req.method === 'GET' && url.pathname === '/health') {
++      return sendJson(res, 200, { ok: true, connected, status, targetJid, primaryJid, primaryAliases: Array.from(primaryAliases), queue: queue.length, qrFile: qrPng, hasQr: Boolean(lastQr), pairingPhone, pairingCode })
++    }
++    if (req.method === 'GET' && url.pathname === '/messages') {
++      let entries = queue
++      queue = []
++      if (!entries.length) entries = unreadReminderNotices()
++      const messages = entries.map(entry => {
++        if (typeof entry === 'string') return entry
++        applyDeliveryState(entry.delivery)
++        return entry.notice
++      })
++      return sendJson(res, 200, { ok: true, messages })
++    }
++    if (req.method === 'GET' && url.pathname === '/chats') {
++      const list = await refreshChats()
++      return sendJson(res, 200, { ok: true, chats: list })
++    }
++    if (req.method === 'GET' && url.pathname === '/inbox') {
++      await refreshChats()
++      return sendJson(res, 200, { ok: true, primaryJid, primaryAliases: Array.from(primaryAliases), inbox: inboxSummary() })
++    }
++    if (req.method === 'GET' && url.pathname === '/chat-messages') {
++      const jid = normalizeJid(url.searchParams.get('jid') || '')
++      if (!jid) return sendJson(res, 400, { ok: false, error: 'missing jid' })
++      const limit = Math.max(1, Math.min(100, Number(url.searchParams.get('limit') || '20')))
++      const items = (inboxByJid.get(jid) || []).slice(-limit)
++      markChatState(jid, 'seen', 'all')
++      return sendJson(res, 200, { ok: true, jid, messages: items.map(formatMessage) })
++    }
++    if (req.method === 'POST' && url.pathname === '/chat-state') {
++      const body = await readJson(req)
++      const jid = normalizeJid(body.jid || '')
++      const state = body.state === 'unread' ? 'unread' : 'read'
++      const scope = body.scope === 'latest' ? 'latest' : 'all'
++      if (!jid) return sendJson(res, 400, { ok: false, error: 'missing jid' })
++      const readReceipts = state === 'read' ? await sendReadReceiptsFor(jid, scope) : { attempted: 0, sent: 0 }
++      const changed = markChatState(jid, state, scope)
++      return sendJson(res, 200, { ok: true, jid, state, scope, changed, readReceipts })
++    }
++    if (req.method === 'POST' && url.pathname === '/primary') {
++      const body = await readJson(req)
++      const jid = normalizeJid(body.jid || '')
++      if (!jid) return sendJson(res, 400, { ok: false, error: 'missing jid' })
++      const aliases = new Set((body.aliases || []).map(normalizeJid).filter(Boolean))
++      for (const alias of aliases) primaryAliases.add(alias)
++      primaryAliases.add(jid)
++      primaryJid = jid
++      rememberChat(jid, body.name || jid)
++      return sendJson(res, 200, { ok: true, primaryJid, primaryAliases: Array.from(primaryAliases) })
++    }
++    if (req.method === 'POST' && url.pathname === '/send') {
++      const body = await readJson(req)
++      const to = normalizeJid(body.to || targetJid || primaryJid)
++      if (!connected || !sock) return sendJson(res, 503, { ok: false, error: 'not connected' })
++      if (!to) return sendJson(res, 400, { ok: false, error: 'missing target jid' })
++      rememberBridgeSent(await sock.sendMessage(to, { text: `${outboundPrefix}${String(body.text || '')}` }))
++      return sendJson(res, 200, { ok: true, handled: { changed: 0, readReceipts: { attempted: 0, sent: 0 }, note: 'send-does-not-mark-inbound-read-use-mark-whatsapp-read' } })
++    }
++    if (req.method === 'POST' && url.pathname === '/send-mention') {
++      const body = await readJson(req)
++      const to = normalizeJid(body.to || targetJid || primaryJid)
++      const mention = mentionJid(body.phone)
++      if (!connected || !sock) return sendJson(res, 503, { ok: false, error: 'not connected' })
++      if (!to) return sendJson(res, 400, { ok: false, error: 'missing target jid' })
++      if (!mention) return sendJson(res, 400, { ok: false, error: 'missing mention phone' })
++      const text = `${outboundPrefix}${withMentionText(body.text, body.phone)}`
++      rememberBridgeSent(await sock.sendMessage(to, { text, mentions: [mention] }))
++      return sendJson(res, 200, { ok: true, handled: { changed: 0, readReceipts: { attempted: 0, sent: 0 }, note: 'send-does-not-mark-inbound-read-use-mark-whatsapp-read' } })
++    }
++    if (req.method === 'POST' && url.pathname === '/send-file') {
++      const body = await readJson(req)
++      const to = normalizeJid(body.to || targetJid || primaryJid)
++      const filePath = String(body.path || '')
++      const caption = body.caption ? `${outboundPrefix}${String(body.caption || '')}` : outboundPrefix.trim()
++      if (!connected || !sock) return sendJson(res, 503, { ok: false, error: 'not connected' })
++      if (!to) return sendJson(res, 400, { ok: false, error: 'missing target jid' })
++      if (!filePath || !fs.existsSync(filePath)) return sendJson(res, 400, { ok: false, error: 'file not found' })
++      const mimetype = body.mimetype || 'application/octet-stream'
++      const base = { mimetype, fileName: path.basename(filePath), caption }
++      if (mimetype.startsWith('image/')) rememberBridgeSent(await sock.sendMessage(to, { image: { url: filePath }, caption }))
++      else if (mimetype.startsWith('video/')) rememberBridgeSent(await sock.sendMessage(to, { video: { url: filePath }, caption }))
++      else if (mimetype.startsWith('audio/')) rememberBridgeSent(await sock.sendMessage(to, { audio: { url: filePath }, mimetype }))
++      else rememberBridgeSent(await sock.sendMessage(to, { document: { url: filePath }, ...base }))
++      return sendJson(res, 200, { ok: true, handled: { changed: 0, readReceipts: { attempted: 0, sent: 0 }, note: 'send-does-not-mark-inbound-read-use-mark-whatsapp-read' } })
++    }
++    return sendJson(res, 404, { ok: false, error: 'not found' })
++  } catch (err) {
++    return sendJson(res, 500, { ok: false, error: err?.message || String(err) })
++  }
++}
++
++http.createServer(handle).listen(port, '127.0.0.1', () => {
++  console.log(`[WHATSAPP] Bridge listening on 127.0.0.1:${port}`)
++})
++
++loadInboxTrace()
++
++startSocket().catch(err => {
++  status = `failed:${err?.message || err}`
++  console.error('[WHATSAPP] Startup failed:', err)
++})
+diff --git a/channels/whatsapp_bridge/package-lock.json b/channels/whatsapp_bridge/package-lock.json
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/channels/whatsapp_bridge/package-lock.json
+@@ -0,0 +1,1654 @@
++{
++  "name": "whatsapp_bridge",
++  "version": "1.0.0",
++  "lockfileVersion": 3,
++  "requires": true,
++  "packages": {
++    "": {
++      "name": "whatsapp_bridge",
++      "version": "1.0.0",
++      "license": "ISC",
++      "dependencies": {
++        "@whiskeysockets/baileys": "^7.0.0-rc11",
++        "pino": "^10.3.1",
++        "qrcode": "^1.5.4",
++        "qrcode-terminal": "^0.12.0"
++      }
++    },
++    "node_modules/@borewit/text-codec": {
++      "version": "0.2.2",
++      "resolved": "https://registry.npmjs.org/@borewit/text-codec/-/text-codec-0.2.2.tgz",
++      "integrity": "sha512-DDaRehssg1aNrH4+2hnj1B7vnUGEjU6OIlyRdkMd0aUdIUvKXrJfXsy8LVtXAy7DRvYVluWbMspsRhz2lcW0mQ==",
++      "license": "MIT",
++      "funding": {
++        "type": "github",
++        "url": "https://github.com/sponsors/Borewit"
++      }
++    },
++    "node_modules/@cacheable/memory": {
++      "version": "2.0.9",
++      "resolved": "https://registry.npmjs.org/@cacheable/memory/-/memory-2.0.9.tgz",
++      "integrity": "sha512-HdMx6DoGywB30vacDbBsITbIX4pgFqj1zsrV58jZBUw3klzkNoXhj7qOqAgledhxG7YZI5rBSJg7Zp8/VG0DuA==",
++      "license": "MIT",
++      "dependencies": {
++        "@cacheable/utils": "^2.4.1",
++        "@keyv/bigmap": "^1.3.1",
++        "hookified": "^1.15.1",
++        "keyv": "^5.6.0"
++      }
++    },
++    "node_modules/@cacheable/node-cache": {
++      "version": "1.7.6",
++      "resolved": "https://registry.npmjs.org/@cacheable/node-cache/-/node-cache-1.7.6.tgz",
++      "integrity": "sha512-6Omk2SgNnjtxB5f/E6bTIWIt5xhdpx39fGNRQgU9lojvRxU68v+qY+SXXLsp3ZGukqoPjsK21wZ6XABFr/Ge3A==",
++      "license": "MIT",
++      "dependencies": {
++        "cacheable": "^2.3.1",
++        "hookified": "^1.14.0",
++        "keyv": "^5.5.5"
++      },
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@cacheable/utils": {
++      "version": "2.4.1",
++      "resolved": "https://registry.npmjs.org/@cacheable/utils/-/utils-2.4.1.tgz",
++      "integrity": "sha512-eiFgzCbIneyMlLOmNG4g9xzF7Hv3Mga4LjxjcSC/ues6VYq2+gUbQI8JqNuw/ZM8tJIeIaBGpswAsqV2V7ApgA==",
++      "license": "MIT",
++      "dependencies": {
++        "hashery": "^1.5.1",
++        "keyv": "^5.6.0"
++      }
++    },
++    "node_modules/@emnapi/runtime": {
++      "version": "1.10.0",
++      "resolved": "https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.10.0.tgz",
++      "integrity": "sha512-ewvYlk86xUoGI0zQRNq/mC+16R1QeDlKQy21Ki3oSYXNgLb45GV1P6A0M+/s6nyCuNDqe5VpaY84BzXGwVbwFA==",
++      "license": "MIT",
++      "optional": true,
++      "peer": true,
++      "dependencies": {
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@hapi/boom": {
++      "version": "9.1.4",
++      "resolved": "https://registry.npmjs.org/@hapi/boom/-/boom-9.1.4.tgz",
++      "integrity": "sha512-Ls1oH8jaN1vNsqcaHVYJrKmgMcKsC1wcp8bujvXrHaAqD2iDYq3HoOwsxwo09Cuda5R5nC0o0IxlrlTuvPuzSw==",
++      "license": "BSD-3-Clause",
++      "dependencies": {
++        "@hapi/hoek": "9.x.x"
++      }
++    },
++    "node_modules/@hapi/hoek": {
++      "version": "9.3.0",
++      "resolved": "https://registry.npmjs.org/@hapi/hoek/-/hoek-9.3.0.tgz",
++      "integrity": "sha512-/c6rf4UJlmHlC9b5BaNvzAcFv7HZ2QHaV0D4/HNlBdvFnvQq8RI4kYdhyPCl7Xj+oWvTWQ8ujhqS53LIgAe6KQ==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@img/colour": {
++      "version": "1.1.0",
++      "resolved": "https://registry.npmjs.org/@img/colour/-/colour-1.1.0.tgz",
++      "integrity": "sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==",
++      "license": "MIT",
++      "peer": true,
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@img/sharp-darwin-arm64": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-darwin-arm64/-/sharp-darwin-arm64-0.34.5.tgz",
++      "integrity": "sha512-imtQ3WMJXbMY4fxb/Ndp6HBTNVtWCUI0WdobyheGf5+ad6xX8VIDO8u2xE4qc/fr08CKG/7dDseFtn6M6g/r3w==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "peer": true,
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-darwin-arm64": "1.2.4"
++      }
++    },
++    "node_modules/@img/sharp-darwin-x64": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-darwin-x64/-/sharp-darwin-x64-0.34.5.tgz",
++      "integrity": "sha512-YNEFAF/4KQ/PeW0N+r+aVVsoIY0/qxxikF2SWdp+NRkmMB7y9LBZAVqQ4yhGCm/H3H270OSykqmQMKLBhBJDEw==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "peer": true,
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-darwin-x64": "1.2.4"
++      }
++    },
++    "node_modules/@img/sharp-libvips-darwin-arm64": {
++      "version": "1.2.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-darwin-arm64/-/sharp-libvips-darwin-arm64-1.2.4.tgz",
++      "integrity": "sha512-zqjjo7RatFfFoP0MkQ51jfuFZBnVE2pRiaydKJ1G/rHZvnsrHAOcQALIi9sA5co5xenQdTugCvtb1cuf78Vf4g==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "peer": true,
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-darwin-x64": {
++      "version": "1.2.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-darwin-x64/-/sharp-libvips-darwin-x64-1.2.4.tgz",
++      "integrity": "sha512-1IOd5xfVhlGwX+zXv2N93k0yMONvUlANylbJw1eTah8K/Jtpi15KC+WSiaX/nBmbm2HxRM1gZ0nSdjSsrZbGKg==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "peer": true,
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-linux-arm": {
++      "version": "1.2.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-arm/-/sharp-libvips-linux-arm-1.2.4.tgz",
++      "integrity": "sha512-bFI7xcKFELdiNCVov8e44Ia4u2byA+l3XtsAj+Q8tfCwO6BQ8iDojYdvoPMqsKDkuoOo+X6HZA0s0q11ANMQ8A==",
++      "cpu": [
++        "arm"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-linux-arm64": {
++      "version": "1.2.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-arm64/-/sharp-libvips-linux-arm64-1.2.4.tgz",
++      "integrity": "sha512-excjX8DfsIcJ10x1Kzr4RcWe1edC9PquDRRPx3YVCvQv+U5p7Yin2s32ftzikXojb1PIFc/9Mt28/y+iRklkrw==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-linux-ppc64": {
++      "version": "1.2.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-ppc64/-/sharp-libvips-linux-ppc64-1.2.4.tgz",
++      "integrity": "sha512-FMuvGijLDYG6lW+b/UvyilUWu5Ayu+3r2d1S8notiGCIyYU/76eig1UfMmkZ7vwgOrzKzlQbFSuQfgm7GYUPpA==",
++      "cpu": [
++        "ppc64"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-linux-riscv64": {
++      "version": "1.2.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-riscv64/-/sharp-libvips-linux-riscv64-1.2.4.tgz",
++      "integrity": "sha512-oVDbcR4zUC0ce82teubSm+x6ETixtKZBh/qbREIOcI3cULzDyb18Sr/Wcyx7NRQeQzOiHTNbZFF1UwPS2scyGA==",
++      "cpu": [
++        "riscv64"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-linux-s390x": {
++      "version": "1.2.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-s390x/-/sharp-libvips-linux-s390x-1.2.4.tgz",
++      "integrity": "sha512-qmp9VrzgPgMoGZyPvrQHqk02uyjA0/QrTO26Tqk6l4ZV0MPWIW6LTkqOIov+J1yEu7MbFQaDpwdwJKhbJvuRxQ==",
++      "cpu": [
++        "s390x"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-linux-x64": {
++      "version": "1.2.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-x64/-/sharp-libvips-linux-x64-1.2.4.tgz",
++      "integrity": "sha512-tJxiiLsmHc9Ax1bz3oaOYBURTXGIRDODBqhveVHonrHJ9/+k89qbLl0bcJns+e4t4rvaNBxaEZsFtSfAdquPrw==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-linuxmusl-arm64": {
++      "version": "1.2.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linuxmusl-arm64/-/sharp-libvips-linuxmusl-arm64-1.2.4.tgz",
++      "integrity": "sha512-FVQHuwx1IIuNow9QAbYUzJ+En8KcVm9Lk5+uGUQJHaZmMECZmOlix9HnH7n1TRkXMS0pGxIJokIVB9SuqZGGXw==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-linuxmusl-x64": {
++      "version": "1.2.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linuxmusl-x64/-/sharp-libvips-linuxmusl-x64-1.2.4.tgz",
++      "integrity": "sha512-+LpyBk7L44ZIXwz/VYfglaX/okxezESc6UxDSoyo2Ks6Jxc4Y7sGjpgU9s4PMgqgjj1gZCylTieNamqA1MF7Dg==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-linux-arm": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-linux-arm/-/sharp-linux-arm-0.34.5.tgz",
++      "integrity": "sha512-9dLqsvwtg1uuXBGZKsxem9595+ujv0sJ6Vi8wcTANSFpwV/GONat5eCkzQo/1O6zRIkh0m/8+5BjrRr7jDUSZw==",
++      "cpu": [
++        "arm"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-linux-arm": "1.2.4"
++      }
++    },
++    "node_modules/@img/sharp-linux-arm64": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-linux-arm64/-/sharp-linux-arm64-0.34.5.tgz",
++      "integrity": "sha512-bKQzaJRY/bkPOXyKx5EVup7qkaojECG6NLYswgktOZjaXecSAeCWiZwwiFf3/Y+O1HrauiE3FVsGxFg8c24rZg==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-linux-arm64": "1.2.4"
++      }
++    },
++    "node_modules/@img/sharp-linux-ppc64": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-linux-ppc64/-/sharp-linux-ppc64-0.34.5.tgz",
++      "integrity": "sha512-7zznwNaqW6YtsfrGGDA6BRkISKAAE1Jo0QdpNYXNMHu2+0dTrPflTLNkpc8l7MUP5M16ZJcUvysVWWrMefZquA==",
++      "cpu": [
++        "ppc64"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-linux-ppc64": "1.2.4"
++      }
++    },
++    "node_modules/@img/sharp-linux-riscv64": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-linux-riscv64/-/sharp-linux-riscv64-0.34.5.tgz",
++      "integrity": "sha512-51gJuLPTKa7piYPaVs8GmByo7/U7/7TZOq+cnXJIHZKavIRHAP77e3N2HEl3dgiqdD/w0yUfiJnII77PuDDFdw==",
++      "cpu": [
++        "riscv64"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-linux-riscv64": "1.2.4"
++      }
++    },
++    "node_modules/@img/sharp-linux-s390x": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-linux-s390x/-/sharp-linux-s390x-0.34.5.tgz",
++      "integrity": "sha512-nQtCk0PdKfho3eC5MrbQoigJ2gd1CgddUMkabUj+rBevs8tZ2cULOx46E7oyX+04WGfABgIwmMC0VqieTiR4jg==",
++      "cpu": [
++        "s390x"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-linux-s390x": "1.2.4"
++      }
++    },
++    "node_modules/@img/sharp-linux-x64": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-linux-x64/-/sharp-linux-x64-0.34.5.tgz",
++      "integrity": "sha512-MEzd8HPKxVxVenwAa+JRPwEC7QFjoPWuS5NZnBt6B3pu7EG2Ge0id1oLHZpPJdn3OQK+BQDiw9zStiHBTJQQQQ==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-linux-x64": "1.2.4"
++      }
++    },
++    "node_modules/@img/sharp-linuxmusl-arm64": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-linuxmusl-arm64/-/sharp-linuxmusl-arm64-0.34.5.tgz",
++      "integrity": "sha512-fprJR6GtRsMt6Kyfq44IsChVZeGN97gTD331weR1ex1c1rypDEABN6Tm2xa1wE6lYb5DdEnk03NZPqA7Id21yg==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-linuxmusl-arm64": "1.2.4"
++      }
++    },
++    "node_modules/@img/sharp-linuxmusl-x64": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-linuxmusl-x64/-/sharp-linuxmusl-x64-0.34.5.tgz",
++      "integrity": "sha512-Jg8wNT1MUzIvhBFxViqrEhWDGzqymo3sV7z7ZsaWbZNDLXRJZoRGrjulp60YYtV4wfY8VIKcWidjojlLcWrd8Q==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "peer": true,
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-linuxmusl-x64": "1.2.4"
++      }
++    },
++    "node_modules/@img/sharp-wasm32": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-wasm32/-/sharp-wasm32-0.34.5.tgz",
++      "integrity": "sha512-OdWTEiVkY2PHwqkbBI8frFxQQFekHaSSkUIJkwzclWZe64O1X4UlUjqqqLaPbUpMOQk6FBu/HtlGXNblIs0huw==",
++      "cpu": [
++        "wasm32"
++      ],
++      "license": "Apache-2.0 AND LGPL-3.0-or-later AND MIT",
++      "optional": true,
++      "peer": true,
++      "dependencies": {
++        "@emnapi/runtime": "^1.7.0"
++      },
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-win32-arm64": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-win32-arm64/-/sharp-win32-arm64-0.34.5.tgz",
++      "integrity": "sha512-WQ3AgWCWYSb2yt+IG8mnC6Jdk9Whs7O0gxphblsLvdhSpSTtmu69ZG1Gkb6NuvxsNACwiPV6cNSZNzt0KPsw7g==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "Apache-2.0 AND LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "peer": true,
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-win32-ia32": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-win32-ia32/-/sharp-win32-ia32-0.34.5.tgz",
++      "integrity": "sha512-FV9m/7NmeCmSHDD5j4+4pNI8Cp3aW+JvLoXcTUo0IqyjSfAZJ8dIUmijx1qaJsIiU+Hosw6xM5KijAWRJCSgNg==",
++      "cpu": [
++        "ia32"
++      ],
++      "license": "Apache-2.0 AND LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "peer": true,
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-win32-x64": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-win32-x64/-/sharp-win32-x64-0.34.5.tgz",
++      "integrity": "sha512-+29YMsqY2/9eFEiW93eqWnuLcWcufowXewwSNIT6UwZdUUCrM3oFjMWH/Z6/TMmb4hlFenmfAVbpWeup2jryCw==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "Apache-2.0 AND LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "peer": true,
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@keyv/bigmap": {
++      "version": "1.3.1",
++      "resolved": "https://registry.npmjs.org/@keyv/bigmap/-/bigmap-1.3.1.tgz",
++      "integrity": "sha512-WbzE9sdmQtKy8vrNPa9BRnwZh5UF4s1KTmSK0KUVLo3eff5BlQNNWDnFOouNpKfPKDnms9xynJjsMYjMaT/aFQ==",
++      "license": "MIT",
++      "dependencies": {
++        "hashery": "^1.4.0",
++        "hookified": "^1.15.0"
++      },
++      "engines": {
++        "node": ">= 18"
++      },
++      "peerDependencies": {
++        "keyv": "^5.6.0"
++      }
++    },
++    "node_modules/@keyv/serialize": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/@keyv/serialize/-/serialize-1.1.1.tgz",
++      "integrity": "sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==",
++      "license": "MIT"
++    },
++    "node_modules/@pinojs/redact": {
++      "version": "0.4.0",
++      "resolved": "https://registry.npmjs.org/@pinojs/redact/-/redact-0.4.0.tgz",
++      "integrity": "sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==",
++      "license": "MIT"
++    },
++    "node_modules/@protobufjs/aspromise": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/@protobufjs/aspromise/-/aspromise-1.1.2.tgz",
++      "integrity": "sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/base64": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/@protobufjs/base64/-/base64-1.1.2.tgz",
++      "integrity": "sha512-AZkcAA5vnN/v4PDqKyMR5lx7hZttPDgClv83E//FMNhR2TMcLUhfRUBHCmSl0oi9zMgDDqRUJkSxO3wm85+XLg==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/codegen": {
++      "version": "2.0.5",
++      "resolved": "https://registry.npmjs.org/@protobufjs/codegen/-/codegen-2.0.5.tgz",
++      "integrity": "sha512-zgXFLzW3Ap33e6d0Wlj4MGIm6Ce8O89n/apUaGNB/jx+hw+ruWEp7EwGUshdLKVRCxZW12fp9r40E1mQrf/34g==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/eventemitter": {
++      "version": "1.1.0",
++      "resolved": "https://registry.npmjs.org/@protobufjs/eventemitter/-/eventemitter-1.1.0.tgz",
++      "integrity": "sha512-j9ednRT81vYJ9OfVuXG6ERSTdEL1xVsNgqpkxMsbIabzSo3goCjDIveeGv5d03om39ML71RdmrGNjG5SReBP/Q==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/fetch": {
++      "version": "1.1.0",
++      "resolved": "https://registry.npmjs.org/@protobufjs/fetch/-/fetch-1.1.0.tgz",
++      "integrity": "sha512-lljVXpqXebpsijW71PZaCYeIcE5on1w5DlQy5WH6GLbFryLUrBD4932W/E2BSpfRJWseIL4v/KPgBFxDOIdKpQ==",
++      "license": "BSD-3-Clause",
++      "dependencies": {
++        "@protobufjs/aspromise": "^1.1.1",
++        "@protobufjs/inquire": "^1.1.0"
++      }
++    },
++    "node_modules/@protobufjs/float": {
++      "version": "1.0.2",
++      "resolved": "https://registry.npmjs.org/@protobufjs/float/-/float-1.0.2.tgz",
++      "integrity": "sha512-Ddb+kVXlXst9d+R9PfTIxh1EdNkgoRe5tOX6t01f1lYWOvJnSPDBlG241QLzcyPdoNTsblLUdujGSE4RzrTZGQ==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/inquire": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/@protobufjs/inquire/-/inquire-1.1.1.tgz",
++      "integrity": "sha512-mnzgDV26ueAvk7rsbt9L7bE0SuAoqyuys/sMMrmVcN5x9VsxpcG3rqAUSgDyLp0UZlmNfIbQ4fHfCtreVBk8Ew==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/path": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/@protobufjs/path/-/path-1.1.2.tgz",
++      "integrity": "sha512-6JOcJ5Tm08dOHAbdR3GrvP+yUUfkjG5ePsHYczMFLq3ZmMkAD98cDgcT2iA1lJ9NVwFd4tH/iSSoe44YWkltEA==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/pool": {
++      "version": "1.1.0",
++      "resolved": "https://registry.npmjs.org/@protobufjs/pool/-/pool-1.1.0.tgz",
++      "integrity": "sha512-0kELaGSIDBKvcgS4zkjz1PeddatrjYcmMWOlAuAPwAeccUrPHdUqo/J6LiymHHEiJT5NrF1UVwxY14f+fy4WQw==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/utf8": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/@protobufjs/utf8/-/utf8-1.1.1.tgz",
++      "integrity": "sha512-oOAWABowe8EAbMyWKM0tYDKi8Yaox52D+HWZhAIJqQXbqe0xI/GV7FhLWqlEKreMkfDjshR5FKgi3mnle0h6Eg==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@tokenizer/inflate": {
++      "version": "0.4.1",
++      "resolved": "https://registry.npmjs.org/@tokenizer/inflate/-/inflate-0.4.1.tgz",
++      "integrity": "sha512-2mAv+8pkG6GIZiF1kNg1jAjh27IDxEPKwdGul3snfztFerfPGI1LjDezZp3i7BElXompqEtPmoPx6c2wgtWsOA==",
++      "license": "MIT",
++      "dependencies": {
++        "debug": "^4.4.3",
++        "token-types": "^6.1.1"
++      },
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "type": "github",
++        "url": "https://github.com/sponsors/Borewit"
++      }
++    },
++    "node_modules/@tokenizer/token": {
++      "version": "0.3.0",
++      "resolved": "https://registry.npmjs.org/@tokenizer/token/-/token-0.3.0.tgz",
++      "integrity": "sha512-OvjF+z51L3ov0OyAU0duzsYuvO01PH7x4t6DJx+guahgTnBHkhJdG7soQeTSFLWN3efnHyibZ4Z8l2EuWwJN3A==",
++      "license": "MIT"
++    },
++    "node_modules/@types/node": {
++      "version": "25.8.0",
++      "resolved": "https://registry.npmjs.org/@types/node/-/node-25.8.0.tgz",
++      "integrity": "sha512-TCFSk8IZh+iLX1xtksoBVtdmgL+1IX0fC9BeU4QqFSuNdN/K+HUlhqOzEmSYYpZUVsLYcPqc9KX+60iDuninSQ==",
++      "license": "MIT",
++      "dependencies": {
++        "undici-types": ">=7.24.0 <7.24.7"
++      }
++    },
++    "node_modules/@whiskeysockets/baileys": {
++      "version": "7.0.0-rc11",
++      "resolved": "https://registry.npmjs.org/@whiskeysockets/baileys/-/baileys-7.0.0-rc11.tgz",
++      "integrity": "sha512-4FKCVZR8mGz7oy6aRJgcBdM5t1CjzzDOedfccphwJao5BAy6RKCTTDbjyOaJejCkYDwjkEADpZBRmKDxvGmoUQ==",
++      "hasInstallScript": true,
++      "license": "MIT",
++      "dependencies": {
++        "@cacheable/node-cache": "^1.4.0",
++        "@hapi/boom": "^9.1.3",
++        "async-mutex": "^0.5.0",
++        "libsignal": "^6.0.0",
++        "lru-cache": "^11.1.0",
++        "music-metadata": "^11.12.3",
++        "p-queue": "^9.0.0",
++        "pino": "^9.6",
++        "protobufjs": "^7.5.6",
++        "whatsapp-rust-bridge": "0.5.4",
++        "ws": "^8.13.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "audio-decode": "^2.1.3",
++        "jimp": "^1.6.1",
++        "link-preview-js": "^3.0.0",
++        "sharp": "*"
++      },
++      "peerDependenciesMeta": {
++        "audio-decode": {
++          "optional": true
++        },
++        "jimp": {
++          "optional": true
++        },
++        "link-preview-js": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/@whiskeysockets/baileys/node_modules/pino": {
++      "version": "9.14.0",
++      "resolved": "https://registry.npmjs.org/pino/-/pino-9.14.0.tgz",
++      "integrity": "sha512-8OEwKp5juEvb/MjpIc4hjqfgCNysrS94RIOMXYvpYCdm/jglrKEiAYmiumbmGhCvs+IcInsphYDFwqrjr7398w==",
++      "license": "MIT",
++      "dependencies": {
++        "@pinojs/redact": "^0.4.0",
++        "atomic-sleep": "^1.0.0",
++        "on-exit-leak-free": "^2.1.0",
++        "pino-abstract-transport": "^2.0.0",
++        "pino-std-serializers": "^7.0.0",
++        "process-warning": "^5.0.0",
++        "quick-format-unescaped": "^4.0.3",
++        "real-require": "^0.2.0",
++        "safe-stable-stringify": "^2.3.1",
++        "sonic-boom": "^4.0.1",
++        "thread-stream": "^3.0.0"
++      },
++      "bin": {
++        "pino": "bin.js"
++      }
++    },
++    "node_modules/@whiskeysockets/baileys/node_modules/pino-abstract-transport": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/pino-abstract-transport/-/pino-abstract-transport-2.0.0.tgz",
++      "integrity": "sha512-F63x5tizV6WCh4R6RHyi2Ml+M70DNRXt/+HANowMflpgGFMAym/VKm6G7ZOQRjqN7XbGxK1Lg9t6ZrtzOaivMw==",
++      "license": "MIT",
++      "dependencies": {
++        "split2": "^4.0.0"
++      }
++    },
++    "node_modules/@whiskeysockets/baileys/node_modules/thread-stream": {
++      "version": "3.1.0",
++      "resolved": "https://registry.npmjs.org/thread-stream/-/thread-stream-3.1.0.tgz",
++      "integrity": "sha512-OqyPZ9u96VohAyMfJykzmivOrY2wfMSf3C5TtFJVgN+Hm6aj+voFhlK+kZEIv2FBh1X6Xp3DlnCOfEQ3B2J86A==",
++      "license": "MIT",
++      "dependencies": {
++        "real-require": "^0.2.0"
++      }
++    },
++    "node_modules/ansi-regex": {
++      "version": "5.0.1",
++      "resolved": "https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz",
++      "integrity": "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/ansi-styles": {
++      "version": "4.3.0",
++      "resolved": "https://registry.npmjs.org/ansi-styles/-/ansi-styles-4.3.0.tgz",
++      "integrity": "sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg==",
++      "license": "MIT",
++      "dependencies": {
++        "color-convert": "^2.0.1"
++      },
++      "engines": {
++        "node": ">=8"
++      },
++      "funding": {
++        "url": "https://github.com/chalk/ansi-styles?sponsor=1"
++      }
++    },
++    "node_modules/async-mutex": {
++      "version": "0.5.0",
++      "resolved": "https://registry.npmjs.org/async-mutex/-/async-mutex-0.5.0.tgz",
++      "integrity": "sha512-1A94B18jkJ3DYq284ohPxoXbfTA5HsQ7/Mf4DEhcyLx3Bz27Rh59iScbB6EPiP+B+joue6YCxcMXSbFC1tZKwA==",
++      "license": "MIT",
++      "dependencies": {
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/atomic-sleep": {
++      "version": "1.0.0",
++      "resolved": "https://registry.npmjs.org/atomic-sleep/-/atomic-sleep-1.0.0.tgz",
++      "integrity": "sha512-kNOjDqAh7px0XWNI+4QbzoiR/nTkHAWNud2uvnJquD1/x5a7EQZMJT0AczqK0Qn67oY/TTQ1LbUKajZpp3I9tQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=8.0.0"
++      }
++    },
++    "node_modules/cacheable": {
++      "version": "2.3.5",
++      "resolved": "https://registry.npmjs.org/cacheable/-/cacheable-2.3.5.tgz",
++      "integrity": "sha512-EQfaKe09tl615iNvq/TBRWTFf1AKJNXYQSsMx0Z3EI0nA+pVsVPS8wJhnRlkbdacKPh1d0qVIhwTc2zsQNFEEg==",
++      "license": "MIT",
++      "dependencies": {
++        "@cacheable/memory": "^2.0.8",
++        "@cacheable/utils": "^2.4.1",
++        "hookified": "^1.15.0",
++        "keyv": "^5.6.0",
++        "qified": "^0.10.1"
++      }
++    },
++    "node_modules/camelcase": {
++      "version": "5.3.1",
++      "resolved": "https://registry.npmjs.org/camelcase/-/camelcase-5.3.1.tgz",
++      "integrity": "sha512-L28STB170nwWS63UjtlEOE3dldQApaJXZkOI1uMFfzf3rRuPegHaHesyee+YxQ+W6SvRDQV6UrdOdRiR153wJg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=6"
++      }
++    },
++    "node_modules/cliui": {
++      "version": "6.0.0",
++      "resolved": "https://registry.npmjs.org/cliui/-/cliui-6.0.0.tgz",
++      "integrity": "sha512-t6wbgtoCXvAzst7QgXxJYqPt0usEfbgQdftEPbLL/cvv6HPE5VgvqCuAIDR0NgU52ds6rFwqrgakNLrHEjCbrQ==",
++      "license": "ISC",
++      "dependencies": {
++        "string-width": "^4.2.0",
++        "strip-ansi": "^6.0.0",
++        "wrap-ansi": "^6.2.0"
++      }
++    },
++    "node_modules/color-convert": {
++      "version": "2.0.1",
++      "resolved": "https://registry.npmjs.org/color-convert/-/color-convert-2.0.1.tgz",
++      "integrity": "sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==",
++      "license": "MIT",
++      "dependencies": {
++        "color-name": "~1.1.4"
++      },
++      "engines": {
++        "node": ">=7.0.0"
++      }
++    },
++    "node_modules/color-name": {
++      "version": "1.1.4",
++      "resolved": "https://registry.npmjs.org/color-name/-/color-name-1.1.4.tgz",
++      "integrity": "sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==",
++      "license": "MIT"
++    },
++    "node_modules/content-type": {
++      "version": "1.0.5",
++      "resolved": "https://registry.npmjs.org/content-type/-/content-type-1.0.5.tgz",
++      "integrity": "sha512-nTjqfcBFEipKdXCv4YDQWCfmcLZKm81ldF0pAopTvyrFGVbcR6P/VAAd5G7N+0tTr8QqiU0tFadD6FK4NtJwOA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/curve25519-js": {
++      "version": "0.0.4",
++      "resolved": "https://registry.npmjs.org/curve25519-js/-/curve25519-js-0.0.4.tgz",
++      "integrity": "sha512-axn2UMEnkhyDUPWOwVKBMVIzSQy2ejH2xRGy1wq81dqRwApXfIzfbE3hIX0ZRFBIihf/KDqK158DLwESu4AK1w==",
++      "license": "MIT"
++    },
++    "node_modules/debug": {
++      "version": "4.4.3",
++      "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
++      "integrity": "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==",
++      "license": "MIT",
++      "dependencies": {
++        "ms": "^2.1.3"
++      },
++      "engines": {
++        "node": ">=6.0"
++      },
++      "peerDependenciesMeta": {
++        "supports-color": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/decamelize": {
++      "version": "1.2.0",
++      "resolved": "https://registry.npmjs.org/decamelize/-/decamelize-1.2.0.tgz",
++      "integrity": "sha512-z2S+W9X73hAUUki+N+9Za2lBlun89zigOyGrsax+KUQ6wKW4ZoWpEYBkGhQjwAjjDCkWxhY0VKEhk8wzY7F5cA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
++    "node_modules/detect-libc": {
++      "version": "2.1.2",
++      "resolved": "https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz",
++      "integrity": "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==",
++      "license": "Apache-2.0",
++      "peer": true,
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/dijkstrajs": {
++      "version": "1.0.3",
++      "resolved": "https://registry.npmjs.org/dijkstrajs/-/dijkstrajs-1.0.3.tgz",
++      "integrity": "sha512-qiSlmBq9+BCdCA/L46dw8Uy93mloxsPSbwnm5yrKn2vMPiy8KyAskTF6zuV/j5BMsmOGZDPs7KjU+mjb670kfA==",
++      "license": "MIT"
++    },
++    "node_modules/emoji-regex": {
++      "version": "8.0.0",
++      "resolved": "https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz",
++      "integrity": "sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==",
++      "license": "MIT"
++    },
++    "node_modules/eventemitter3": {
++      "version": "5.0.4",
++      "resolved": "https://registry.npmjs.org/eventemitter3/-/eventemitter3-5.0.4.tgz",
++      "integrity": "sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==",
++      "license": "MIT"
++    },
++    "node_modules/file-type": {
++      "version": "21.3.4",
++      "resolved": "https://registry.npmjs.org/file-type/-/file-type-21.3.4.tgz",
++      "integrity": "sha512-Ievi/yy8DS3ygGvT47PjSfdFoX+2isQueoYP1cntFW1JLYAuS4GD7NUPGg4zv2iZfV52uDyk5w5Z0TdpRS6Q1g==",
++      "license": "MIT",
++      "dependencies": {
++        "@tokenizer/inflate": "^0.4.1",
++        "strtok3": "^10.3.4",
++        "token-types": "^6.1.1",
++        "uint8array-extras": "^1.4.0"
++      },
++      "engines": {
++        "node": ">=20"
++      },
++      "funding": {
++        "url": "https://github.com/sindresorhus/file-type?sponsor=1"
++      }
++    },
++    "node_modules/find-up": {
++      "version": "4.1.0",
++      "resolved": "https://registry.npmjs.org/find-up/-/find-up-4.1.0.tgz",
++      "integrity": "sha512-PpOwAdQ/YlXQ2vj8a3h8IipDuYRi3wceVQQGYWxNINccq40Anw7BlsEXCMbt1Zt+OLA6Fq9suIpIWD0OsnISlw==",
++      "license": "MIT",
++      "dependencies": {
++        "locate-path": "^5.0.0",
++        "path-exists": "^4.0.0"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/get-caller-file": {
++      "version": "2.0.5",
++      "resolved": "https://registry.npmjs.org/get-caller-file/-/get-caller-file-2.0.5.tgz",
++      "integrity": "sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==",
++      "license": "ISC",
++      "engines": {
++        "node": "6.* || 8.* || >= 10.*"
++      }
++    },
++    "node_modules/hashery": {
++      "version": "1.5.1",
++      "resolved": "https://registry.npmjs.org/hashery/-/hashery-1.5.1.tgz",
++      "integrity": "sha512-iZyKG96/JwPz1N55vj2Ie2vXbhu440zfUfJvSwEqEbeLluk7NnapfGqa7LH0mOsnDxTF85Mx8/dyR6HfqcbmbQ==",
++      "license": "MIT",
++      "dependencies": {
++        "hookified": "^1.15.0"
++      },
++      "engines": {
++        "node": ">=20"
++      }
++    },
++    "node_modules/hookified": {
++      "version": "1.15.1",
++      "resolved": "https://registry.npmjs.org/hookified/-/hookified-1.15.1.tgz",
++      "integrity": "sha512-MvG/clsADq1GPM2KGo2nyfaWVyn9naPiXrqIe4jYjXNZQt238kWyOGrsyc/DmRAQ+Re6yeo6yX/yoNCG5KAEVg==",
++      "license": "MIT"
++    },
++    "node_modules/ieee754": {
++      "version": "1.2.1",
++      "resolved": "https://registry.npmjs.org/ieee754/-/ieee754-1.2.1.tgz",
++      "integrity": "sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/feross"
++        },
++        {
++          "type": "patreon",
++          "url": "https://www.patreon.com/feross"
++        },
++        {
++          "type": "consulting",
++          "url": "https://feross.org/support"
++        }
++      ],
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/is-fullwidth-code-point": {
++      "version": "3.0.0",
++      "resolved": "https://registry.npmjs.org/is-fullwidth-code-point/-/is-fullwidth-code-point-3.0.0.tgz",
++      "integrity": "sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/keyv": {
++      "version": "5.6.0",
++      "resolved": "https://registry.npmjs.org/keyv/-/keyv-5.6.0.tgz",
++      "integrity": "sha512-CYDD3SOtsHtyXeEORYRx2qBtpDJFjRTGXUtmNEMGyzYOKj1TE3tycdlho7kA1Ufx9OYWZzg52QFBGALTirzDSw==",
++      "license": "MIT",
++      "dependencies": {
++        "@keyv/serialize": "^1.1.1"
++      }
++    },
++    "node_modules/libsignal": {
++      "version": "6.0.0",
++      "resolved": "https://registry.npmjs.org/libsignal/-/libsignal-6.0.0.tgz",
++      "integrity": "sha512-d/5V3YFtDljbFMufz4ncyUYGYhJl+vzAe+c2EFFBQ6bz1h8Q3IOMEGXYMzlibU60I+e8GagMMpji18iez3P1hA==",
++      "license": "GPL-3.0",
++      "dependencies": {
++        "curve25519-js": "^0.0.4",
++        "protobufjs": "^7.5.5"
++      }
++    },
++    "node_modules/locate-path": {
++      "version": "5.0.0",
++      "resolved": "https://registry.npmjs.org/locate-path/-/locate-path-5.0.0.tgz",
++      "integrity": "sha512-t7hw9pI+WvuwNJXwk5zVHpyhIqzg2qTlklJOf0mVxGSbe3Fp2VieZcduNYjaLDoy6p9uGpQEGWG87WpMKlNq8g==",
++      "license": "MIT",
++      "dependencies": {
++        "p-locate": "^4.1.0"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/long": {
++      "version": "5.3.2",
++      "resolved": "https://registry.npmjs.org/long/-/long-5.3.2.tgz",
++      "integrity": "sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==",
++      "license": "Apache-2.0"
++    },
++    "node_modules/lru-cache": {
++      "version": "11.3.6",
++      "resolved": "https://registry.npmjs.org/lru-cache/-/lru-cache-11.3.6.tgz",
++      "integrity": "sha512-Gf/KoL3C/MlI7Bt0PGI9I+TeTC/I6r/csU58N4BSNc4lppLBeKsOdFYkK+dX0ABDUMJNfCHTyPpzwwO21Awd3A==",
++      "license": "BlueOak-1.0.0",
++      "engines": {
++        "node": "20 || >=22"
++      }
++    },
++    "node_modules/media-typer": {
++      "version": "1.1.0",
++      "resolved": "https://registry.npmjs.org/media-typer/-/media-typer-1.1.0.tgz",
++      "integrity": "sha512-aisnrDP4GNe06UcKFnV5bfMNPBUw4jsLGaWwWfnH3v02GnBuXX2MCVn5RbrWo0j3pczUilYblq7fQ7Nw2t5XKw==",
++      "license": "MIT",
++      "engines": {
++        "node": ">= 0.8"
++      }
++    },
++    "node_modules/ms": {
++      "version": "2.1.3",
++      "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
++      "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==",
++      "license": "MIT"
++    },
++    "node_modules/music-metadata": {
++      "version": "11.12.3",
++      "resolved": "https://registry.npmjs.org/music-metadata/-/music-metadata-11.12.3.tgz",
++      "integrity": "sha512-n6hSTZkuD59qWgHh6IP5dtDlDZQXoxk/bcA85Jywg8Z1iFrlNgl2+GTFgjZyn52W5UgQpV42V4XqrQZZAMbZTQ==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/Borewit"
++        },
++        {
++          "type": "buymeacoffee",
++          "url": "https://buymeacoffee.com/borewit"
++        }
++      ],
++      "license": "MIT",
++      "dependencies": {
++        "@borewit/text-codec": "^0.2.2",
++        "@tokenizer/token": "^0.3.0",
++        "content-type": "^1.0.5",
++        "debug": "^4.4.3",
++        "file-type": "^21.3.1",
++        "media-typer": "^1.1.0",
++        "strtok3": "^10.3.4",
++        "token-types": "^6.1.2",
++        "uint8array-extras": "^1.5.0",
++        "win-guid": "^0.2.1"
++      },
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/on-exit-leak-free": {
++      "version": "2.1.2",
++      "resolved": "https://registry.npmjs.org/on-exit-leak-free/-/on-exit-leak-free-2.1.2.tgz",
++      "integrity": "sha512-0eJJY6hXLGf1udHwfNftBqH+g73EU4B504nZeKpz1sYRKafAghwxEJunB2O7rDZkL4PGfsMVnTXZ2EjibbqcsA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=14.0.0"
++      }
++    },
++    "node_modules/p-limit": {
++      "version": "2.3.0",
++      "resolved": "https://registry.npmjs.org/p-limit/-/p-limit-2.3.0.tgz",
++      "integrity": "sha512-//88mFWSJx8lxCzwdAABTJL2MyWB12+eIY7MDL2SqLmAkeKU9qxRvWuSyTjm3FUmpBEMuFfckAIqEaVGUDxb6w==",
++      "license": "MIT",
++      "dependencies": {
++        "p-try": "^2.0.0"
++      },
++      "engines": {
++        "node": ">=6"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
++    "node_modules/p-locate": {
++      "version": "4.1.0",
++      "resolved": "https://registry.npmjs.org/p-locate/-/p-locate-4.1.0.tgz",
++      "integrity": "sha512-R79ZZ/0wAxKGu3oYMlz8jy/kbhsNrS7SKZ7PxEHBgJ5+F2mtFW2fK2cOtBh1cHYkQsbzFV7I+EoRKe6Yt0oK7A==",
++      "license": "MIT",
++      "dependencies": {
++        "p-limit": "^2.2.0"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/p-queue": {
++      "version": "9.3.0",
++      "resolved": "https://registry.npmjs.org/p-queue/-/p-queue-9.3.0.tgz",
++      "integrity": "sha512-7NED7xhQ74Ngp4JP/2e0VZHp7vSWfJfqeiR92jPgxsz6m0Se4P03YoTKa9dDXyZ3r6P616gUXttrB6nnHYKang==",
++      "license": "MIT",
++      "dependencies": {
++        "eventemitter3": "^5.0.4",
++        "p-timeout": "^7.0.0"
++      },
++      "engines": {
++        "node": ">=20"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
++    "node_modules/p-timeout": {
++      "version": "7.0.1",
++      "resolved": "https://registry.npmjs.org/p-timeout/-/p-timeout-7.0.1.tgz",
++      "integrity": "sha512-AxTM2wDGORHGEkPCt8yqxOTMgpfbEHqF51f/5fJCmwFC3C/zNcGT63SymH2ttOAaiIws2zVg4+izQCjrakcwHg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=20"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
++    "node_modules/p-try": {
++      "version": "2.2.0",
++      "resolved": "https://registry.npmjs.org/p-try/-/p-try-2.2.0.tgz",
++      "integrity": "sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=6"
++      }
++    },
++    "node_modules/path-exists": {
++      "version": "4.0.0",
++      "resolved": "https://registry.npmjs.org/path-exists/-/path-exists-4.0.0.tgz",
++      "integrity": "sha512-ak9Qy5Q7jYb2Wwcey5Fpvg2KoAc/ZIhLSLOSBmRmygPsGwkVVt0fZa0qrtMz+m6tJTAHfZQ8FnmB4MG4LWy7/w==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/pino": {
++      "version": "10.3.1",
++      "resolved": "https://registry.npmjs.org/pino/-/pino-10.3.1.tgz",
++      "integrity": "sha512-r34yH/GlQpKZbU1BvFFqOjhISRo1MNx1tWYsYvmj6KIRHSPMT2+yHOEb1SG6NMvRoHRF0a07kCOox/9yakl1vg==",
++      "license": "MIT",
++      "dependencies": {
++        "@pinojs/redact": "^0.4.0",
++        "atomic-sleep": "^1.0.0",
++        "on-exit-leak-free": "^2.1.0",
++        "pino-abstract-transport": "^3.0.0",
++        "pino-std-serializers": "^7.0.0",
++        "process-warning": "^5.0.0",
++        "quick-format-unescaped": "^4.0.3",
++        "real-require": "^0.2.0",
++        "safe-stable-stringify": "^2.3.1",
++        "sonic-boom": "^4.0.1",
++        "thread-stream": "^4.0.0"
++      },
++      "bin": {
++        "pino": "bin.js"
++      }
++    },
++    "node_modules/pino-abstract-transport": {
++      "version": "3.0.0",
++      "resolved": "https://registry.npmjs.org/pino-abstract-transport/-/pino-abstract-transport-3.0.0.tgz",
++      "integrity": "sha512-wlfUczU+n7Hy/Ha5j9a/gZNy7We5+cXp8YL+X+PG8S0KXxw7n/JXA3c46Y0zQznIJ83URJiwy7Lh56WLokNuxg==",
++      "license": "MIT",
++      "dependencies": {
++        "split2": "^4.0.0"
++      }
++    },
++    "node_modules/pino-std-serializers": {
++      "version": "7.1.0",
++      "resolved": "https://registry.npmjs.org/pino-std-serializers/-/pino-std-serializers-7.1.0.tgz",
++      "integrity": "sha512-BndPH67/JxGExRgiX1dX0w1FvZck5Wa4aal9198SrRhZjH3GxKQUKIBnYJTdj2HDN3UQAS06HlfcSbQj2OHmaw==",
++      "license": "MIT"
++    },
++    "node_modules/pngjs": {
++      "version": "5.0.0",
++      "resolved": "https://registry.npmjs.org/pngjs/-/pngjs-5.0.0.tgz",
++      "integrity": "sha512-40QW5YalBNfQo5yRYmiw7Yz6TKKVr3h6970B2YE+3fQpsWcrbj1PzJgxeJ19DRQjhMbKPIuMY8rFaXc8moolVw==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=10.13.0"
++      }
++    },
++    "node_modules/process-warning": {
++      "version": "5.0.0",
++      "resolved": "https://registry.npmjs.org/process-warning/-/process-warning-5.0.0.tgz",
++      "integrity": "sha512-a39t9ApHNx2L4+HBnQKqxxHNs1r7KF+Intd8Q/g1bUh6q0WIp9voPXJ/x0j+ZL45KF1pJd9+q2jLIRMfvEshkA==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/fastify"
++        },
++        {
++          "type": "opencollective",
++          "url": "https://opencollective.com/fastify"
++        }
++      ],
++      "license": "MIT"
++    },
++    "node_modules/protobufjs": {
++      "version": "7.5.8",
++      "resolved": "https://registry.npmjs.org/protobufjs/-/protobufjs-7.5.8.tgz",
++      "integrity": "sha512-dvpCIeLPbXZS/Ete7yLaO7RenOdken2NHKykBXbsaGxZT0UTltcarBciw+A78SRQs9iMAAVpsYA+l8b1hTePIA==",
++      "hasInstallScript": true,
++      "license": "BSD-3-Clause",
++      "dependencies": {
++        "@protobufjs/aspromise": "^1.1.2",
++        "@protobufjs/base64": "^1.1.2",
++        "@protobufjs/codegen": "^2.0.5",
++        "@protobufjs/eventemitter": "^1.1.0",
++        "@protobufjs/fetch": "^1.1.0",
++        "@protobufjs/float": "^1.0.2",
++        "@protobufjs/inquire": "^1.1.1",
++        "@protobufjs/path": "^1.1.2",
++        "@protobufjs/pool": "^1.1.0",
++        "@protobufjs/utf8": "^1.1.1",
++        "@types/node": ">=13.7.0",
++        "long": "^5.0.0"
++      },
++      "engines": {
++        "node": ">=12.0.0"
++      }
++    },
++    "node_modules/qified": {
++      "version": "0.10.1",
++      "resolved": "https://registry.npmjs.org/qified/-/qified-0.10.1.tgz",
++      "integrity": "sha512-+Owyggi9IxT1ePKGafcI87ubSmxol6smwJ+RAHDQlx9+9cPwFWDiKFFCPuWhr9ignlGpZ9vDQLw67N4dcTVFEA==",
++      "license": "MIT",
++      "dependencies": {
++        "hookified": "^2.1.1"
++      },
++      "engines": {
++        "node": ">=20"
++      }
++    },
++    "node_modules/qified/node_modules/hookified": {
++      "version": "2.2.0",
++      "resolved": "https://registry.npmjs.org/hookified/-/hookified-2.2.0.tgz",
++      "integrity": "sha512-p/LgFzRN5FeoD3DLS6bkUapeye6E4SI6yJs6KetENd18S+FBthqYq2amJUWpt5z0EQwwHemidjY5OqJGEKm5uA==",
++      "license": "MIT"
++    },
++    "node_modules/qrcode": {
++      "version": "1.5.4",
++      "resolved": "https://registry.npmjs.org/qrcode/-/qrcode-1.5.4.tgz",
++      "integrity": "sha512-1ca71Zgiu6ORjHqFBDpnSMTR2ReToX4l1Au1VFLyVeBTFavzQnv5JxMFr3ukHVKpSrSA2MCk0lNJSykjUfz7Zg==",
++      "license": "MIT",
++      "dependencies": {
++        "dijkstrajs": "^1.0.1",
++        "pngjs": "^5.0.0",
++        "yargs": "^15.3.1"
++      },
++      "bin": {
++        "qrcode": "bin/qrcode"
++      },
++      "engines": {
++        "node": ">=10.13.0"
++      }
++    },
++    "node_modules/qrcode-terminal": {
++      "version": "0.12.0",
++      "resolved": "https://registry.npmjs.org/qrcode-terminal/-/qrcode-terminal-0.12.0.tgz",
++      "integrity": "sha512-EXtzRZmC+YGmGlDFbXKxQiMZNwCLEO6BANKXG4iCtSIM0yqc/pappSx3RIKr4r0uh5JsBckOXeKrB3Iz7mdQpQ==",
++      "bin": {
++        "qrcode-terminal": "bin/qrcode-terminal.js"
++      }
++    },
++    "node_modules/quick-format-unescaped": {
++      "version": "4.0.4",
++      "resolved": "https://registry.npmjs.org/quick-format-unescaped/-/quick-format-unescaped-4.0.4.tgz",
++      "integrity": "sha512-tYC1Q1hgyRuHgloV/YXs2w15unPVh8qfu/qCTfhTYamaw7fyhumKa2yGpdSo87vY32rIclj+4fWYQXUMs9EHvg==",
++      "license": "MIT"
++    },
++    "node_modules/real-require": {
++      "version": "0.2.0",
++      "resolved": "https://registry.npmjs.org/real-require/-/real-require-0.2.0.tgz",
++      "integrity": "sha512-57frrGM/OCTLqLOAh0mhVA9VBMHd+9U7Zb2THMGdBUoZVOtGbJzjxsYGDJ3A9AYYCP4hn6y1TVbaOfzWtm5GFg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">= 12.13.0"
++      }
++    },
++    "node_modules/require-directory": {
++      "version": "2.1.1",
++      "resolved": "https://registry.npmjs.org/require-directory/-/require-directory-2.1.1.tgz",
++      "integrity": "sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
++    "node_modules/require-main-filename": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/require-main-filename/-/require-main-filename-2.0.0.tgz",
++      "integrity": "sha512-NKN5kMDylKuldxYLSUfrbo5Tuzh4hd+2E8NPPX02mZtn1VuREQToYe/ZdlJy+J3uCpfaiGF05e7B8W0iXbQHmg==",
++      "license": "ISC"
++    },
++    "node_modules/safe-stable-stringify": {
++      "version": "2.5.0",
++      "resolved": "https://registry.npmjs.org/safe-stable-stringify/-/safe-stable-stringify-2.5.0.tgz",
++      "integrity": "sha512-b3rppTKm9T+PsVCBEOUR46GWI7fdOs00VKZ1+9c1EWDaDMvjQc6tUwuFyIprgGgTcWoVHSKrU8H31ZHA2e0RHA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=10"
++      }
++    },
++    "node_modules/semver": {
++      "version": "7.8.0",
++      "resolved": "https://registry.npmjs.org/semver/-/semver-7.8.0.tgz",
++      "integrity": "sha512-AcM7dV/5ul4EekoQ29Agm5vri8JNqRyj39o0qpX6vDF2GZrtutZl5RwgD1XnZjiTAfncsJhMI48QQH3sN87YNA==",
++      "license": "ISC",
++      "peer": true,
++      "bin": {
++        "semver": "bin/semver.js"
++      },
++      "engines": {
++        "node": ">=10"
++      }
++    },
++    "node_modules/set-blocking": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/set-blocking/-/set-blocking-2.0.0.tgz",
++      "integrity": "sha512-KiKBS8AnWGEyLzofFfmvKwpdPzqiy16LvQfK3yv/fVH7Bj13/wl3JSR1J+rfgRE9q7xUJK4qvgS8raSOeLUehw==",
++      "license": "ISC"
++    },
++    "node_modules/sharp": {
++      "version": "0.34.5",
++      "resolved": "https://registry.npmjs.org/sharp/-/sharp-0.34.5.tgz",
++      "integrity": "sha512-Ou9I5Ft9WNcCbXrU9cMgPBcCK8LiwLqcbywW3t4oDV37n1pzpuNLsYiAV8eODnjbtQlSDwZ2cUEeQz4E54Hltg==",
++      "hasInstallScript": true,
++      "license": "Apache-2.0",
++      "peer": true,
++      "dependencies": {
++        "@img/colour": "^1.0.0",
++        "detect-libc": "^2.1.2",
++        "semver": "^7.7.3"
++      },
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-darwin-arm64": "0.34.5",
++        "@img/sharp-darwin-x64": "0.34.5",
++        "@img/sharp-libvips-darwin-arm64": "1.2.4",
++        "@img/sharp-libvips-darwin-x64": "1.2.4",
++        "@img/sharp-libvips-linux-arm": "1.2.4",
++        "@img/sharp-libvips-linux-arm64": "1.2.4",
++        "@img/sharp-libvips-linux-ppc64": "1.2.4",
++        "@img/sharp-libvips-linux-riscv64": "1.2.4",
++        "@img/sharp-libvips-linux-s390x": "1.2.4",
++        "@img/sharp-libvips-linux-x64": "1.2.4",
++        "@img/sharp-libvips-linuxmusl-arm64": "1.2.4",
++        "@img/sharp-libvips-linuxmusl-x64": "1.2.4",
++        "@img/sharp-linux-arm": "0.34.5",
++        "@img/sharp-linux-arm64": "0.34.5",
++        "@img/sharp-linux-ppc64": "0.34.5",
++        "@img/sharp-linux-riscv64": "0.34.5",
++        "@img/sharp-linux-s390x": "0.34.5",
++        "@img/sharp-linux-x64": "0.34.5",
++        "@img/sharp-linuxmusl-arm64": "0.34.5",
++        "@img/sharp-linuxmusl-x64": "0.34.5",
++        "@img/sharp-wasm32": "0.34.5",
++        "@img/sharp-win32-arm64": "0.34.5",
++        "@img/sharp-win32-ia32": "0.34.5",
++        "@img/sharp-win32-x64": "0.34.5"
++      }
++    },
++    "node_modules/sonic-boom": {
++      "version": "4.2.1",
++      "resolved": "https://registry.npmjs.org/sonic-boom/-/sonic-boom-4.2.1.tgz",
++      "integrity": "sha512-w6AxtubXa2wTXAUsZMMWERrsIRAdrK0Sc+FUytWvYAhBJLyuI4llrMIC1DtlNSdI99EI86KZum2MMq3EAZlF9Q==",
++      "license": "MIT",
++      "dependencies": {
++        "atomic-sleep": "^1.0.0"
++      }
++    },
++    "node_modules/split2": {
++      "version": "4.2.0",
++      "resolved": "https://registry.npmjs.org/split2/-/split2-4.2.0.tgz",
++      "integrity": "sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg==",
++      "license": "ISC",
++      "engines": {
++        "node": ">= 10.x"
++      }
++    },
++    "node_modules/string-width": {
++      "version": "4.2.3",
++      "resolved": "https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz",
++      "integrity": "sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==",
++      "license": "MIT",
++      "dependencies": {
++        "emoji-regex": "^8.0.0",
++        "is-fullwidth-code-point": "^3.0.0",
++        "strip-ansi": "^6.0.1"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/strip-ansi": {
++      "version": "6.0.1",
++      "resolved": "https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz",
++      "integrity": "sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==",
++      "license": "MIT",
++      "dependencies": {
++        "ansi-regex": "^5.0.1"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/strtok3": {
++      "version": "10.3.5",
++      "resolved": "https://registry.npmjs.org/strtok3/-/strtok3-10.3.5.tgz",
++      "integrity": "sha512-ki4hZQfh5rX0QDLLkOCj+h+CVNkqmp/CMf8v8kZpkNVK6jGQooMytqzLZYUVYIZcFZ6yDB70EfD8POcFXiF5oA==",
++      "license": "MIT",
++      "dependencies": {
++        "@tokenizer/token": "^0.3.0"
++      },
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "type": "github",
++        "url": "https://github.com/sponsors/Borewit"
++      }
++    },
++    "node_modules/thread-stream": {
++      "version": "4.2.0",
++      "resolved": "https://registry.npmjs.org/thread-stream/-/thread-stream-4.2.0.tgz",
++      "integrity": "sha512-e2zZ96wSChazBsbENf/Pcm/4swHt2cEKQ92rhUjkL9GCKiTDJIaTBenjE/m9DXi0QBmTMDkFDdOomUy20A1tDQ==",
++      "license": "MIT",
++      "dependencies": {
++        "real-require": "^1.0.0"
++      },
++      "engines": {
++        "node": ">=20"
++      }
++    },
++    "node_modules/thread-stream/node_modules/real-require": {
++      "version": "1.0.0",
++      "resolved": "https://registry.npmjs.org/real-require/-/real-require-1.0.0.tgz",
++      "integrity": "sha512-P4nbQYQfePJxRSmY+v/KINxVucm4NF3p3s7pJveMTtom52FR4YGltUQLB8idDXwDDWW+eYrWDFbuzUnjoWHF7g==",
++      "license": "MIT"
++    },
++    "node_modules/token-types": {
++      "version": "6.1.2",
++      "resolved": "https://registry.npmjs.org/token-types/-/token-types-6.1.2.tgz",
++      "integrity": "sha512-dRXchy+C0IgK8WPC6xvCHFRIWYUbqqdEIKPaKo/AcTUNzwLTK6AH7RjdLWsEZcAN/TBdtfUw3PYEgPr5VPr6ww==",
++      "license": "MIT",
++      "dependencies": {
++        "@borewit/text-codec": "^0.2.1",
++        "@tokenizer/token": "^0.3.0",
++        "ieee754": "^1.2.1"
++      },
++      "engines": {
++        "node": ">=14.16"
++      },
++      "funding": {
++        "type": "github",
++        "url": "https://github.com/sponsors/Borewit"
++      }
++    },
++    "node_modules/tslib": {
++      "version": "2.8.1",
++      "resolved": "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
++      "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==",
++      "license": "0BSD"
++    },
++    "node_modules/uint8array-extras": {
++      "version": "1.5.0",
++      "resolved": "https://registry.npmjs.org/uint8array-extras/-/uint8array-extras-1.5.0.tgz",
++      "integrity": "sha512-rvKSBiC5zqCCiDZ9kAOszZcDvdAHwwIKJG33Ykj43OKcWsnmcBRL09YTU4nOeHZ8Y2a7l1MgTd08SBe9A8Qj6A==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
++    "node_modules/undici-types": {
++      "version": "7.24.6",
++      "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-7.24.6.tgz",
++      "integrity": "sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==",
++      "license": "MIT"
++    },
++    "node_modules/whatsapp-rust-bridge": {
++      "version": "0.5.4",
++      "resolved": "https://registry.npmjs.org/whatsapp-rust-bridge/-/whatsapp-rust-bridge-0.5.4.tgz",
++      "integrity": "sha512-yYO1qSs0Fe7tGtnxOFHomocUD6IZtoAgmA4oDFyGIRZ67D3QZk3w7swA6XXFXNQngiyrg2k7tul6IrM3eUFh7A==",
++      "license": "MIT"
++    },
++    "node_modules/which-module": {
++      "version": "2.0.1",
++      "resolved": "https://registry.npmjs.org/which-module/-/which-module-2.0.1.tgz",
++      "integrity": "sha512-iBdZ57RDvnOR9AGBhML2vFZf7h8vmBjhoaZqODJBFWHVtKkDmKuHai3cx5PgVMrX5YDNp27AofYbAwctSS+vhQ==",
++      "license": "ISC"
++    },
++    "node_modules/win-guid": {
++      "version": "0.2.1",
++      "resolved": "https://registry.npmjs.org/win-guid/-/win-guid-0.2.1.tgz",
++      "integrity": "sha512-gEIQU4mkgl2OPeoNrWflcJFJ3Ae2BPd4eCsHHA/XikslkIVms/nHhvnvzIZV7VLmBvtFlDOzLt9rrZT+n6D67A==",
++      "license": "MIT"
++    },
++    "node_modules/wrap-ansi": {
++      "version": "6.2.0",
++      "resolved": "https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-6.2.0.tgz",
++      "integrity": "sha512-r6lPcBGxZXlIcymEu7InxDMhdW0KDxpLgoFLcguasxCaJ/SOIZwINatK9KY/tf+ZrlywOKU0UDj3ATXUBfxJXA==",
++      "license": "MIT",
++      "dependencies": {
++        "ansi-styles": "^4.0.0",
++        "string-width": "^4.1.0",
++        "strip-ansi": "^6.0.0"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/ws": {
++      "version": "8.20.1",
++      "resolved": "https://registry.npmjs.org/ws/-/ws-8.20.1.tgz",
++      "integrity": "sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=10.0.0"
++      },
++      "peerDependencies": {
++        "bufferutil": "^4.0.1",
++        "utf-8-validate": ">=5.0.2"
++      },
++      "peerDependenciesMeta": {
++        "bufferutil": {
++          "optional": true
++        },
++        "utf-8-validate": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/y18n": {
++      "version": "4.0.3",
++      "resolved": "https://registry.npmjs.org/y18n/-/y18n-4.0.3.tgz",
++      "integrity": "sha512-JKhqTOwSrqNA1NY5lSztJ1GrBiUodLMmIZuLiDaMRJ+itFd+ABVE8XBjOvIWL+rSqNDC74LCSFmlb/U4UZ4hJQ==",
++      "license": "ISC"
++    },
++    "node_modules/yargs": {
++      "version": "15.4.1",
++      "resolved": "https://registry.npmjs.org/yargs/-/yargs-15.4.1.tgz",
++      "integrity": "sha512-aePbxDmcYW++PaqBsJ+HYUFwCdv4LVvdnhBy78E57PIor8/OVvhMrADFFEDh8DHDFRv/O9i3lPhsENjO7QX0+A==",
++      "license": "MIT",
++      "dependencies": {
++        "cliui": "^6.0.0",
++        "decamelize": "^1.2.0",
++        "find-up": "^4.1.0",
++        "get-caller-file": "^2.0.1",
++        "require-directory": "^2.1.1",
++        "require-main-filename": "^2.0.0",
++        "set-blocking": "^2.0.0",
++        "string-width": "^4.2.0",
++        "which-module": "^2.0.0",
++        "y18n": "^4.0.0",
++        "yargs-parser": "^18.1.2"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/yargs-parser": {
++      "version": "18.1.3",
++      "resolved": "https://registry.npmjs.org/yargs-parser/-/yargs-parser-18.1.3.tgz",
++      "integrity": "sha512-o50j0JeToy/4K6OZcaQmW6lyXXKhq7csREXcDwk2omFPJEwUNOVtJKvmDr9EI1fAJZUyZcRF7kxGBWmRXudrCQ==",
++      "license": "ISC",
++      "dependencies": {
++        "camelcase": "^5.0.0",
++        "decamelize": "^1.2.0"
++      },
++      "engines": {
++        "node": ">=6"
++      }
++    }
++  }
++}
+diff --git a/channels/whatsapp_bridge/package.json b/channels/whatsapp_bridge/package.json
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/channels/whatsapp_bridge/package.json
+@@ -0,0 +1,18 @@
++{
++  "name": "whatsapp_bridge",
++  "version": "1.0.0",
++  "description": "",
++  "main": "index.js",
++  "scripts": {
++    "test": "echo \"Error: no test specified\" && exit 1"
++  },
++  "keywords": [],
++  "author": "",
++  "license": "ISC",
++  "dependencies": {
++    "@whiskeysockets/baileys": "^7.0.0-rc11",
++    "pino": "^10.3.1",
++    "qrcode": "^1.5.4",
++    "qrcode-terminal": "^0.12.0"
++  }
++}

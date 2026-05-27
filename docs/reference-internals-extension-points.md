@@ -119,12 +119,11 @@ loop, and full traces should be enabled only by an explicit runtime setting.
 
 ## Add a remote skill
 
-Remote skills should live in an optional module and delegate to that module's
-own membrane:
+Same as above, but the body delegates to `src/agentverse.py`:
 
 ```metta
 (= (my-remote-skill $arg)
-   (py-call (my_remote_module.my_remote_skill $arg)))
+   (py-call (agentverse.my_remote_skill $arg)))
 ```
 
 Full walkthrough: [tutorial-06-remote-agentverse-skills.md](./tutorial-06-remote-agentverse-skills.md).
@@ -141,19 +140,23 @@ Full walkthrough: [tutorial-04-adding-a-channel.md](./tutorial-04-adding-a-chann
 
 ## Add an LLM provider
 
-In `src/loop.metta`, provider dispatch is registry-backed for non-OpenAI providers:
+In `src/loop.metta`, the main dispatch is:
 
 ```metta
 (if (== (provider) OpenAI)
     (useGPT ...)
-    (py-call (lib_llm_ext.callProvider (provider) $send (maxOutputToken))))
+    (if (== (provider) Anthropic)
+        (py-call (lib_llm_ext.useClaude $send))
+        (if (== (provider) ASICloud)
+            (py-call (lib_llm_ext.useMiniMax $send))
+            (py-call (lib_llm_ext.useAsi1 $send)))))
 ```
 
 To add a provider:
 
-1. Implement an `AbstractAIProvider` adapter or compatible call wrapper in `lib_llm_ext.py` (or a new module).
-2. Register it with `_register_provider_instance` or `_register_provider`.
-3. Use the new provider name via runtime configuration or command-line `provider=...`.
+1. Implement a call function in `lib_llm_ext.py` (or a new module).
+2. Add a branch to the `if` chain.
+3. Use the new provider name in the `configure provider ...` line or via command-line `provider=...`.
 
 ## Change the prompt
 

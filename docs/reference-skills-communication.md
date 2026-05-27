@@ -82,5 +82,5 @@ A string of search results suitable for feeding back into the prompt.
 ```
 
 ### Notes / Limits
-- For research-oriented search through an optional remote-agent module, install/register that module first; do not assume a hardcoded Tavily skill exists.
+- For research-oriented search through an Agentverse agent, discover/register a suitable remote agent and call it with [reference-skills-remote-agents.md](./reference-skills-remote-agents.md).
 - Result format depends on the backend used by `websearch.search`.

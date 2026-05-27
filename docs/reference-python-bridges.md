@@ -8,20 +8,28 @@ LLM and embedding bridges.
 
 | Function | Purpose |
 |---|---|
-| `callProvider(provider, prompt, max_tokens)` | Registry-backed provider dispatcher used by the loop for non-OpenAI providers. |
-| `_register_provider(...)` / `_register_provider_instance(...)` | Add provider adapters without adding new branches to the loop. |
-| `useClaude(prompt)`, `useMiniMax(prompt)`, `useAsi1(prompt)` | Legacy compatibility wrappers for older provider-specific routing. |
+| `useClaude(prompt)` | Call an Anthropic Claude model. Used when `provider = Anthropic`. |
+| `useMiniMax(prompt)` | Call MiniMax. Used when `provider = ASICloud` (or similar routing). |
+| `useAsi1(prompt)` | Call ASI1. Used when `provider = ASIOne`. |
 | `useLocalEmbedding(str)` | Compute an embedding with a locally loaded model. Used when `embeddingprovider = Local`. |
 | `initLocalEmbedding()` | Load the local embedding model once at startup. |
 
 OpenAI calls go through MeTTa-side helpers (`useGPT`, `useGPTEmbedding`) that are defined elsewhere in the library but use the same LLM call pattern.
 
-## `modules/agentverse/src/agentverse_bridge.py`
+## `modules/agentverse/src/agentverse_organ.py`
 
 Optional Agentverse/uAgents remote-agent transport membrane.
-This module is not present in every checkout and is not part of the default core
-skill surface. When installed, it should expose its own MeTTa signatures,
-catalog/help, affordance cards, and trace policy.
+
+| Function | Purpose |
+|---|---|
+| `agentverse_status()` | Report uAgents availability and trace/search paths without exposing secrets. |
+| `agentverse_discover_atoms(query)` | Search Agentverse and return candidate atoms for `&agentverse`. |
+| `agentverse_record_agent(name, address, schema, capability)` | Mirror a chosen remote agent into a local registry file. |
+| `agentverse_ask(destination, schema, payload)` | Send a typed uAgents request to a raw destination. |
+| `agentverse_trace()` | Return recent local Agentverse trace atoms. |
+
+`src/agentverse.py` is now only a compatibility shim for old deployments. New
+work should import `modules/agentverse/entry.metta`.
 
 ## `src/helper.py`
 

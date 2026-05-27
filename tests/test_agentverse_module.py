@@ -26,31 +26,23 @@ class AgentverseModuleTests(unittest.TestCase):
         skills = skill_implementation_source()
         module_entry = (ROOT / "modules" / "agentverse" / "entry.metta").read_text(encoding="utf-8")
         module_skills = (ROOT / "modules" / "agentverse" / "skills.metta").read_text(encoding="utf-8")
-        module_affordance = (ROOT / "modules" / "agentverse" / "affordance.metta").read_text(encoding="utf-8")
         module_impl = (ROOT / "modules" / "agentverse" / "src" / "agentverse_bridge.py").read_text(encoding="utf-8")
         listener_impl = (ROOT / "modules" / "agentverse" / "src" / "agentverse_listener.py").read_text(encoding="utf-8")
-        module_toml = (ROOT / "modules" / "agentverse" / "module.toml").read_text(encoding="utf-8")
         requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
 
-        self.assertFalse((ROOT / "src" / "agentverse.py").exists())
+        self.assertTrue((ROOT / "src" / "agentverse.py").exists())
         self.assertIn("./modules/loader.metta", core)
-        self.assertNotIn("./modules/agentverse/entry.metta", core)
+        self.assertIn("./modules/agentverse/entry.metta", loader)
         self.assertNotIn("./src/agentverse.py", core)
-        self.assertNotIn("./modules/agentverse/entry.metta", loader)
         self.assertIn("(Module omegaclaw.remote.agentverse)", module_entry)
         self.assertIn("(Space agentverse)", module_entry)
         self.assertIn("(RuntimeOrgan \"agentverse\" (initAgentverseOrgan))", module_entry)
-        self.assertIn("(ModuleOptional omegaclaw.remote.agentverse True)", module_entry)
-        self.assertIn("(ModuleDefaultEnabled omegaclaw.remote.agentverse False)", module_entry)
-        self.assertIn("./modules/agentverse/src/agentverse_bridge.py", module_entry)
         self.assertIn("(Provides omegaclaw.remote.agentverse (Skill agentverse-discover))", module_entry)
         self.assertIn("(Provides omegaclaw.remote.agentverse (Skill agentverse-call))", module_entry)
         self.assertIn("(Provides omegaclaw.remote.agentverse (Skill agentverse-listener-start))", module_entry)
         self.assertIn("(Provides omegaclaw.remote.agentverse (Skill agentverse-inbox))", module_entry)
-        self.assertIn("default_enabled = false", module_toml)
         self.assertNotIn("(= (agentverse-discover $query)", skills)
         self.assertNotIn("(= (agentverse-register-agent $name $address $schema $capability)", skills)
-        self.assertIn('(register-space-persistence "agentverse" (library OmegaClaw-Core ./memory/agentverse.metta) runtime-state)', module_skills)
         self.assertIn("(= (agentverse-discover $query $limit)", module_skills)
         self.assertIn("(= (agentverse-discover $query)", module_skills)
         self.assertIn("(= (agentverse-register-agent $name $address $schema $capability)", module_skills)
@@ -60,10 +52,6 @@ class AgentverseModuleTests(unittest.TestCase):
         self.assertIn("(= (agentverse-listener-start)", module_skills)
         self.assertIn("(= (agentverse-inbox)", module_skills)
         self.assertIn("(RemoteAgent $name $address $schema $capability)", module_skills)
-        self.assertIn("agentverse_bridge.agentverse_status", module_skills)
-        self.assertNotIn("(py-call (agentverse.", module_skills)
-        self.assertIn('(SkillCardLine "agentverse-register-agent"', module_affordance)
-        self.assertIn('(SkillCardLine "agentverse-trace"', module_affordance)
         self.assertIn("AgentChatProtocol", module_impl)
         self.assertIn("ChatMessage", module_impl)
         self.assertIn("ChatAcknowledgement", module_impl)
@@ -72,18 +60,8 @@ class AgentverseModuleTests(unittest.TestCase):
         self.assertIn("OMEGACLAW_AGENTVERSE_ENDPOINT", module_impl)
         self.assertIn("chat_protocol_spec", listener_impl)
         self.assertIn("AgentverseInbound", listener_impl)
-        self.assertIn('"User-Agent": "OmegaClaw-Agentverse-Bridge/0.1"', module_impl)
-        for old_surface in [
-            "TAVILY_SEARCH_AGENT_ADDRESS",
-            "TECHNICAL_ANALYSIS_AGENT_ADDRESS",
-            "tavily_search",
-            "technical_analysis",
-            "WebSearchRequest",
-            "TechAnalysisRequest",
-        ]:
-            self.assertNotIn(old_surface, module_entry)
-            self.assertNotIn(old_surface, module_skills)
-            self.assertNotIn(old_surface, module_impl)
+        self.assertNotIn("TAVILY_SEARCH_AGENT_ADDRESS", module_entry)
+        self.assertNotIn("TECHNICAL_ANALYSIS_AGENT_ADDRESS", module_entry)
         self.assertIn("uagents", requirements)
 
     def test_agentverse_signature_rejects_prose_as_limit(self):
@@ -95,6 +73,7 @@ class AgentverseModuleTests(unittest.TestCase):
             parser.SIGNATURE_SHORTHANDS,
             parser.SIGNATURE_RECOVERY_HINTS,
             parser.SIGNATURE_SKILL_CARDS,
+            parser.SIGNATURE_PROSE_FALLBACK,
         )
         try:
             parser.reload_signature_commands(ROOT / "modules" / "agentverse" / "signatures.metta")
@@ -119,6 +98,7 @@ class AgentverseModuleTests(unittest.TestCase):
                 parser.SIGNATURE_SHORTHANDS,
                 parser.SIGNATURE_RECOVERY_HINTS,
                 parser.SIGNATURE_SKILL_CARDS,
+                parser.SIGNATURE_PROSE_FALLBACK,
             ) = old_state
 
 

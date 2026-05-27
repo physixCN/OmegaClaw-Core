@@ -1,0 +1,408 @@
+diff --git a/docs/reference-internals-extension-points.md b/docs/reference-internals-extension-points.md
+index 5a33979..4ad9195 100644
+--- a/docs/reference-internals-extension-points.md
++++ b/docs/reference-internals-extension-points.md
+@@ -6,11 +6,27 @@ Where to plug in new behavior, in order of increasing depth.
+ 
+ Most common extension. Two edits:
+ 
+-1. A line in `getSkills` (`src/skills.metta`) so the LLM knows the skill exists.
+-2. A `(= (my-skill $arg) ...)` definition, either pure MeTTa or a `py-call` / `translatePredicate`.
++1. A line in `getSkills` (`src/skill_catalog.metta`) so the LLM knows the skill exists.
++2. A `(= (my-skill $arg) ...)` definition in the appropriate `src/skills_*.metta` organ, either pure MeTTa or a `py-call` / `translatePredicate`.
++
++`src/skills.metta` is a compatibility loader. Keep new behavior in an organ file so the body map stays reviewable.
+ 
+ Full walkthrough: [tutorial-03-writing-a-custom-skill.md](./tutorial-03-writing-a-custom-skill.md).
+ 
++## Add a space-backed organ
++
++A module that brings a new AtomSpace should declare syntax and runtime
++separately:
++
++1. Add `(SignatureSpace name)` and any `(SkillSignature ...)` atoms beside the module.
++2. Bind the actual MeTTa space in the module entry file.
++3. Call `(register-space "name" &name role)` so `space-known`, `space-handle`, `space-pressure`, and `space-transform` can reason over it.
++4. Add `(register-space-alias name "name")` if older symbol-form calls should work too.
++5. If the space is durable runtime memory, call `(register-space-persistence "name" ./repos/OmegaClaw-Core/memory/name.metta runtime-state)` and load/save it with `(load-runtime-space "name")` / `(save-runtime-space "name")` during the organ's lifecycle.
++
++This keeps plug-in spaces inspectable in MeTTa instead of extending Python or
++adding more nested conditionals.
++
+ ## Add a remote skill
+ 
+ Same as above, but the body delegates to `src/agentverse.py`:
+diff --git a/docs/reference-lib-ona.md b/docs/reference-lib-ona.md
+index b9e3651..280e6ee 100644
+--- a/docs/reference-lib-ona.md
++++ b/docs/reference-lib-ona.md
+@@ -1,6 +1,6 @@
+ # Reference — ONA (OpenNARS for Applications)
+ 
+-ONA is a lightweight, real-time implementation of NARS created by Dr. Patrick Hammer. **ONA is not installed by default in OmegaClaw.** There are no ONA bindings in the repository, no `lib_ona.metta`, and no dedicated operator in the `(metta ...)` skill surface. The stock install ships two formal engines — symbolic NAL (`|-`) and probabilistic PLN (`|~`).
++ONA is a lightweight, real-time implementation of NARS. **ONA is not installed by default in this runtime.** There are no ONA bindings in the repository, no `lib_ona.metta`, and no dedicated operator in the `(metta ...)` skill surface. The stock install ships two formal engines — symbolic NAL (`|-`) and probabilistic PLN (`|~`).
+ 
+ This page exists because ONA is named in the project's architectural vision and has been an experimental target — see [Status](#status-partly-successful-self-building-experiment) below.
+ 
+@@ -25,13 +25,13 @@ Today, with ONA absent, the current practical fallback for temporal questions is
+ 
+ ## Invocation surface
+ 
+-**There is no stock invocation surface for ONA in OmegaClaw.** `lib_omegaclaw.metta` does not load ONA bindings. The `(metta ...)` skill has no ONA operator.
++**There is no stock invocation surface for ONA.** `lib_omegaclaw.metta` does not load ONA bindings. The `(metta ...)` skill has no ONA operator.
+ 
+ Any integration has to be built — either by calling an external ONA binary through `(shell ...)` and parsing its output, or by constructing MeTTa-side wrappers that emulate ONA's temporal operators. This is a non-trivial tools-authoring task and is the subject of the experiment described below.
+ 
+ ## Status: partly-successful self-building experiment
+ 
+-OmegaClaw's architectural vision lists ONA as a third engine, but in practice ONA support has been pursued as an experiment in whether the agent can **itself build the tools** to interface with that reasoning system. Results so far: partly successful.
++The architectural vision lists ONA as a third engine, but in practice ONA support has been pursued as an experiment in whether the agent can **itself build the tools** to interface with that reasoning system. Results so far: partly successful.
+ 
+ What this means concretely:
+ 
+diff --git a/docs/reference-skills-reasoning.md b/docs/reference-skills-reasoning.md
+index ecf5dd8..9a4d65a 100644
+--- a/docs/reference-skills-reasoning.md
++++ b/docs/reference-skills-reasoning.md
+@@ -1,6 +1,6 @@
+ # Reference — Reasoning Skill
+ 
+-Defined in `src/skills.metta`. Backed by two reasoning engines in `lib_nal.metta` and `lib_pln.metta`.
++Defined in `src/skills_reasoning_spaces.metta` and advertised through `src/skill_catalog.metta`. Backed by two reasoning engines in `lib_nal.metta` and `lib_pln.metta`.
+ 
+ ---
+ 
+@@ -28,6 +28,13 @@ Whatever the inner expression returns. For NAL/PLN calls, this is a conclusion a
+            ((--> garfield animal)         (stv 1.0 0.9))))
+ ```
+ 
++`nal-step` is the direct skill wrapper for this same NAL shape. NAL inheritance is written
++with the `-->` copula:
++
++```metta
++nal-step "((--> sample-agent careful) (stv 0.95 0.9))" "((--> careful reliable) (stv 0.9 0.9))"
++```
++
+ **NAL — implication with a variable (note `$1`):**
+ ```metta
+ (metta (|- ((==> (--> (× $1 elephant) eat) (--> $1 ([] dangerous))) (stv 1.0 0.9))
+@@ -43,6 +50,13 @@ Whatever the inner expression returns. For NAL/PLN calls, this is a conclusion a
+            ((Inheritance Pingu (IntSet Feathered)) (stv 1.0 0.9))))
+ ```
+ 
++`pln-step` is the direct skill wrapper for PLN shapes. Plain `Inheritance`
++transitivity belongs to PLN, not NAL:
++
++```metta
++pln-step "((Inheritance SampleAgent CarefulSystem) (stv 0.95 0.9))" "((Inheritance CarefulSystem ReliableSystem) (stv 0.9 0.9))"
++```
++
+ ---
+ 
+ ## Engine selection, stopping criteria, action thresholds
+@@ -54,6 +68,9 @@ These are policy decisions, not part of the `metta` skill's API. See [reference-
+ ## Notes / limits
+ 
+ - Independent variables are written `$1`, `$2`, …
++- Do not mix vocabularies: `nal-step` expects NAL copulas like `-->`; `pln-step`
++  expects PLN atoms like `Inheritance`. If `nal-step` on `Inheritance` returns
++  empty, that means the wrong organ was selected, not that NAL rules failed to load.
+ - Negated knowledge uses `(stv 0.0 c)`.
+ - `metta` evaluates **any** MeTTa expression, not just reasoning calls. Malformed input reports errors through `&error` on the next turn.
+ - Confidence decays ~10% per deduction hop. Chains past 3 hops usually fall below the ACT threshold — see [tutorial-08-reliable-reasoning.md](./tutorial-08-reliable-reasoning.md).
+diff --git a/src/skill_affordance_reasoning.metta b/src/skill_affordance_reasoning.metta
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/src/skill_affordance_reasoning.metta
+@@ -0,0 +1,22 @@
++; Explicit symbolic reasoning affordance cards.
++
++(SkillTopic "test-metta" "reasoning")
++(SkillTopic "metta" "reasoning")
++(SkillTopic "truth-expectation" "reasoning")
++(SkillTopic "nal-step" "reasoning")
++(SkillTopic "pln-step" "reasoning")
++(SkillTopic "nars-query" "reasoning")
++(SkillTopic "nars-derive" "reasoning")
++(SkillTopic "run-metta-file" "reasoning")
++
++(SkillCardLine "test-metta" "test-metta sexpression - check raw MeTTa syntax before execution")
++(SkillCardLine "metta" "metta sexpression - execute a direct MeTTa expression")
++(SkillCardLine "nal-step" "nal-step premise1 premise2 - inspect NAL derivation; use -->, ==> or <->, not PLN Inheritance")
++(SkillCardLine "pln-step" "pln-step premise1 premise2 - inspect PLN derivation; use Inheritance/Implication/Similarity atoms")
++(SkillCardLine "pln-step" "Plain Inheritance transitivity belongs here: (Inheritance A B) + (Inheritance B C) derives (Inheritance A C)")
++(SkillCardLine "nars-query" "nars-query kb term - query a NARS expression")
++(SkillCardLine "run-metta-file" "run-metta-file path - run a .metta file through the standard runner")
++
++(Risk "metta" "direct-symbolic-execution")
++(Risk "run-metta-file" "direct-symbolic-execution")
++(Effect "test-metta" "syntax-check")
+diff --git a/src/skills_reasoning_spaces.metta b/src/skills_reasoning_spaces.metta
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/src/skills_reasoning_spaces.metta
+@@ -0,0 +1,61 @@
++(= (nars-query $kbstr $termstr)
++   (let* (($kb (sread $kbstr))
++          ($term (sread $termstr)))
++         (py-str ("NARS-QUERY " (repr (NARS.Query $kb $term))))))
++
++(= (nars-derive $tasksstr $beliefsstr)
++   (let* (($tasks (sread $tasksstr))
++          ($beliefs (sread $beliefsstr)))
++         (py-str ("NARS-DERIVE " (repr (NARS.Derive $tasks $beliefs))))))
++
++(= (nal-step $premise1str $premise2str)
++   (let* (($premise1 (sread $premise1str))
++          ($premise2 (sread $premise2str)))
++         (py-str ("NAL-STEP " (repr (|- $premise1 $premise2))))))
++
++(= (pln-step $premise1str $premise2str)
++   (let* (($premise1 (sread $premise1str))
++          ($premise2 (sread $premise2str)))
++         (py-str ("PLN-STEP " (repr (|~ $premise1 $premise2))))))
++
++(= (truth-expectation $frequency $confidence)
++   (Truth_Expectation (stv $frequency $confidence)))
++
++(= (register-runtime-hook $phase $name $call)
++   (progn (collapse (match &self (RuntimeHook $phase $name $oldcall)
++                           (remove-atom &self (RuntimeHook $phase $name $oldcall))))
++          (add-atom &self (RuntimeHook $phase $name $call))
++          (RuntimeHookRegistered $phase $name)))
++
++(= (trust-runtime-organ $name)
++   (progn (collapse (match &self (TrustedRuntimeOrgan $name)
++                           (remove-atom &self (TrustedRuntimeOrgan $name))))
++          (add-atom &self (TrustedRuntimeOrgan $name))
++          (RuntimeOrganTrusted $name)))
++
++(= (trust-runtime-hook $phase $name)
++   (progn (collapse (match &self (TrustedRuntimeHook $phase $name)
++                           (remove-atom &self (TrustedRuntimeHook $phase $name))))
++          (add-atom &self (TrustedRuntimeHook $phase $name))
++          (RuntimeHookTrusted $phase $name)))
++
++(= (runtime-hooks)
++   (collapse (match &self (RuntimeHook $phase $name $call)
++                    (RuntimeHook $phase $name $call))))
++
++(= (runtime-organ-trusted $name)
++   (if (== (collapse (match &self (TrustedRuntimeOrgan $name) true)) ())
++       false
++       true))
++
++(= (runtime-hook-trusted $phase $name)
++   (if (== (collapse (match &self (TrustedRuntimeHook $phase $name) true)) ())
++       false
++       true))
++
++(= (run-runtime-hooks $phase)
++   (let $results (collapse (match &self (RuntimeHook $phase $name $call)
++                                  (if (runtime-hook-trusted $phase $name)
++                                      (RuntimeHookResult $phase $name (eval $call))
++                                      (RuntimeHookRejected $phase $name untrusted))))
++        (if (== $results ()) RuntimeHooksNone $results)))
+diff --git a/tests/nars_assimilation_smoke.metta b/tests/nars_assimilation_smoke.metta
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/tests/nars_assimilation_smoke.metta
+@@ -0,0 +1,9 @@
++!(import! &self (library lib_import))
++!(git-import! "https://github.com/asi-alliance/OmegaClaw-Core.git")
++!(import! &self (library OmegaClaw-Core lib_omegaclaw))
++
++!(println! (eval (nars-query "((Sentence ((==> (--> (× TestPerson TestFriend) friend) (==> (--> TestPerson ([] smokes)) (--> TestFriend ([] smokes)))) (stv 0.4 0.9)) (1)) (Sentence ((==> (--> TestFriend ([] smokes)) (--> TestFriend ([] cancerous))) (stv 0.6 0.9)) (2)) (Sentence ((--> (× TestPerson TestFriend) friend) (stv 1.0 0.9)) (3)) (Sentence ((--> TestPerson ([] smokes)) (stv 1.0 0.9)) (4)))" "(--> TestFriend ([] cancerous))")))
++!(println! (eval (assimilate-event "audio | obs123 | profile-data | TestPerson shared a preference in a voice note | 0.95")))
++!(println! (eval (assimilate-world "audio | obs123 | TestPerson | preference | warm-light | 0.95")))
++!(println! (eval (assimilate-belief "audio | obs123 | test-profile | preference | warm-light | 0.95 | 0.9")))
++!(println! (eval (assimilate-persistent "audio | obs123 | test-profile | exact chosen observations can become durable notes | 0.95")))
+diff --git a/tests/reasoning_space_smoke.metta b/tests/reasoning_space_smoke.metta
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/tests/reasoning_space_smoke.metta
+@@ -0,0 +1,13 @@
++!(import! &self (library lib_import))
++!(git-import! "https://github.com/asi-alliance/OmegaClaw-Core.git")
++!(import! &self (library OmegaClaw-Core lib_omegaclaw))
++
++!(println! (eval (context-organ-status)))
++!(println! (eval (nal-step "((--> TestPerson teacher) (stv 0.9 0.8))" "((--> teacher helper) (stv 0.8 0.7))")))
++!(println! (eval (nal-step "((--> sample-agent careful) (stv 0.95 0.9))" "((--> careful reliable) (stv 0.9 0.9))")))
++!(println! (eval (pln-step "((Implication (Inheritance Pingu (IntSet Feathered)) (Inheritance Pingu Bird)) (stv 1.0 0.9))" "((Inheritance Pingu (IntSet Feathered)) (stv 1.0 0.9))")))
++!(println! (eval (pln-step "((Inheritance SampleAgent CarefulSystem) (stv 0.95 0.9))" "((Inheritance CarefulSystem ReliableSystem) (stv 0.9 0.9))")))
++!(println! (eval (truth-expectation 0.7 0.8)))
++!(add-atom &events (SmokeSpaceMarker "reasoning-space-smoke"))
++!(println! (eval (space-count events "(SmokeSpaceMarker $marker)")))
++!(println! (eval (space-find events "(SmokeSpaceMarker $marker)")))
+diff --git a/tests/space_examples_smoke.metta b/tests/space_examples_smoke.metta
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/tests/space_examples_smoke.metta
+@@ -0,0 +1,15 @@
++!(import! &self (library lib_import))
++!(git-import! "https://github.com/asi-alliance/OmegaClaw-Core.git")
++!(import! &self (library OmegaClaw-Core lib_omegaclaw))
++
++; Read-only bounded AtomSpace view. This should give the agent exact examples
++; without dumping an entire cognitive space.
++
++!(add-atom &persistent (SandboxExample "one" "0.4"))
++!(add-atom &persistent (SandboxExample "two" "0.5"))
++!(add-atom &persistent (SandboxExample "three" "0.6"))
++
++!(println! (space-count "persistent" "(SandboxExample $name $conf)"))
++!(println! (space-examples "persistent" "(SandboxExample $name $conf)" 2))
++!(println! (space-examples "persistent" "(SandboxMissing $name $conf)" 5))
++!(println! (space-examples "missing-space" "(SandboxExample $name $conf)" 2))
+diff --git a/tests/space_transform_bad_syntax_experiment.metta b/tests/space_transform_bad_syntax_experiment.metta
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/tests/space_transform_bad_syntax_experiment.metta
+@@ -0,0 +1,42 @@
++!(import! &self (library lib_import))
++!(git-import! "https://github.com/asi-alliance/OmegaClaw-Core.git")
++!(import! &self (library OmegaClaw-Core lib_omegaclaw))
++
++; Bad syntax experiment only. This checks that malformed surgery attempts fail closed.
++
++(= (sandbox-space-handle events) &events)
++(= (sandbox-space-handle persistent) &persistent)
++
++(= (sandbox-general-transform $source $patternstr $target $replacementstr $reason)
++   (let* (($source-space (sandbox-space-handle $source))
++          ($target-space (sandbox-space-handle $target))
++          ($pattern (sread $patternstr))
++          ($replacement (sread $replacementstr)))
++         (progn (collapse (match $source-space $pattern
++                                  (remove-atom $source-space $pattern)))
++                (add-atom $target-space $replacement)
++                (add-atom &events (Event "test" "sandbox-general-transform" $reason "0.9"))
++                (GeneralTransformed $source $target $pattern $replacement))))
++
++!(add-atom &persistent (SandboxPersistentBad "omega" "safe-survivor" "0.9"))
++!(println! (eval (space-count persistent "(SandboxPersistentBad \"omega\" $note $conf)")))
++
++; Known bad shape: atom split as if copied through the command normalizer incorrectly.
++!(println! (catch (eval (sandbox-general-transform persistent "(SandboxPersistentBad" events "(SandboxMergedBad \"omega\" \"summary\" \"0.9\")" "bad split atom"))))
++!(println! (eval (space-count persistent "(SandboxPersistentBad \"omega\" $note $conf)")))
++!(println! (eval (space-find events "(SandboxMergedBad \"omega\" \"summary\" \"0.9\")")))
++
++; Known bad shape: missing closing paren.
++!(println! (catch (eval (sandbox-general-transform persistent "(SandboxPersistentBad \"omega\" $note $conf" events "(SandboxMergedBad \"omega\" \"summary2\" \"0.9\")" "missing close paren"))))
++!(println! (eval (space-count persistent "(SandboxPersistentBad \"omega\" $note $conf)")))
++!(println! (eval (space-find events "(SandboxMergedBad \"omega\" \"summary2\" \"0.9\")")))
++
++; Known bad shape: replacement is malformed but still a valid host string. Source atom must survive.
++!(println! (catch (eval (sandbox-general-transform persistent "(SandboxPersistentBad \"omega\" $note $conf)" events "(SandboxMergedBad \"omega\" \"unterminated\"" "bad replacement"))))
++!(println! (eval (space-count persistent "(SandboxPersistentBad \"omega\" $note $conf)")))
++!(println! (eval (space-find events "(SandboxMergedBad \"omega\" \"unterminated\")")))
++
++; Known bad shape: unknown source space. Should fail before mutation.
++!(println! (catch (eval (sandbox-general-transform nowhere "(SandboxPersistentBad \"omega\" $note $conf)" events "(SandboxMergedBad \"omega\" \"summary3\" \"0.9\")" "bad source space"))))
++!(println! (eval (space-count persistent "(SandboxPersistentBad \"omega\" $note $conf)")))
++!(println! (eval (space-find events "(SandboxMergedBad \"omega\" \"summary3\" \"0.9\")")))
+diff --git a/tests/space_transform_experiment.metta b/tests/space_transform_experiment.metta
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/tests/space_transform_experiment.metta
+@@ -0,0 +1,61 @@
++!(import! &self (library lib_import))
++!(git-import! "https://github.com/asi-alliance/OmegaClaw-Core.git")
++!(import! &self (library OmegaClaw-Core lib_omegaclaw))
++
++; Experiment only: prove whether MeTTa can do atomspace surgery without touching live memory.
++
++(= (sandbox-replace-exact $oldstr $newstr $reason)
++   (let* (($old (sread $oldstr))
++          ($new (sread $newstr))
++          ($present (car-atom (collapse (find &events $old)))))
++         (if (== $present true)
++             (progn (remove-atom &events $old)
++                    (add-atom &events $new)
++                    (add-atom &events (Event "test" "sandbox-replace-exact" $reason "0.9"))
++                    (Replaced $old $new))
++             (NotFound $old))))
++
++(= (sandbox-transform-pattern $patternstr $replacementstr $reason)
++   (let* (($pattern (sread $patternstr))
++          ($replacement (sread $replacementstr)))
++         (progn (collapse (match &events $pattern
++                                  (remove-atom &events $pattern)))
++                (add-atom &events $replacement)
++                (add-atom &events (Event "test" "sandbox-transform-pattern" $reason "0.9"))
++                (Transformed $pattern $replacement))))
++
++!(add-atom &events (SandboxOld "alpha" "one" "0.5"))
++!(println! (eval (space-find events "(SandboxOld \"alpha\" \"one\" \"0.5\")")))
++!(println! (eval (sandbox-replace-exact "(SandboxOld \"alpha\" \"one\" \"0.5\")" "(SandboxNew \"alpha\" \"merged-one\" \"0.9\")" "exact replace smoke")))
++!(println! (eval (space-find events "(SandboxOld \"alpha\" \"one\" \"0.5\")")))
++!(println! (eval (space-find events "(SandboxNew \"alpha\" \"merged-one\" \"0.9\")")))
++!(println! (eval (space-find events "(Event \"test\" \"sandbox-replace-exact\" $reason \"0.9\")")))
++
++!(add-atom &events (SandboxDup "beta" "first" "0.4"))
++!(add-atom &events (SandboxDup "beta" "second" "0.4"))
++!(println! (eval (space-count events "(SandboxDup \"beta\" $note $conf)")))
++!(println! (eval (sandbox-transform-pattern "(SandboxDup \"beta\" $note $conf)" "(SandboxMerged \"beta\" \"first+second\" \"0.8\")" "pattern transform smoke")))
++!(println! (eval (space-count events "(SandboxDup \"beta\" $note $conf)")))
++!(println! (eval (space-find events "(SandboxMerged \"beta\" \"first+second\" \"0.8\")")))
++!(println! (eval (space-find events "(Event \"test\" \"sandbox-transform-pattern\" $reason \"0.9\")")))
++
++(= (sandbox-space-handle events) &events)
++(= (sandbox-space-handle persistent) &persistent)
++
++(= (sandbox-general-transform $source $patternstr $target $replacementstr $reason)
++   (let* (($source-space (sandbox-space-handle $source))
++          ($target-space (sandbox-space-handle $target))
++          ($pattern (sread $patternstr))
++          ($replacement (sread $replacementstr)))
++         (progn (collapse (match $source-space $pattern
++                                  (remove-atom $source-space $pattern)))
++                (add-atom $target-space $replacement)
++                (add-atom &events (Event "test" "sandbox-general-transform" $reason "0.9"))
++                (GeneralTransformed $source $target $pattern $replacement))))
++
++!(add-atom &persistent (SandboxPersistent "gamma" "old-detail" "0.4"))
++!(println! (eval (space-find persistent "(SandboxPersistent \"gamma\" $note $conf)")))
++!(println! (eval (sandbox-general-transform persistent "(SandboxPersistent \"gamma\" $note $conf)" events "(SandboxPersistentMerged \"gamma\" \"summary\" \"0.8\")" "persistent to events smoke")))
++!(println! (eval (space-find persistent "(SandboxPersistent \"gamma\" $note $conf)")))
++!(println! (eval (space-find events "(SandboxPersistentMerged \"gamma\" \"summary\" \"0.8\")")))
++!(println! (eval (space-find events "(Event \"test\" \"sandbox-general-transform\" $reason \"0.9\")")))
+--- a/lib_omegaclaw.metta
++++ b/lib_omegaclaw.metta
+@@ -5,6 +5,7 @@
+ !(import! &self (library lib_spaces))
+ !(import! &self (library OmegaClaw-Core lib_nal))
+ !(import! &self (library OmegaClaw-Core lib_pln))
++!(import! &self (library lib_nars))
+ !(import! &self (library OmegaClaw-Core lib_llm_ext.py))
+ !(import! &self (library OmegaClaw-Core ./src/helper.py))
+ !(import! &self (library OmegaClaw-Core ./channels/irc.py))
+@@ -19,11 +20,13 @@
+ !(import! &self (library OmegaClaw-Core ./src/skill_catalog_memory.metta))
+ !(import! &self (library OmegaClaw-Core ./src/energy.py))
+ !(import! &self (library OmegaClaw-Core ./src/skill_catalog_energy.metta))
++!(import! &self (library OmegaClaw-Core ./src/skill_catalog_reasoning.metta))
+ !(import! &self (library OmegaClaw-Core ./src/skills_core.metta))
+ !(import! &self (library OmegaClaw-Core ./src/skills_runtime_spaces.metta))
+ !(import! &self (library OmegaClaw-Core ./src/skills_memory.metta))
+ !(import! &self (library OmegaClaw-Core ./src/skills_space_mutation.metta))
+ !(import! &self (library OmegaClaw-Core ./src/skills_energy.metta))
++!(import! &self (library OmegaClaw-Core ./src/skills_reasoning_spaces.metta))
+ !(import! &self (library OmegaClaw-Core ./src/memory))
+ !(import! &self (library OmegaClaw-Core ./src/loop))
+ !(git-import! "https://github.com/patham9/petta_lib_chromadb.git")
+--- a/src/skills.metta
++++ b/src/skills.metta
+@@ -9,3 +9,4 @@
+ !(import! &self (library OmegaClaw-Core ./src/skills_memory.metta))
+ !(import! &self (library OmegaClaw-Core ./src/skills_space_mutation.metta))
+ !(import! &self (library OmegaClaw-Core ./src/skills_energy.metta))
++!(import! &self (library OmegaClaw-Core ./src/skills_reasoning_spaces.metta))

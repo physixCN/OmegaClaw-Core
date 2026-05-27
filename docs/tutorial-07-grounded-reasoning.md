@@ -48,7 +48,7 @@ Step 3: atomize with source-anchored confidence
 2. Fetch from a verified source.
    (web-search "netflix 10-K content spend")
    (shell "curl ... SEC EDGAR ...")
-   optional remote research agent, if installed
+   (agentverse-discover "SEC filing research agent")
 
 3. Atomize with source-quality confidence.
    Primary source (SEC, peer-reviewed):    c = 0.9
@@ -73,7 +73,7 @@ add it to memory with provenance before we reason about it
 
 The agent should, across a few cycles:
 
-1. `(web-search "Netflix 2024 10-K content spend SEC EDGAR")` or use a suitable optional remote research agent if installed.
+1. `(web-search "Netflix 2024 10-K content spend SEC EDGAR")` or discover/register a suitable Agentverse research agent.
 2. Optionally `(shell "curl -s <filing url> | grep -A2 'content spend'")` to get raw text.
 3. `(remember "SEC 10-K FY2024: netflix content spend $17B (c=0.9)")`.
 4. Pin the verified figure for downstream use.

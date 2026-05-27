@@ -62,25 +62,10 @@ Each item is the triplet:
 
 ```
 (query $str)
-  → embed the query
-  → py-call (lib_chromadb.query_with_ids_and_dists ...)
-  → promotion-aware ranking in MeTTa
+  → py-call (lib_chromadb.query (embed $str) (maxRecallItems))
 ```
 
-Returns a bounded mix of promoted memories and nearest embedding matches. **Known issue:** query can miss relevant results when embedding similarity thresholds do not match the query phrasing.
-
-### Input-aware context recall
-
-```
-(input-recall $msgnew $msg)
-  → if fresh input, helper.context_input_recall_text(...)
-  → otherwise ""
-```
-
-This is used by the main loop before building `getContext`. It gives the LLM a
-small `INPUT_RECALL` block relevant to the fresh message before the first reply.
-It does not mutate memory, choose a skill, or decide an action; it only retrieves
-bounded context from the same Chroma/promotion substrate used by `query`.
+Returns the top-`k` items by embedding similarity. **Known issue:** query can miss relevant results when embedding similarity thresholds do not match the query phrasing.
 
 ### Time-window read
 

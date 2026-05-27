@@ -60,7 +60,7 @@
           ($atom (py-call (helper.agenda_goal_atom $spec)))
           ($parsed (sread $atom)))
         (if (== (car-atom $parsed) AgendaGoalError)
-            (py-str (AGENDA-GOAL-SHAPE-WARNING: $atom raw-command-preserved-in-history no-agenda-atom-written))
+            (py-str (AGENDA-GOAL-SHAPE-WARNING: $atom MESSAGE-NOT-DELIVERED no-agenda-atom-written raw-command-preserved-in-history retry-shape: agenda-goal name status priority next))
             (progn (collapse (match &agenda (Goal $goal $oldstatus $oldpriority $oldnext)
                                      (remove-atom &agenda (Goal $goal $oldstatus $oldpriority $oldnext))))
                    (add-atom &agenda $parsed)

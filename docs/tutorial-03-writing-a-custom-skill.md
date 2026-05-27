@@ -11,18 +11,38 @@
 
 A skill is three things:
 
-1. **A MeTTa definition** of how the skill executes. Pure-MeTTa skills are written directly; skills that need system access delegate to Python or Prolog.
-2. **A `SkillSignature` declaration** so the syntax membrane knows the command shape.
-3. **Skill documentation atoms**: `SkillCatalog` / `SkillHelp` for full help, and optionally `SkillContextHint` only for tiny always-on bootstrap hints. Most skills should be discovered through the symbolic skill directory rather than injected into every loop prompt.
-4. **Optional Python/Prolog glue** imported through `py-call` or `translatePredicate`.
+1. **An entry in the skill catalogue** in `src/skill_catalog.metta` (the `getSkills` list) so the LLM learns it exists.
+2. **A MeTTa definition** of how the skill executes, in the appropriate `src/skills_*.metta` organ. Pure-MeTTa skills are written directly; skills that need system access delegate to Python or Prolog.
+3. **Optional Python/Prolog glue** imported through `py-call` or `translatePredicate`.
 
 ## Example: a `word-count` skill
 
 We'll add `(word-count "some text")` that returns the number of whitespace-separated tokens.
 
-### Step 1 — Define the implementation
+### Step 1 — Declare it in the catalogue
 
-Add the executable MeTTa definition in the appropriate skill file, for example `src/skills_core.metta`:
+Open `src/skill_catalog.metta` and add a catalogue line:
+
+```metta
+"- Count whitespace-separated words in a string: (word-count string_in_quotes)"
+```
+
+This text is concatenated into the prompt so the LLM knows the skill is callable.
+
+### Step 2 — Define the implementation in the right organ
+
+Choose the closest MeTTa organ file:
+
+- `src/skills_core.metta` — core runtime, file IO, reboot, generic execution helpers
+- `src/skills_memory.metta` — structured memory/world/belief/event/agenda writes and reads
+- `src/skills_energy.metta` — energy, attention mode, cycle-status, loop pacing affordances
+- `modules/assume/skills.metta` — Assume/FabricPC prediction and mutation-review affordances
+- `src/skills_body.metta` — optional devices/apps such as vision, audio, glucose, publishing, house control
+- `src/skills_reasoning_spaces.metta` — MeTTa/NAL/PLN and read-only space inspection
+- `src/skills_attention.metta` — attention ledger and ECAN-lite immune affordances
+- `src/skills_space_mutation.metta` — explicit reviewed space mutation/retirement utilities
+
+For this pure text helper, `src/skills_core.metta` is a reasonable home:
 
 ```metta
 (= (word-count $str)
@@ -32,83 +52,7 @@ Add the executable MeTTa definition in the appropriate skill file, for example `
 
 If you prefer Python, register a function in a `.py` module and call `(py-call (mymodule.word_count $str))`.
 
-### Step 2 — Declare the command shape and help
-
-Add a signature beside the skill's organ, for example in a `skill_signatures_*.metta` file:
-
-```metta
-(SkillSignature word-count (Arg 1 string text))
-```
-
-Add full help in the matching `skill_catalog_*.metta` file:
-
-```metta
-(SkillCatalog "Text utilities: word-count text")
-(SkillHelp "text" "word-count text - count whitespace-separated words")
-```
-
-Only add `SkillContextHint` when a command must be part of the tiny always-on bootstrap. Ordinary skills should be discoverable through `skill-help`, `query-skill-space`, `choose-skill-for`, `explain-skill`, or `skill-card`.
-
-## Module form
-
-For a capability that should be removable or shareable, put the same pieces in a
-module:
-
-```text
-modules/text-utils/
-  module.toml
-  entry.metta
-  skills.metta
-  signatures.metta
-  catalog.metta
-```
-
-`modules/text-utils/entry.metta` should import the runtime skill file:
-
-```metta
-!(import! &self (library OmegaClaw-Core ./modules/text-utils/skills.metta))
-```
-
-Then enable the module in `modules/loader.metta`:
-
-```metta
-!(import! &self (library OmegaClaw-Core ./modules/text-utils/entry.metta))
-```
-
-The loader import is what makes the module active. A folder under `modules/`
-that is not imported by the loader remains inert: its runtime is not loaded and
-its signatures/catalog are not exposed.
-
-Optional attention trigger: if a factual input signal often makes the skill relevant, add a symbolic trigger in the skill affordance declarations:
-
-```metta
-!(add-atom &skills (SkillTrigger "word-count" "mentions-word:count" 0.65 "count requests may need word-count"))
-```
-
-This is only an attention suggestion. It should help the agent notice the skill, not force routing or action.
-
-Optional trace contract: if the module can write verbose traces, declare them in
-`module.toml` and make them runtime-controlled. Potentially large or private
-traces should be off by default:
-
-```toml
-[env]
-OMEGACLAW_TEXT_UTILS_TRACE = { required = false, default = "0" }
-
-[trace]
-default_enabled = false
-writes = ["TextUtilityTrace"]
-```
-
-Then mirror that availability in `entry.metta`:
-
-```metta
-(RuntimeConfig omegaclaw.module.text-utils OMEGACLAW_TEXT_UTILS_TRACE "optional-default-off")
-(TraceAvailable omegaclaw.module.text-utils TextUtilityTrace)
-```
-
-The skill return value should remain compact enough for
-`LAST_SKILL_USE_RESULTS`; full raw traces are for explicit audit/debug modes.
+`src/skills.metta` remains as a compatibility loader for humans and older imports. New implementations should go into the organ file, not back into that loader.
 
 ### Step 3 — Test
 
@@ -129,7 +73,7 @@ The LLM should emit `(word-count "the quick brown fox")` and respond with `4`.
 
 ## Verification
 
-- The new skill appears through `skill-help` or the `&skills` affordance directory.
+- The new skill appears in the prompt (search logs for `word-count`).
 - The LLM invokes it without prompting tweaks.
 - The return value shows up in `LAST_SKILL_USE_RESULTS` on the next turn.
 

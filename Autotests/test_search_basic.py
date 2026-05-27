@@ -41,8 +41,7 @@ def test_search_basic():
         # the SingularityNet ecosystem.
         send_matched = wait_for_history_keyword(
             c.run_id,
-            ["singularitynet", "singularity net", "singularitynet.io",
-             "agix", "snet", "goertzel", "ben goertzel",
+            ["singularitynet", "singularity net", "agix", "snet",
              "ai marketplace", "decentralized ai"],
             timeout=60,
         )

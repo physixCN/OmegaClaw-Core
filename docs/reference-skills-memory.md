@@ -131,26 +131,3 @@ Success / failure of the append.
   metagoals.
 - If the same pin repeats several cycles, either act, revise the pin, sleep
   deliberately, or record the blockage.
-
----
-
-## Structured Symbolic Memory
-
-Structured memory skills live beside embedding memory. They operate on registered runtime spaces and are advertised through symbolic affordance cards. Use registered space names such as `persistent`, `beliefs`, `world`, `events`, and `agenda`; do not guess raw `&space` handles.
-
-Common inspection and cleanup skills:
-
-```metta
-(persistent-atoms)
-(persistent-review)
-(space-registry)
-(space-find "persistent" "(PersistentNote $who $note $conf)")
-(space-transform "persistent" "(Old $x)" "events" "(Event \"omega\" \"retired\" $x \"0.8\")" "reviewed cleanup")
-(space-merge-atoms "beliefs" "(Belief $s $r $o $f $c)" "(Belief \"omega\" \"merged\" \"reviewed\" 0.8 0.8)" "reviewed merge")
-(persistent-merge-atoms "(PersistentFact \"Omega\" \"phase\" \"test\" \"0.9\")" "(PersistentFact \"Omega\" \"phase\" \"test\" \"0.9\")" "exact duplicate")
-(retire-persistent-expression "(PersistentNote \"agent\" \"stale\" \"0.5\")" "reviewed stale duplicate")
-```
-
-`space-merge-atoms` and `persistent-merge-atoms` remove all atoms matching the reviewed pattern, add one reviewed replacement atom, trace the merge, and save the registered runtime space. For exact duplicate cleanup, use the same atom as both pattern and replacement.
-
-These skills are mutation affordances. Inspect first with `space-find`, `space-count`, `space-examples`, `persistent-atoms`, or `persistent-review`; then mutate only when the merge/retirement is explicit and reviewed.

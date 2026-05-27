@@ -1,9 +1,8 @@
 ; Core skill catalog declarations.
 ; Imported as SkillCatalog / SkillHelp atoms by the core loader.
 
-(SkillContextHint "core" "Core: send message, wait reason, pin state-continuity, remember lesson, query phrase, web-search query, episodes-at time, current-swipl-pid, restart-self reason, reboot-self reason")
-(SkillCatalog "Core: send message, wait reason, pin state-continuity, remember lesson, query phrase, web-search query, episodes-at time, promote time, demote time, body-status, current-swipl-pid, restart-self reason, reboot-self reason")
-(SkillCatalog "Web research: web-search query. Use for current or external facts; query is long-term memory, web-search is the live web. Legacy search delegates to web-search.")
+(SkillContextHint "core" "Core: send message, wait reason, pin state-continuity, remember lesson, query phrase, episodes-at time, current-swipl-pid, restart-self reason, reboot-self reason")
+(SkillCatalog "Core: send message, wait reason, pin state-continuity, remember lesson, query phrase, episodes-at time, promote time, demote time, body-status, current-swipl-pid, restart-self reason, reboot-self reason")
 (SkillCatalog "System and files: shell command, shell-confirm command, read-file path, write-file path content, append-file path content")
 (SkillCatalog "Conversation: send replies to the latest channel. Fresh inbound human messages are open conversations; answer, defer, mark handled, or pin reply-debt before silence. Web chat is a channel, not a decision layer.")
 (SkillCatalog "Help: skill-help topic. Core topics: core, memory, energy, reasoning, affordance. Imported organs may add channels, assume, attention, house, media, health, web.")
@@ -13,10 +12,6 @@
 (SkillHelp "core" "pin state - one-line volatile continuity vector; use before wait/sleep/reboot/task switch/open-loop obligations")
 (SkillHelp "core" "remember lesson - store compact future-useful memory")
 (SkillHelp "core" "query phrase - search long-term embedding memory")
-(SkillHelp "core" "web-search query - search the live web through the configured websearch membrane")
-(SkillHelp "web" "web-search query - search the live web for current/external facts; use query for memory")
-(SkillHelp "web-search" "web-search query - canonical live web search skill for current/external facts")
-(SkillHelp "search" "search query - legacy alias for web-search query")
 (SkillHelp "core" "episodes-at time - inspect history around a flexible timestamp")
 (SkillHelp "core" "body-status, context-organ-status, current-swipl-pid, prepare-reboot reason, complete-reboot-check, restart-self reason, reboot-self reason, restart-omega reason")
 (SkillHelp "core" "restart-self restarts the agent process; reboot-self reboots the embodied VM after writing a reboot breadcrumb")

@@ -1,7 +1,7 @@
-; Skill affordance command syntax declarations.
+; Skill affordance signatures.
 ;
-; These expose a small symbolic directory for what skill fits a situation
-; without hiding routing decisions in Python.
+; These expose a small symbolic directory of "what should I use for this?"
+; guidance without hiding routing decisions in Python.
 
 (SignatureSpace skills)
 

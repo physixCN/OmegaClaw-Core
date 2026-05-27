@@ -5,6 +5,8 @@
 # be reviewed independently. Existing MeTTa calls keep using helper.* names.
 
 from datetime import datetime
+import pathlib
+import sys
 
 try:
     from .helper_history import (
@@ -20,6 +22,7 @@ try:
         context_prompt,
         context_history_tail,
         context_last_results,
+        context_current_frame,
         ensure_runtime_memory_files,
         _escape_metta_string,
         _metta_string,
@@ -125,6 +128,7 @@ except Exception:
         context_prompt,
         context_history_tail,
         context_last_results,
+        context_current_frame,
         ensure_runtime_memory_files,
         _escape_metta_string,
         _metta_string,
@@ -220,6 +224,17 @@ except Exception:
         restart_self,
         reboot_self,
     )
+
+
+def add_python_path(path):
+    """Add a repo-relative or absolute Python import path for an enabled module."""
+    candidate = pathlib.Path(str(path))
+    if not candidate.is_absolute():
+        candidate = CORE_ROOT / candidate
+    value = str(candidate.resolve())
+    if value not in sys.path:
+        sys.path.insert(0, value)
+    return f"PythonPathAdded {value}"
 
 
 def test_balance_parenthesis():

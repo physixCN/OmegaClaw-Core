@@ -1,5 +1,43 @@
-import os, openai
+import os
+import re
+import openai
 from typing import Optional
+
+try:
+    import energy as _energy
+except Exception:
+    _energy = None
+
+
+def _log_provider_call(**kwargs) -> None:
+    if _energy is None:
+        return
+    try:
+        _energy.log_provider_call(**kwargs)
+    except Exception:
+        return
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, default))
+    except Exception:
+        return default
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_csv(name: str) -> list[str]:
+    return [part.strip() for part in os.environ.get(name, "").split(",") if part.strip()]
+
+
+def _env_suffix(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9]+", "_", str(value or "")).strip("_").upper()
+
 
 class AbstractAIProvider:
     def __init__(self, name: str):
@@ -40,8 +78,14 @@ class AIProvider(AbstractAIProvider):
                     self._base_url = llm_server_local_url.rstrip("/") + "/v1"
                 elif not self._base_url.endswith("/v1"):
                     self._base_url = self._base_url.rstrip("/") + "/v1"
-
-            return openai.OpenAI(api_key=os.environ.get(self._var_name), base_url=self._base_url)
+            timeout = _env_int("OMEGACLAW_LLM_TIMEOUT_SECONDS", 120)
+            max_retries = _env_int("OMEGACLAW_LLM_MAX_RETRIES", 1)
+            return openai.OpenAI(
+                api_key=os.environ.get(self._var_name),
+                base_url=self._base_url,
+                timeout=timeout,
+                max_retries=max_retries,
+            )
 
         return None
 
@@ -49,6 +93,25 @@ class AIProvider(AbstractAIProvider):
     def is_available(self) -> bool:
         """Check if provider is configured (without initializing)."""
         return bool(os.environ.get(self._var_name))
+
+    def _openrouter_extra_body(self, request_kwargs):
+        """Return OpenRouter routing hints supplied by runtime configuration."""
+        extra_body = dict(request_kwargs.get("extra_body") or {})
+        suffix = _env_suffix(self._model_name)
+        order = (
+            _env_csv(f"OMEGACLAW_OPENROUTER_PROVIDER_ORDER_{suffix}")
+            or _env_csv("OMEGACLAW_OPENROUTER_PROVIDER_ORDER")
+        )
+        if order:
+            allow_fallbacks = _env_bool(
+                f"OMEGACLAW_OPENROUTER_ALLOW_FALLBACKS_{suffix}",
+                _env_bool("OMEGACLAW_OPENROUTER_ALLOW_FALLBACKS", False),
+            )
+            extra_body.setdefault("provider", {
+                "order": order,
+                "allow_fallbacks": allow_fallbacks,
+            })
+        return extra_body
 
     def chat(self, content: str, max_tokens: int = 6000, **kwargs) -> str:
         """Send chat request, initializing client if needed."""
@@ -59,21 +122,41 @@ class AIProvider(AbstractAIProvider):
 
         content = content.replace(":-:-:-:", " ")
         try:
+            request_kwargs = dict(kwargs)
+            if self.name == "OpenRouter":
+                request_kwargs["extra_body"] = self._openrouter_extra_body(request_kwargs)
+
             response = self._client.chat.completions.create(
                 model=self._model_name,
                 messages=[{"role": "user", "content": content}],
                 max_tokens=max_tokens,
-                **kwargs
+                **request_kwargs
             )
 
-            return self._clean_text(response.choices[0].message.content)
+            raw_text = response.choices[0].message.content or ""
+            _log_provider_call(
+                provider=self.name,
+                model=getattr(response, "model", self._model_name),
+                kind="llm",
+                usage=getattr(response, "usage", None),
+                prompt_chars=len(content),
+                completion_chars=len(raw_text),
+            )
+            return self._clean_text(raw_text)
         except Exception as e:
             print(f"[lib_llm_ext.AIProvider.chat] Exception while communicating with LLM: {e}")
             return ""
 
     def _clean_text(self, text: str) -> str:
-        """Unescape special characters."""
-        return text.replace("_quote_", '"').replace("_apostrophe_", "'")
+        """Unescape special characters and remove provider tool-call artifacts."""
+        return (
+            text.replace("</arg_value>", " ")
+                .replace("</tool_call>", " ")
+                .replace("<arg_value>", " ")
+                .replace("<tool_call>", " ")
+                .replace("_quote_", '"')
+                .replace("_apostrophe_", "'")
+        )
 
 
 class AsiOneProvider(AIProvider):
@@ -98,14 +181,21 @@ class AsiOneProvider(AIProvider):
                 max_tokens=max_tokens,
                 extra_body={
                     "enable_thinking": True,
-                    "thinking_budget": 6000 
+                    "thinking_budget": 6000
                 },
                 **kwargs
             )
 
-            resp = self._clean_text(response.choices[0].message.content)
-            resp = resp.replace("</arg_value>", " ").replace("</tool_call>", " ").replace("<arg_value>", " ").replace("<tool_call>", " ")
-            return resp
+            raw_text = response.choices[0].message.content or ""
+            _log_provider_call(
+                provider=self.name,
+                model=getattr(response, "model", self._model_name),
+                kind="llm",
+                usage=getattr(response, "usage", None),
+                prompt_chars=len(content),
+                completion_chars=len(raw_text),
+            )
+            return self._clean_text(raw_text)
         except Exception as e:
             print(f"[lib_llm_ext.ASIOneProvider.chat] Exception while communicating with LLM: {e}")
             return ""
@@ -186,6 +276,3 @@ def useLocalEmbedding(atom):
         atom,
         normalize_embeddings=True
     ).tolist()
-
-
-

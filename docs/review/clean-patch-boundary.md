@@ -32,9 +32,9 @@ organs and reusable membranes, not instance-specific runtime state.
   - `lib_llm_ext.py`
   - `src/energy.py`
 - Assume / FabricPC predictive organ:
-  - `src/assume.py`
-  - `src/assume_client.py`
-  - `src/assume_fabricd.py`
+  - `modules/assume/src/assume.py`
+  - `modules/assume/src/assume_client.py`
+  - `modules/assume/src/assume_fabricd.py`
   - `demos/assume/`
   - Assume tests and MeTTa smokes
 - Optional reusable body apps, if reviewed as separate app organs:
@@ -80,7 +80,7 @@ optional body/device organs:
   empty spaces at source-load time. `src/memory.metta` then creates any missing
   ignored runtime files and imports live memory during `initMemory`. This keeps
   a clean checkout bootable without committing live memory state.
-- `lib_omegaclaw_assume.metta` imports the optional Assume/FabricPC predictive
+- `modules/assume/entry.metta` imports the optional Assume/FabricPC predictive
   organ, binds its canonical `&assume` space, registers itself as a
   `(RuntimeOrgan "assume" (initAssumeOrgan))`, and loads ignored runtime Assume
   memory only when runtime organs initialize.

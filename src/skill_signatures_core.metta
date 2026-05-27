@@ -12,8 +12,6 @@
 (SkillSignature pin (Arg rest-text pin))
 (SkillSignature wait (Arg rest-text reason))
 (SkillSignature query (Arg rest-text query))
-(SkillSignature web-search (Arg rest-text query))
-(SkillSignature search (Arg rest-text query))
 (SkillSignature episodes (Arg rest-text time))
 (SkillSignature episodes-at (Arg rest-text time))
 (SkillSignature promote (Arg rest-text time))

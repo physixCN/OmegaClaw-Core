@@ -1,6 +1,6 @@
 # Reference — I/O Skills
 
-Defined in `src/skills.metta`, with the `shell` primitive backed by `src/skills.pl`.
+Defined in `src/skills_core.metta`, with the `shell` primitive backed by `src/skills.pl`. The public command list is advertised through `src/skill_catalog.metta`.
 
 ---
 

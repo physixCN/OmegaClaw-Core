@@ -21,9 +21,9 @@ from helpers import (
 
 
 SINGULARITYNET_DESCRIPTION = (
-    "SingularityNet (SNET) is a decentralized AI marketplace founded by "
-    "Ben Goertzel. Its native token AGIX powers a network of AI agents "
-    "and services, and it is part of the broader ASI Alliance ecosystem."
+    "SingularityNet (SNET) is a decentralized AI marketplace. Its native "
+    "token AGIX powers a network of AI agents and services, and it is part "
+    "of the broader ASI Alliance ecosystem."
 )
 
 
@@ -45,8 +45,7 @@ def test_search_basic_mock(llm):
         c.step("verify (send ...) contains project-specific keywords")
         send_matched = wait_for_history_keyword(
             c.run_id,
-            ["singularitynet", "singularity net", "singularitynet.io",
-             "agix", "snet", "goertzel", "ben goertzel",
+            ["singularitynet", "singularity net", "agix", "snet",
              "ai marketplace", "decentralized ai"],
             timeout=30,
         )

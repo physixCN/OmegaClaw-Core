@@ -119,7 +119,7 @@ lib_omegaclaw.metta       loads all submodules
 ├── src/channels.metta    receive/send/search dispatch
 ├── src/utils.metta       configure, string ops, time
 ├── src/helper.py         parenthesis balancing, normalization
-├── modules/              optional organs such as Agentverse
+├── src/agentverse.py     remote-agent bridge
 ├── src/skills.pl         Prolog helpers (shell, first_char)
 ├── lib_nal.metta         NAL truth functions
 ├── lib_pln.metta         PLN rules

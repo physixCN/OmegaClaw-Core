@@ -2,136 +2,173 @@
 
 # OmegaClaw Core
 
-OmegaClaw Core is the portable MeTTa/AtomSpace runtime for building persistent
-neural-symbolic agents. It provides the continuous loop, memory substrate,
-symbolic skill surface, provider membrane, and extension boundaries used by
-OmegaClaw deployments.
+OmegaClaw Core is a portable MeTTa/AtomSpace runtime for building persistent
+neural-symbolic agents.
 
----
+It is not a chatbot wrapper. OmegaClaw treats the LLM as a cognition provider,
+while identity, memory, skills, reasoning state, action boundaries, and trace
+remain in the symbolic substrate. Python, shell, channel adapters, web search,
+and remote-agent transports are membranes: they let the substrate sense and act
+without becoming hidden cognition.
 
-## Overview
+This branch focuses on making the core work out of the box as a coherent
+research substrate: exact raw history, bounded context views, inspectable skill
+affordances, safer command parsing, restart-persistent runtime spaces, and
+default-off optional modules.
 
-OmegaClaw is a neural-symbolic agent framework built on the Hyperon AGI stack.
-It unifies large language models with a formal symbolic layer to create a
-stateful cognitive architecture capable of auditable inference, autonomous
-self-improvement, and long-term persistence.
+## What This Version Adds
 
-Unlike reactive, session-based agents, OmegaClaw operates in a continuous
-execution loop, managing its own goals and providing auditable proof trails for
-its reasoning.
+- Persistent MeTTa/AtomSpace runtime with explicit memory, identity, reasoning,
+  action, provider, and module boundaries.
+- Typed command syntax membrane that converts model output into safe MeTTa
+  skill calls or explicit syntax errors.
+- Symbolic skill affordance directory with skill cards, topics, args, risks,
+  effects, triggers, and self-description.
+- Input-aware memory and skill recall that adds relevant hints to the active
+  context without replacing deliberate memory checks.
+- Bounded context views with mechanical payload compaction while preserving raw
+  history exactly on disk.
+- Runtime spaces for agenda, beliefs, world, events, activity, assumptions,
+  attention, skills, scratch, and optional modules.
+- Core web-search surface, PLN/NAL guidance, continuity pinning, syntax
+  recovery hints, and memory merge helpers.
+- Optional module loader boundary so installed extensions remain invisible until
+  explicitly enabled.
 
-The primary design criteria for OmegaClaw were simplicity, ease of extension,
-and transparent implementation. This results in a minimalist MeTTa-based core
-of approximately 200 lines of code.
+## Repository Shape
 
----
+The main branch is intended to be reviewable as a complete out-of-box readiness
+snapshot. Individual patch families are also kept on separate branches so
+reviewers can inspect or cherry-pick smaller pieces:
+
+- syntax command membrane
+- runtime memory and context boundary
+- symbolic skill discovery
+- input-aware context routing
+- module loader boundary
+- optional remote-agent module
+
+Generated runtime memory, logs, local deployment files, private channel
+configuration, and experimental body modules should not be committed to core.
 
 ## Installation
 
-Prerequisites: Git, Python3, Pip and [venv](https://docs.python.org/3/library/venv.html) library
+Prerequisites:
 
-Get [SWI-Prolog 9.1.12 or later](https://www.swi-prolog.org/).
+- Git
+- Python 3 with `venv`
+- SWI-Prolog 9.1.12 or later
 
-Install OmegaClaw:
-```
+Install through a PeTTa checkout:
+
+```bash
 git clone https://github.com/trueagi-io/PeTTa
 cd PeTTa
 mkdir -p repos
-git clone https://github.com/asi-alliance/OmegaClaw-Core.git repos/OmegaClaw-Core
+git clone <omegaclaw-core-repo-url> repos/OmegaClaw-Core
 git clone https://github.com/patham9/petta_lib_chromadb.git repos/petta_lib_chromadb
 cp repos/OmegaClaw-Core/run.metta ./
 ```
 
-Setup Python virtual environment (or use your own):
-```
+Create a Python environment:
+
+```bash
 python3 -m venv ./.venv
 source ./.venv/bin/activate
 ```
 
-If you have CPU only machine or don't want calculate embeddings on GPU:
-```
+Install CPU PyTorch if you do not want local embeddings to use GPU packages:
+
+```bash
 python3 -m pip install --index-url https://download.pytorch.org/whl/cpu torch
 ```
 
-Install Python dependencies:
-```
+Install OmegaClaw dependencies:
+
+```bash
 python3 -m pip install -r ./repos/OmegaClaw-Core/requirements.txt
 ```
 
----
+## Running
 
-## Usage
+Choose an LLM provider and export the required API key before starting the
+system.
 
-Before running the system you need to choose your LLM API provider and export the API key as the environment variable.
-| Provider | Env var name | Notes |
+| Provider | Env Var | Notes |
 |---|---|---|
-| `Anthropic` | `ANTHROPIC_API_KEY` | Claude models via the Anthropic API. |
-| `OpenAI` | `OPENAI_API_KEY` | GPT models. Also reused by the OpenAI embedding provider below. |
-| `ASICloud` | `ASI_API_KEY` |  MiniMax models via ASI Alliance inference endpoint (`inference.asicloud.cudos.org`). |
-| `ASIOne` | `ASIONE_API_KEY` |  ASI1 Ultra model via ASI:One inference endpoint (`https://api.asi1.ai/v1`). |
-| `Ollama-local` | `OLLAMA_API_KEY` |  Ollama model via local inference endpoint. API endpoint is set via `LLM_SERVER_LOCAL_URL` environment variables. |
-| `OpenRouter` | `OPENROUTER_API_KEY` |  GLM model via OpenRouter inference endpoint. |
+| `Anthropic` | `ANTHROPIC_API_KEY` | Claude models through Anthropic. |
+| `OpenAI` | `OPENAI_API_KEY` | GPT models and optional OpenAI embeddings. |
+| `ASICloud` | `ASI_API_KEY` | ASI Cloud inference endpoint. |
+| `ASIOne` | `ASIONE_API_KEY` | ASI:One inference endpoint. |
+| `Ollama-local` | `OLLAMA_API_KEY` | Local Ollama-compatible endpoint. |
+| `OpenRouter` | `OPENROUTER_API_KEY` | OpenRouter-compatible models. |
 
-Run the system via the following command which ensures the system is started from the root folder of PeTTa:
-```
+Start from the PeTTa root:
+
+```bash
 OMEGACLAW_AUTH_SECRET=<channel-secret> sh run.sh run.metta IRC_channel="<irc-channel>"
 ```
-After start go to https://webchat.quakenet.org/ to communicate with the agent. Join `<irc-channel>` and after agent is joined send `auth <channel-secret>` message to authenticate yourself as an agent owner. Please replace `<irc-channel>` and `<channel-secret>` by your own values.
 
-## Reference — Configuration Options
+Then join the configured IRC channel and authenticate with:
 
-### General
+```text
+auth <channel-secret>
+```
 
-| Parameter | Default | Meaning |
-|---|---|---|
-| `maxNewInputLoops` | 12 | Turns the agent keeps running after a new human message before idling |
-| `maxWakeLoops` | 6 | Extra warm autonomous turns granted on each scheduled wake-up |
-| `sleepInterval` | 3 | Delay between loop iterations (seconds) |
-| `wakeupInterval` | 900 | How long idle before the next scheduled wake-up (seconds) |
-| `LLM` | unset unless supplied | Model identifier used by the OpenAI/PeTTa path; registry-backed providers carry their own model defaults |
-| `provider` | supplied at runtime | LLM provider, see the table of the providers above |
-| `maxOutputToken` | 6000 | Output cap passed to the provider |
-| `reasoningMode` | `medium` | Reasoning-effort hint passed to the provider (OpenAI only) |
+Most runtime settings can be overridden as MeTTa command-line arguments:
 
-### Memory (`src/memory.metta`)
+```bash
+sh run.sh run.metta provider=OpenAI LLM=gpt-4.1 commchannel=irc IRC_channel=##omegaclaw
+```
+
+## Core Configuration
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `maxFeedback` | 50000 | Ceiling on `LAST_SKILL_USE_RESULTS` text fed back into the prompt (chars) |
-| `maxRecallItems` | 20 | Items returned by `query` |
-| `maxEpisodeRecallLines` | 20 | Lines returned by `episodes` |
-| `maxHistory` | 30000 | Tail of `memory/history.metta` included in the prompt (chars) |
-| `embeddingprovider` | `Local` | `Local` (Python-side model) or `OpenAI` (requires `OPENAI_API_KEY`) |
+| `maxNewInputLoops` | `12` | Turns the agent keeps running after a fresh human message before idling. |
+| `maxWakeLoops` | `6` | Extra warm autonomous turns granted on a scheduled wake. |
+| `sleepInterval` | `3` | Delay between loop iterations in seconds. |
+| `wakeupInterval` | `900` | Idle time before a scheduled wake in seconds. |
+| `maxOutputToken` | `6000` | Output cap passed to the provider. |
+| `reasoningMode` | `medium` | Reasoning-effort hint where supported by the provider. |
+| `maxFeedback` | `50000` | Last-skill-result text included in active context. |
+| `maxHistory` | `30000` | Bounded tail of exact raw history included in active context. |
+| `embeddingprovider` | `Local` | Local embeddings or optional OpenAI embeddings. |
 
-### Channels (`src/channels.metta`)
+## Channels
+
+Core includes IRC, Telegram, Slack, Mattermost, mock, and web-search adapters.
+Channel credentials and deployment endpoints should be supplied at runtime, not
+committed.
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `commchannel` | `irc` | Type of the communication channel for agent to use - `irc`, `telegram`, `mattermost` or `slack` |
-| `IRC_channel` | `##omegaclaw` | IRC channel to join |
-| `IRC_server` | `irc.quakenet.org` | IRC server hostname |
-| `IRC_port` | 6667 | IRC port |
-| `IRC_user` | `omegaclaw` | IRC nickname |
-| `TG_BOT_TOKEN` |  | Telegram bot token. |
-| `TG_CHAT_ID` |  | Optional Telegram chat ID. If empty, OmegaClaw auto-binds after first valid inbound auth/message. |
-| `TG_POLL_TIMEOUT` | 20 | Telegram polling timeout in seconds. |
-| `SL_BOT_TOKEN` |  | Slack bot token (`xoxb-...`). |
-| `SL_CHANNEL_ID` |  | Optional Slack channel ID (for example `C0123456789`). If empty, OmegaClaw auto-binds on first successful auth message. |
-| `SL_POLL_INTERVAL` | 60 | Slack polling interval in seconds (minimum effective value is 60). |
-| `MM_URL` | `https://chat.singularitynet.io` | Mattermost base URL. |
-| `MM_CHANNEL_ID` | `8fjrmabjx7gupy7e5kjznpt5qh` | Mattermost channel ID. |
-| `MM_BOT_TOKEN` |  | Mattermost bot token. |
-
----
+| `commchannel` | `irc` | Active communication channel. |
+| `IRC_channel` | `##omegaclaw` | IRC channel to join. |
+| `IRC_server` | `irc.quakenet.org` | IRC server hostname. |
+| `IRC_port` | `6667` | IRC port. |
+| `IRC_user` | `omegaclaw` | IRC nickname. |
+| `TG_BOT_TOKEN` | empty | Telegram bot token. |
+| `TG_CHAT_ID` | empty | Optional Telegram chat ID. Empty supports auto-bind. |
+| `SL_BOT_TOKEN` | empty | Slack bot token. |
+| `SL_CHANNEL_ID` | empty | Optional Slack channel ID. Empty supports auto-bind. |
+| `MM_URL` | empty | Mattermost base URL. Set at runtime. |
+| `MM_CHANNEL_ID` | empty | Mattermost channel ID. Set at runtime. |
+| `MM_BOT_TOKEN` | empty | Mattermost bot token. |
 
 ## Documentation
 
-Full documentation lives in [`docs/`](./docs/README.md): introduction,
-tutorials, API reference, testing/benchmark notes, and review materials.
-Release notes for the readiness branch are in [`CHANGELOG.md`](./CHANGELOG.md).
+Start with [`docs/README.md`](./docs/README.md). It links the conceptual
+introduction, tutorials, API reference, testing and benchmark notes, and review
+materials. Release notes for this readiness branch are in
+[`CHANGELOG.md`](./CHANGELOG.md).
 
----
+## Safety Note
 
-### Disclaimer
+OmegaClaw is experimental autonomous-agent infrastructure. Depending on
+configuration, it can read and write files, execute shell commands, access
+network resources, send messages, call providers, and load optional modules.
+Run it in an isolated environment, commit no secrets, and grant only the
+permissions needed for the experiment you are actually running.
 
-<sub>OmegaClaw is experimental, open-source software developed by SingularityNET Foundation, a Swiss foundation, and distributed and promoted by Superintelligence Alliance Ltd., a Singapore company (collectively, the "Parties"), and is provided "AS IS" and "AS AVAILABLE," without warranty of any kind, express or implied, including but not limited to the implied warranties of merchantability, fitness for a particular purpose, and non-infringement. OmegaClaw is an autonomous AI agent that is designed to independently set goals, make decisions, and take actions (including actions that the user did not specifically request or anticipate) and whose behavior is influenced by large language models provided by third parties, the outputs of which are inherently non-deterministic. Depending on its configuration and the permissions granted to it, OmegaClaw may execute operating-system shell commands, read, write, modify, or delete files, access network resources, send and receive messages through connected communication channels, and modify its own skills, memory, and operational logic at runtime. OmegaClaw may also be susceptible to prompt injection and other adversarial manipulation techniques whereby malicious content embedded in data sources consumed by the agent could influence its behavior in unintended ways. OmegaClaw supports third-party skills and extensions that have not necessarily been reviewed, audited, or endorsed by either of the Parties and that may introduce security vulnerabilities, cause data loss, or result in unintended behavior including data exfiltration. OmegaClaw relies on third-party services, including large language model providers, whose availability, accuracy, cost, and conduct are outside the control of the Parties and whose use is subject to their respective terms, conditions, and privacy policies. The user is solely responsible for configuring appropriate access controls, sandboxing, and permission boundaries, for monitoring, supervising, and constraining OmegaClaw's actions, for ensuring that no sensitive personal data is exposed to the agent without adequate safeguards, and for all actions taken by OmegaClaw on the user's systems or on the user's behalf, including communications sent and files modified. The user is strongly advised to run OmegaClaw in an isolated environment with the minimum permissions necessary for the intended use case. To the maximum extent permitted by applicable law, in no event shall the Parties, their respective board members, directors, contributors, employees, or affiliates be liable for any direct, indirect, incidental, special, consequential, or exemplary damages (including but not limited to damages for loss of data, loss of profits, business interruption, unauthorized transactions, reputational harm, or any damages arising from the autonomous actions taken by OmegaClaw) however caused and on any theory of liability, whether in contract, strict liability, or tort (including negligence or otherwise), even if advised of the possibility of such damages. By downloading, installing, running, or otherwise using OmegaClaw, the user acknowledges that they have read, understood, and agreed to this disclaimer in its entirety. This disclaimer supplements but does not replace the terms of the MIT License under which OmegaClaw is released.</sub>
+OmegaClaw is provided as-is under the repository license.

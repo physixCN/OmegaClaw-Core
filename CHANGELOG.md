@@ -27,9 +27,9 @@ This branch collects the portable core-readiness layers prepared after live Omeg
 
 ### Validation
 
-- Live Omega tested syntax repair, context compaction, runtime spaces, pin continuity, memory merge behavior, and Agentverse end-to-end remote call behavior before private branch push.
-- Clean private branch tests and benchmark commands are documented in `docs/reference-testing-benchmarks.md`.
+- Live Omega tested syntax repair, context compaction, runtime spaces, pin continuity, memory merge behavior, and Agentverse end-to-end remote call behavior before readiness branch publication.
+- Clean readiness branch tests and benchmark commands are documented in `docs/reference-testing-benchmarks.md`.
 
 ### Not included
 
-- Private deployment glue such as live webhost proxy configuration, live run-script endpoint values, WhatsApp channels, and Home Assistant body-app experiments.
+- Deployment-specific glue such as live webhost proxy configuration, live run-script endpoint values, WhatsApp channels, and Home Assistant body-app experiments.

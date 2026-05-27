@@ -1,0 +1,510 @@
+diff --git a/lib_omegaclaw_body.metta b/lib_omegaclaw_body.metta
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/lib_omegaclaw_body.metta
+@@ -0,0 +1,28 @@
++; Optional body/device organs for a situated OmegaClaw instance.
++;
++; `lib_omegaclaw.metta` is the cognitive substrate. This file adds local
++; perception/action organs that may be absent or differently implemented in
++; another deployment.
++
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/imagegen.py))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/videogen.py))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/home.py))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/vision.py))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/webcam.py))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/audio.py))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/glucose.py))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/observation.py))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./channels/whatsapp.py))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./channels/web_control.py))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./channels/router.py))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./modules/publishing/entry.metta))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./modules/omega_vm/entry.metta))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./modules/body_container/entry.metta))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./modules/gameboy/entry.metta))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./modules/codex_code/entry.metta))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./modules/vm_policy/entry.metta))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/skill_catalog_body.metta))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/skill_catalog_channels.metta))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/skill_affordance_body.metta))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/skill_affordance_channels.metta))))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/skills_body.metta))))
+diff --git a/tests/body_status_smoke.metta b/tests/body_status_smoke.metta
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/tests/body_status_smoke.metta
+@@ -0,0 +1,7 @@
++!(import! &self (library lib_import))
++!(git-import! "https://github.com/asi-alliance/OmegaClaw-Core.git")
++!(import! &self (library OmegaClaw-Core lib_omegaclaw))
++!(import! &self (car-atom (collapse (library OmegaClaw-Core lib_omegaclaw_body))))
++
++!(println! (eval (video-config-status)))
++!(println! (eval (body-status)))
+diff --git a/tests/test_patch_contracts.py b/tests/test_patch_contracts.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/tests/test_patch_contracts.py
+@@ -0,0 +1,450 @@
++#!/usr/bin/env python3
++"""Cross-cutting contract tests for the live OmegaClaw patch set.
++
++These checks are deliberately cheap and mostly static. They protect the
++architectural boundaries that are easy to break while working quickly:
++canonical-first persistence, core/body separation, dual mutation review,
++private runtime state exclusion, and optional dependency disclosure.
++"""
++
++from __future__ import annotations
++
++import importlib.util
++import pathlib
++import py_compile
++import re
++import subprocess
++import sys
++import tempfile
++import unittest
++
++
++ROOT = pathlib.Path(__file__).resolve().parents[1]
++
++
++def read(relpath: str) -> str:
++    return (ROOT / relpath).read_text(encoding="utf-8")
++
++
++def skill_implementation_source() -> str:
++    files = [ROOT / "src" / "skills.metta"]
++    files.extend(sorted((ROOT / "src").glob("skills_*.metta")))
++    return "\n".join(path.read_text(encoding="utf-8") for path in files)
++
++
++def form_body(text: str, name: str) -> str:
++    match = re.search(rf"^\(= \({re.escape(name)}(?:\s|\))", text, flags=re.MULTILINE)
++    if match is None:
++        raise ValueError(f"MeTTa form not found: {name}")
++    start = match.start()
++    next_form = text.find("\n(= ", start + 1)
++    return text[start:] if next_form < 0 else text[start:next_form]
++
++
++class PatchBoundaryContractTests(unittest.TestCase):
++    def test_python_and_js_sources_are_syntax_checkable_without_network(self):
++        paths = [
++            path
++            for folder in ("src", "channels", "tests")
++            for path in (ROOT / folder).rglob("*.py")
++            if "__pycache__" not in path.parts
++        ]
++        with tempfile.TemporaryDirectory() as cache_dir:
++            for idx, path in enumerate(paths):
++                with self.subTest(path=path.relative_to(ROOT)):
++                    cfile = pathlib.Path(cache_dir) / f"{idx}.pyc"
++                    py_compile.compile(str(path), cfile=str(cfile), doraise=True)
++
++        bridge = ROOT / "channels" / "whatsapp_bridge" / "bridge.mjs"
++        if not bridge.exists():
++            self.skipTest("WhatsApp bridge is not present in this checkout")
++        result = subprocess.run(
++            ["node", "--check", str(bridge)],
++            cwd=str(ROOT),
++            stdout=subprocess.PIPE,
++            stderr=subprocess.STDOUT,
++            text=True,
++            timeout=20,
++        )
++        self.assertEqual(result.returncode, 0, result.stdout)
++
++    def test_core_body_split_keeps_devices_out_of_cognitive_substrate(self):
++        core = read("lib_omegaclaw.metta")
++        body = read("lib_omegaclaw_body.metta")
++        assume = read("lib_omegaclaw_assume.metta")
++        attention = read("lib_omegaclaw_attention.metta")
++
++        body_organs = [
++            "./src/imagegen.py",
++            "./src/videogen.py",
++            "./src/home.py",
++            "./src/vision.py",
++            "./src/webcam.py",
++            "./src/audio.py",
++            "./src/glucose.py",
++            "./channels/whatsapp.py",
++            "./channels/web_control.py",
++            "./channels/router.py",
++        ]
++        for organ in body_organs:
++            with self.subTest(organ=organ):
++                self.assertNotIn(organ, core)
++                self.assertIn(organ, body)
++
++        self.assertIn("./src/energy.py", core)
++        for organ in ("./src/assume.py", "./src/assume_client.py", "./src/skills_assume.metta"):
++            with self.subTest(assume_organ=organ):
++                self.assertNotIn(organ, core)
++                self.assertIn(organ, assume)
++        for organ in ("./src/attention_ledger.py", "./src/skills_attention.metta"):
++            with self.subTest(attention_organ=organ):
++                self.assertNotIn(organ, core)
++                self.assertIn(organ, attention)
++
++        self.assertNotIn("&assume", core)
++        self.assertNotIn("&attention", core)
++        self.assertIn("!(bind! &assume (new-space))", assume)
++        self.assertIn("!(bind! &assume_work (new-space))", assume)
++        self.assertIn("!(bind! &attention (new-space))", attention)
++    def test_skill_catalog_is_import_local_not_filesystem_global(self):
++        catalog = read("src/skill_catalog.metta")
++        affordance_skills = read("src/skills_affordance.metta")
++        core = read("lib_omegaclaw.metta")
++        assume = read("lib_omegaclaw_assume.metta")
++        attention = read("lib_omegaclaw_attention.metta")
++        body = read("lib_omegaclaw_body.metta")
++
++        self.assertIn("(match &self (SkillCatalog $line) $line)", catalog)
++        self.assertIn("(match &self (SkillHelp $topic $line) $line)", catalog)
++        self.assertIn("(repr $topic)", catalog)
++        self.assertIn("(match &self (SkillHelp $symbol $line) $line)", catalog)
++        self.assertNotIn("SkillHelpAlias", catalog)
++        self.assertIn("list_to_set", catalog)
++        self.assertNotIn("helper.skill_catalog", catalog)
++        self.assertNotIn("helper.skill_help", catalog)
++        self.assertIn('(SkillTopic "query-skill-space" "skills")', affordance_skills)
++        self.assertIn("(repr $topic)", affordance_skills)
++        self.assertIn("(repr $situation)", affordance_skills)
++        self.assertIn("(repr $skill)", affordance_skills)
++        self.assertIn("$self-exact", affordance_skills)
++        self.assertIn("$self-by-symbol", affordance_skills)
++        self.assertIn("(append (append $exact $by-symbol)", affordance_skills)
++
++        self.assertIn("skill_catalog_core.metta", core)
++        self.assertIn("skill_catalog_memory.metta", core)
++        self.assertIn("skills_runtime_spaces.metta", core)
++        self.assertIn("skill_catalog_energy.metta", core)
++        self.assertIn("skill_catalog_reasoning.metta", core)
++        self.assertNotIn("skill_catalog_assume.metta", core)
++        self.assertNotIn("skill_catalog_attention.metta", core)
++        self.assertNotIn("skill_catalog_body.metta", core)
++
++        self.assertIn("skill_catalog_assume.metta", assume)
++        self.assertIn("skill_catalog_attention.metta", attention)
++        self.assertIn("skill_catalog_body.metta", body)
++        self.assertIn("skill_catalog_channels.metta", body)
++        self.assertIn("modules/publishing/entry.metta", body)
++        self.assertIn("modules/gameboy/entry.metta", body)
++        self.assertIn("modules/omega_vm/entry.metta", body)
++        self.assertNotIn("skill_catalog_web.metta", body)
++
++    def test_skill_help_topics_are_string_canonical(self):
++        catalog_paths = list((ROOT / "src").glob("skill_catalog*.metta"))
++        catalog_paths.extend(sorted((ROOT / "modules").glob("*/catalog.metta")))
++        symbol_topics = []
++        for path in catalog_paths:
++            for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
++                stripped = line.split(";", 1)[0].strip()
++                if re.match(r"^\(SkillHelp\s+[^\"()\s]+(?:\s|$)", stripped):
++                    symbol_topics.append(f"{path.relative_to(ROOT)}:{line_number}:{stripped}")
++        self.assertEqual(symbol_topics, [])
++
++    def test_local_runtime_state_and_credentials_are_excluded_by_ignore_rules(self):
++        ignore = read(".gitignore")
++        required_patterns = [
++            "memory/chroma_db/",
++            ".env",
++            "memory/*.metta",
++            "memory/*.jsonl",
++            "memory/runtime/",
++            "memory/*.db",
++            "memory/web/public/",
++            "channels/whatsapp_bridge/node_modules/",
++            "channels/whatsapp_bridge/auth*/",
++            "memory/home_assistant.json",
++        ]
++        for pattern in required_patterns:
++            with self.subTest(pattern=pattern):
++                self.assertIn(pattern, ignore)
++
++    def test_ignored_runtime_memory_files_are_loaded_by_runtime_not_source_imports(self):
++        libs = "\n".join(
++            read(path)
++            for path in [
++                "lib_omegaclaw.metta",
++                "lib_omegaclaw_no_agentverse.metta",
++                "lib_omegaclaw_assume.metta",
++                "lib_omegaclaw_attention.metta",
++            ]
++        )
++        memory = read("src/memory.metta")
++        attention = read("src/skills_attention.metta")
++        helper = read("src/helper_metta.py")
++        runtime_spaces = read("src/skills_runtime_spaces.metta")
++
++        self.assertNotRegex(libs, r"!\(import! &[a-z_]+ \./repos/OmegaClaw-Core/memory/[a-z_]+\.metta\)")
++        for space in ("persistent", "agenda", "beliefs", "world", "events", "activity"):
++            self.assertIn(f"!(bind! &{space} (new-space))", libs)
++            self.assertIn(
++                f'(register-space-persistence "{space}" ./repos/OmegaClaw-Core/memory/{space}.metta runtime-state)',
++                runtime_spaces,
++            )
++        self.assertIn("(register-default-runtime-spaces)", memory)
++        self.assertIn("(load-runtime-spaces-by-role memory)", memory)
++        self.assertIn('(register-space-persistence "attention" ./repos/OmegaClaw-Core/memory/attention.metta runtime-state)', libs)
++        self.assertIn('(load-runtime-space "attention")', attention)
++        self.assertIn("def ensure_runtime_memory_files", helper)
++        self.assertNotIn('allowed = {"persistent"', helper)
++        self.assertNotIn("_DEFAULT_RUNTIME_MEMORY_NAMES", helper)
++
++    def test_assume_skills_are_canonical_first_before_live_space_mutation(self):
++        skills = skill_implementation_source()
++
++        demo = form_body(skills, "assume-import-demo")
++        self.assertLess(demo.index("persist_demo_result"), demo.index("assume-atomize-bundle &assume"))
++
++        for name, atom_type in [
++            ("assume-init-situation", "persist_structural_atom_result"),
++            ("assume-add-context-feature", "persist_structural_atom_result"),
++            ("assume-add-action", "persist_structural_atom_result"),
++            ("assume-add-feature-edge", "persist_structural_atom_result"),
++            ("assume-outcome", "persist_evidence_atom_result"),
++            ("assume-error", "persist_evidence_atom_result"),
++        ]:
++            with self.subTest(skill=name):
++                body = form_body(skills, name)
++                self.assertLess(body.index(atom_type), body.index("add-atom &assume"))
++
++        writeback = form_body(skills, "assume-apply-writeback")
++        self.assertLess(writeback.index("commit_writeback_delta_result"), writeback.index("assume-apply-writeback-edge"))
++        self.assertIn("AssumeWritebackCommitSucceeded", writeback)
++        self.assertIn("AssumeWritebackApplied", writeback)
++
++    def test_core_loop_initializes_runtime_organs_without_body_coupling(self):
++        loop = read("src/loop.metta")
++        core_skills = read("src/skills_core.metta")
++        runtime_spaces = read("src/skills_runtime_spaces.metta")
++        reasoning_spaces = read("src/skills_reasoning_spaces.metta")
++        assume_lib = read("lib_omegaclaw_assume.metta")
++        scratch = read("modules/scratch_space/entry.metta")
++        body_container = read("modules/body_container/entry.metta")
++        body_container_skills = read("modules/body_container/skills.metta")
++        vm_policy = read("modules/vm_policy/entry.metta")
++        vm_policy_skills = read("modules/vm_policy/skills.metta")
++
++        self.assertIn("(initRuntimeOrgans)", loop)
++        self.assertIn("(RuntimeOrgan $name $call)", loop)
++        self.assertIn("(runtime-organ-trusted $name)", loop)
++        self.assertIn("(run-runtime-hooks cycle)", loop)
++        self.assertIn("(bound-runtime-spaces-by-role memory)", loop)
++        self.assertNotIn("(scratch-gc)", loop)
++        self.assertNotIn("(bound-space! &scratch", loop)
++        self.assertNotIn("(initBody))", loop)
++        self.assertNotIn("(= (initRuntimeOrgans)", core_skills)
++        self.assertIn("(= (bound-runtime-spaces-by-role $role)", runtime_spaces)
++        self.assertIn("(= (load-runtime-spaces-by-role $role)", runtime_spaces)
++        self.assertIn("(= (space-registry-entry $name)", runtime_spaces)
++        self.assertIn("(= (register-runtime-hook $phase $name $call)", reasoning_spaces)
++        self.assertIn("(= (trust-runtime-organ $name)", reasoning_spaces)
++        self.assertIn("(= (trust-runtime-hook $phase $name)", reasoning_spaces)
++        self.assertIn("(= (runtime-organ-trusted $name)", reasoning_spaces)
++        self.assertIn("(= (runtime-hook-trusted $phase $name)", reasoning_spaces)
++        self.assertIn("(= (run-runtime-hooks $phase)", reasoning_spaces)
++        self.assertIn("(RuntimeHookRejected $phase $name untrusted)", reasoning_spaces)
++        self.assertIn('(RuntimeOrgan "assume" (initAssumeOrgan))', assume_lib)
++        self.assertIn('(TrustedRuntimeOrgan "assume")', assume_lib)
++        self.assertIn("(= (initAssumeOrgan)", assume_lib)
++        self.assertNotIn("(= (initRuntimeOrgans)", assume_lib)
++        self.assertIn("(RuntimeHook cycle scratch-space (scratch-gc))", scratch)
++        self.assertIn('(TrustedRuntimeOrgan "scratch-space")', scratch)
++        self.assertIn("(TrustedRuntimeHook cycle scratch-space)", scratch)
++        self.assertIn('(RuntimeOrgan "body-container" (initBodyContainerOrgan))', body_container)
++        self.assertIn('(TrustedRuntimeOrgan "body-container")', body_container)
++        self.assertIn("(= (initBodyContainerOrgan)", body_container_skills)
++        self.assertIn('(RuntimeOrgan "vm-policy" (initVMPolicyOrgan))', vm_policy)
++        self.assertIn('(TrustedRuntimeOrgan "vm-policy")', vm_policy)
++        self.assertIn("(= (initVMPolicyOrgan)", vm_policy_skills)
++
++    def test_prompt_context_reads_promoted_memory_without_side_effects(self):
++        loop = read("src/loop.metta")
++        memory = read("src/memory.metta")
++        promoted = form_body(memory, "promoted-memory-hints")
++
++        self.assertIn("PROMOTED_MEMORY_HINTS", loop)
++        self.assertIn("(promoted-memory-hints)", loop)
++        self.assertNotIn("MOST_PROMOTED_MEMORIES", loop)
++        self.assertNotIn("write-file", promoted)
++        self.assertNotIn("append-file", promoted)
++
++    def test_llm_provider_energy_accounting_is_optional_body_hook(self):
++        provider = read("lib_llm_ext.py")
++
++        self.assertNotIn("import energy", provider.splitlines())
++        self.assertIn("import energy as _energy", provider)
++        self.assertIn("def _log_provider_call", provider)
++
++    def test_assume_mutation_reports_have_dual_fabric_and_symbolic_review_surface(self):
++        fabricd = read("src/assume_fabricd.py")
++        skills = skill_implementation_source()
++        review = read("docs/review/assume-fabric-demo-review.md")
++
++        fabric_atoms = [
++            "AssumeWeightMutation",
++            "AssumeWeightDelta",
++            "AssumeMutationTarget",
++            "AssumeMutationSignedError",
++            "AssumeMutationEvidence",
++            "AssumeMutationPressurePrimitive",
++            "AssumeMutationConflictPrimitive",
++            "AssumeMutationTopology",
++            "AssumeAdjustmentPressure",
++            "AssumeFabricMutationTruth",
++            "AssumeFabricMutationVerdict",
++            "AssumeFabricMutationReason",
++        ]
++        for atom in fabric_atoms:
++            with self.subTest(atom=atom):
++                self.assertIn(atom, fabricd)
++
++        symbolic_atoms = [
++            "assume-observe-writeback",
++            "assume-review-mutation",
++            "assume-adjustment-direction-ok",
++            "assume-symbolic-mutation-truth",
++            "AssumeSymbolicMutationTruth",
++            "AssumeSymbolicMutationVerdict",
++            "AssumeSymbolicMutationReason",
++            "AssumeMutationVerdictComparison",
++        ]
++        for atom in symbolic_atoms:
++            with self.subTest(atom=atom):
++                self.assertIn(atom, skills)
++                self.assertIn(atom, review)
++
++    def test_assume_dependency_boundary_is_documented_and_tests_are_skip_safe(self):
++        client = read("src/assume_client.py")
++        fabricd = read("src/assume_fabricd.py")
++        docs = (
++            read("demos/assume/README.md")
++            + read("docs/review/assume-fabric-demo-review.md")
++            + read("docs/review/dependency-boundary-audit.md")
++        )
++        tests = read("tests/test_assume_fabricd.py") + read("tests/test_assume_demo_space.py")
++
++        self.assertIn("FABRICPC_REPO", client)
++        self.assertIn("FABRICPC_PYTHON", client)
++        self.assertIn("import jax", fabricd)
++        self.assertIn("import optax", fabricd)
++        self.assertIn("from fabricpc", fabricd)
++        self.assertIn("FABRICPC_REPO", docs)
++        self.assertIn("FABRICPC_PYTHON", docs)
++        self.assertIn("@unittest.skipUnless(FABRIC_PYTHON.exists()", tests)
++
++    def test_docs_name_current_skill_catalog_and_organs(self):
++        docs = "\n".join(
++            read(path)
++            for path in [
++                "docs/tutorial-03-writing-a-custom-skill.md",
++                "docs/reference-internals-extension-points.md",
++                "docs/tutorial-06-remote-agentverse-skills.md",
++                "docs/reference-skills-reasoning.md",
++                "docs/reference-skills-memory.md",
++                "docs/reference-skills-io.md",
++                "docs/reference-skills-remote-agents.md",
++                "docs/review/clean-patch-boundary.md",
++                "docs/review/dependency-boundary-audit.md",
++            ]
++        )
++        self.assertIn("src/skill_catalog.metta", docs)
++        self.assertIn("src/skills_core.metta", docs)
++        self.assertIn("src/skills_memory.metta", docs)
++        self.assertIn("src/skills_assume.metta", docs)
++        self.assertNotIn("getSkills` (`src/skills.metta`)", docs)
++        self.assertNotIn("inside the `getSkills` list", read("docs/tutorial-03-writing-a-custom-skill.md"))
++
++    def test_metta_smoke_runner_classifies_safe_and_risky_surfaces(self):
++        spec = importlib.util.spec_from_file_location(
++            "run_metta_smokes", ROOT / "tests" / "run_metta_smokes.py"
++        )
++        module = importlib.util.module_from_spec(spec)
++        sys.modules[spec.name] = module
++        spec.loader.exec_module(module)
++
++        isolated = module.classify(ROOT / "tests" / "assume_fabricd_skill_smoke.metta")
++        self.assertTrue(isolated.isolated)
++        self.assertIn("mutates-assume", isolated.reasons)
++
++        risky_path = ROOT / "tests" / "attention_ledger_smoke.metta"
++        if not risky_path.exists():
++            self.skipTest("attention_ledger_smoke.metta is not present in this checkout")
++        risky = module.classify(risky_path)
++        self.assertFalse(risky.isolated)
++        self.assertIn("imports-full-runtime", risky.reasons)
++        self.assertIn("mutates-persistent", risky.reasons)
++
++    def test_review_audit_is_git_aware_and_avoids_runtime_secret_trees(self):
++        audit = read("docs/review/review_audit.py")
++
++        self.assertIn('run_git(["ls-files"])', audit)
++        self.assertIn('run_git(["ls-files", "--others", "--exclude-standard"])', audit)
++        self.assertIn('"channels/whatsapp_bridge/auth"', audit)
++        self.assertIn('"node_modules"', audit)
++        self.assertNotIn("os.walk", audit)
++        self.assertNotIn(".rglob(\"*\")", audit)
++
++    def test_module_contract_keeps_manifest_secondary_to_metta_surface(self):
++        docs = read("docs/reference-omegaclaw-module-contract.md")
++        entry = read("tests/fixtures/modules/whatsapp_channel/entry.metta")
++        manifest = read("tests/fixtures/modules/whatsapp_channel/module.toml")
++
++        self.assertIn("The cognitive contract must be expressed in MeTTa atoms", docs)
++        self.assertIn("(Module omegaclaw.channel.whatsapp)", entry)
++        self.assertIn("(Provides omegaclaw.channel.whatsapp (Skill send-channel))", entry)
++        self.assertIn("(ChannelCapability whatsapp file-send)", entry)
++        self.assertIn("(TraceWrites omegaclaw.channel.whatsapp ChannelMessageReceived)", entry)
++        self.assertIn('id = "omegaclaw.channel.whatsapp"', manifest)
++        self.assertIn("runtime_state = true", manifest)
++
++
++    def test_loop_dispatches_parsed_commands_without_superpose_side_effects(self):
++        loop = read("src/loop.metta")
++
++        self.assertIn("(= (command-results $items)", loop)
++        self.assertIn("($cmd (car-atom $items))", loop)
++        self.assertIn("(reduce $cmd)", loop)
++        self.assertIn("(COMMAND_RETURN: ($cmd $result))", loop)
++        self.assertNotIn("superpose $sexpr", loop)
++        self.assertIn("($results (RESULTS: (command-results $sexpr)))", loop)
++
++    def test_optional_organs_use_canonical_single_library_imports(self):
++        files = [
++            "run.metta",
++            "lib_omegaclaw_assume.metta",
++            "lib_omegaclaw_attention.metta",
++            "lib_omegaclaw_body.metta",
++            "modules/publishing/entry.metta",
++            "modules/body_container/entry.metta",
++            "modules/gameboy/entry.metta",
++            "modules/omega_vm/entry.metta",
++            "modules/codex_code/entry.metta",
++        ]
++        for relpath in files:
++            with self.subTest(file=relpath):
++                content = read(relpath)
++                self.assertNotRegex(content, r"!\(import! &self \(library OmegaClaw-Core")
++                if "OmegaClaw-Core" in content:
++                    self.assertIn("!(import! &self (car-atom (collapse (library OmegaClaw-Core", content)
++
++
++if __name__ == "__main__":
++    unittest.main(verbosity=2)
+--- a/src/skills.metta
++++ b/src/skills.metta
+@@ -13,3 +13,4 @@
+ !(import! &self (library OmegaClaw-Core ./src/skills_affordance.metta))
+ !(import! &self (library OmegaClaw-Core ./src/skills_assume.metta))
+ !(import! &self (library OmegaClaw-Core ./src/skills_attention.metta))
++!(import! &self (library OmegaClaw-Core ./src/skills_body.metta))

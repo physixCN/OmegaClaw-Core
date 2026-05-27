@@ -16,9 +16,9 @@ mouth/hand boundary.
 The command surface is declared in MeTTa-shaped files, not in Python tables:
 
 - `src/skill_signatures*.metta`
-- `modules/<enabled-module>/signatures.metta`
+- `modules/*/signatures.metta`
 - `src/skill_catalog*.metta`
-- `modules/<enabled-module>/catalog.metta`
+- `modules/*/catalog.metta`
 
 Examples:
 
@@ -27,12 +27,7 @@ Examples:
 (SkillSignature send (Arg rest-text message))
 (SkillSignature space-find (Arg space space) (Arg metta pattern))
 (SignatureLowering write-file write-file-base64)
-(SignatureRecoveryHint missing-argument "recover: check required args with skill-card or explain-skill")
 ```
-
-Modules are enabled by `modules/loader.metta`. A module contributes signatures
-and catalog entries only when the loader imports its `entry.metta` file. Merely
-placing a folder under `modules/` is not enough.
 
 Python reads these atoms and performs typed lowering. Malformed, duplicate, or unknown declaration shapes fail fast instead of being silently skipped. Adding a new skill should normally mean adding a neighboring `SkillSignature`, runtime implementation, and catalog/help atom. It should not require editing the parser.
 
@@ -86,22 +81,12 @@ A few constants are intentional membrane vocabulary rather than hidden cognition
 
 If a future change adds a skill name, space name, model name, person name, room name, or domain policy to Python parser logic, treat that as a regression. It belongs in MeTTa declarations, runtime skills, memory, or the relevant execution membrane.
 
-## Recovery Hints
-
-`SignatureRecoveryHint` declarations are compact repair cues for parser error classes such as `missing-argument`, `unexpected-trailing`, `unknown-space`, `metta-syntax`, `invalid-number`, and `pipe-shape`. The parser may also attach the first `SkillCardLine` for the failing command. This is reinforcement for the next cognitive cycle, not hidden routing: the hint is declared in MeTTa-shaped metadata and appears in the normal command-result trace.
-
-Example shape:
-
-```metta
-(syntax-error "beliefs-about" "missing relation; card: beliefs-about domain relation - inspect exact belief relation; recover: check required args with skill-card or explain-skill" "beliefs-about Anna")
-```
-
 ## Failure Behavior
 
 The membrane fails closed:
 
 - Unknown command head -> `(wait "ignored unknown command head ...")`
-- Known command with bad arguments -> `(syntax-error "head" "reason plus declared recovery hint" "raw")`
+- Known command with bad arguments -> `(syntax-error "head" "reason" "raw")`
 - Prose/no-action phrases such as `No tool calls needed` -> `(wait "...")`
 - Malformed nested MeTTa arguments -> `(syntax-error ...)`
 
@@ -122,10 +107,9 @@ To add a skill or organ:
 1. Add a runtime implementation, usually in `src/skills_*.metta` or
    `modules/<name>/skills.metta`.
 2. Add `(SkillSignature ...)` declarations beside that organ.
-3. Add `(SkillCatalog ...)` / `(SkillHelp ...)` entries beside that organ, plus `SkillContextHint` only for minimal always-on bootstrap text.
-4. If it is a module, import `modules/<name>/entry.metta` from `modules/loader.metta`.
-5. Add smoke tests for the expected command shapes.
-6. Keep execution safety at the execution boundary, not in parser heuristics.
+3. Add `(SkillCatalog ...)` / `(SkillHelp ...)` entries beside that organ.
+4. Add smoke tests for the expected command shapes.
+5. Keep execution safety at the execution boundary, not in parser heuristics.
 
 The membrane should remain boring, deterministic, and cheap. Cognition belongs
 in symbolic spaces, memory, reasoning, and skills; this layer only keeps command

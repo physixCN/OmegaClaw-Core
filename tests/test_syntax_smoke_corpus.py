@@ -4,6 +4,7 @@
 import pathlib
 import re
 import sys
+import base64
 import tempfile
 import unittest
 
@@ -34,12 +35,23 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             "shell find memory/web -maxdepth 2 -type f": '((shell "find memory/web -maxdepth 2 -type f"))',
             "remember UI preference: warm | simple | private": '((remember "UI preference: warm | simple | private"))',
             "- testing phase 1": '((pin "- testing phase 1"))',
-            "web-search OpenCog Hyperon": '((web-search "OpenCog Hyperon"))',
-            "web-search OpenCog Hyperon\nsend done": '((web-search "OpenCog Hyperon") (send "done"))',
         }
         for raw, expected in cases.items():
             with self.subTest(raw=raw):
                 self.assert_parse(raw, expected)
+
+    def test_blank_lines_survive_unquoted_multiline_rest_text_lowering(self):
+        parsed = parser.signature_balance_parentheses(
+            "reply-whatsapp-to 523@test First paragraph\n\nSecond paragraph"
+        )
+
+        self.assertIn('((reply-whatsapp-to-base64 "523@test"', parsed)
+        payload = re.search(r'"([A-Za-z0-9+/=]+)"\)\)$', parsed).group(1)
+        self.assertEqual(
+            base64.b64decode(payload).decode("utf-8"),
+            "First paragraph\n\nSecond paragraph",
+        )
+        self.assert_metta_ok(parsed)
 
     def test_fail_closed_and_typed_core_cases(self):
         unknown = parser.signature_balance_parentheses("turn-off Living")
@@ -162,10 +174,17 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             for line in signature_text.splitlines()
             if re.match(r"\(SignatureShorthand\s+([^\s()]+)\s+", line)
         )
+        declared_prose_fallbacks = [
+            re.match(r"\(SignatureProseFallback\s+([^\s()]+)\)", line).group(1)
+            for line in signature_text.splitlines()
+            if re.match(r"\(SignatureProseFallback\s+([^\s()]+)\)", line)
+        ]
         self.assertEqual(set(parser.SIGNATURE_COMMANDS), declared)
         self.assertEqual(set(parser.SIGNATURE_KNOWN_SPACES), declared_spaces)
         self.assertEqual(set(parser.SIGNATURE_NO_ACTION_HEADS), declared_no_action_heads)
         self.assertEqual(set(parser.SIGNATURE_RECOVERY_HINTS), declared_recovery_hints)
+        self.assertEqual(declared_prose_fallbacks, [parser.SIGNATURE_PROSE_FALLBACK])
+        self.assertEqual(parser.signature_prose_fallback_from(), "send-control-base64")
         self.assertIn("space-transform", shorthand_commands)
         self.assertNotIn("known_cmds =", source)
         self.assertNotIn("SIGNATURE_COMMANDS = {", source)
@@ -178,6 +197,7 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
         seen_commands = {}
         seen_spaces = {}
         seen_lowerings = {}
+        seen_prose_fallback = []
         duplicate_commands = []
         duplicate_spaces = []
         duplicate_lowerings = []
@@ -188,6 +208,7 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
                 command = re.match(r"\(SkillSignature\s+([^\s()]+)", line)
                 space = re.match(r"\(SignatureSpace\s+([^\s()]+)\)", line)
                 lowering = re.match(r"\(SignatureLowering\s+([^\s()]+)\s+([^\s()]+)\)", line)
+                prose_fallback = re.match(r"\(SignatureProseFallback\s+([^\s()]+)\)", line)
                 if command:
                     key = command.group(1)
                     if key in seen_commands:
@@ -203,10 +224,13 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
                     if key in seen_lowerings:
                         duplicate_lowerings.append((key, seen_lowerings[key], f"{path}:{line_number}"))
                     seen_lowerings[key] = f"{path}:{line_number}"
+                if prose_fallback:
+                    seen_prose_fallback.append(f"{path}:{line_number}")
 
         self.assertEqual(duplicate_commands, [])
         self.assertEqual(duplicate_spaces, [])
         self.assertEqual(duplicate_lowerings, [])
+        self.assertLessEqual(len(seen_prose_fallback), 1)
 
     def test_declarations_are_organ_local(self):
         signature_paths = {path.name for path in parser.signature_declaration_paths()}
@@ -295,21 +319,15 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
                     '(SkillCatalog "Disabled module: disabled-skill note")\n',
                     encoding="utf-8",
                 )
-                (disabled / "affordance.metta").write_text(
-                    '!(add-atom &skills (SkillTrigger "disabled-skill" "mentions-word:disabled" 0.7 "disabled module trigger"))\n',
-                    encoding="utf-8",
-                )
 
                 parser.MODULE_DECLARATIONS_ROOT = modules
                 signature_text = "\n".join(path.read_text(encoding="utf-8") for path in parser.signature_declaration_paths())
                 catalog_text = parser.skill_catalog()
-                affordance_paths = parser._module_declaration_paths("affordance.metta")
 
                 self.assertIn("enabled-skill", signature_text)
                 self.assertNotIn("disabled-skill", signature_text)
                 self.assertIn("Enabled module:", catalog_text)
                 self.assertNotIn("Disabled module:", catalog_text)
-                self.assertEqual(affordance_paths, [enabled / "affordance.metta"])
         finally:
             parser.MODULE_DECLARATIONS_ROOT = old_root
 

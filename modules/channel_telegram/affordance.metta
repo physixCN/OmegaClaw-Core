@@ -1,0 +1,5 @@
+(SkillTopic "send-telegram" "channels")
+(SkillTopic "send-telegram" "telegram")
+(SkillCardLine "send-telegram" "send-telegram message - send to configured Telegram control chat")
+(Risk "send-telegram" "external-send")
+(Effect "send-telegram" "external-message-sent")

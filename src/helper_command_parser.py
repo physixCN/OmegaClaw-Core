@@ -183,7 +183,22 @@ def _skill_affordance_declaration_paths(path=SKILL_AFFORDANCE_DECLARATIONS_PATH)
 
 
 def _strip_signature_comment(line):
-    return str(line or "").split(";", 1)[0].strip()
+    text = str(line or "")
+    in_quote = False
+    escaped = False
+    for index, char in enumerate(text):
+        if in_quote:
+            if char == '"' and not escaped:
+                in_quote = False
+            escaped = char == "\\" and not escaped
+            if char != "\\":
+                escaped = False
+            continue
+        if char == '"':
+            in_quote = True
+        elif char == ";":
+            return text[:index].strip()
+    return text.strip()
 
 
 def _signature_decl_error(path, line_number, message, line):

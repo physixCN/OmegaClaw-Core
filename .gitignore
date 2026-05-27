@@ -1,8 +1,3 @@
-# runtime memory
-memory/*.metta
-!memory/prompt.txt
-!memory/history.metta
-
 # embedded vector store
 memory/chroma_db/
 chroma_db/
@@ -23,3 +18,72 @@ Autotests/logs/
 
 # IDE
 .idea/
+
+# Runtime body: process logs, transient state, generated caches
+run/
+memory/*.log
+memory/*.jsonl
+memory/*.db
+memory/*.db-shm
+memory/*.db-wal
+memory/*.json
+memory/*.metta
+memory/*.md
+memory/*.html
+memory/*.txt
+memory/cycle-counter.txt
+memory/reboot_note.txt
+memory/backups/
+memory/runtime/
+memory/.audio-bin/
+memory/inbox/
+memory/outbox/
+memory/web/
+memory/web/terminal.log
+memory/web/*.json
+memory/web/*.txt
+
+# Generated media and published site runtime artifacts
+memory/*.png
+memory/*.jpg
+memory/*.jpeg
+memory/*.webp
+memory/*.gif
+memory/*.mp3
+memory/*.wav
+memory/*.m4a
+memory/*.mp4
+memory/web/public/
+
+# Live runtime instance notes that are memory/state, not source
+memory/omega-care-chain.txt
+memory/omega-goals.txt
+memory/omega-phase3-goals.md
+memory/omega-practice.txt
+
+# Local backup files created during live patching
+*.bak
+*.bak-*
+*.backup
+*.backup-*
+
+# Channel bridge runtime dependencies and private auth/session state
+channels/whatsapp_bridge/node_modules/
+channels/whatsapp_bridge/auth*/
+channels/whatsapp_bridge/*.bak-*
+channels/*.bak-*
+src/*.bak-*
+memory/*.bak-*
+web/omega-os/node_modules/
+
+# Credentials and local runtime config
+memory/home_assistant.json
+memory/librelinkup.json
+memory/librelinkup_cache.json
+channels/whatsapp_bridge/*auth*/
+# Module-owned WhatsApp bridge runtime dependencies and auth/session state
+modules/channel_whatsapp/src/whatsapp_bridge/node_modules/
+modules/channel_whatsapp/src/whatsapp_bridge/auth*/
+modules/channel_whatsapp/src/whatsapp_bridge/*auth*/
+modules/channel_whatsapp/src/whatsapp_bridge/*.bak-*
+

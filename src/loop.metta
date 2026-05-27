@@ -15,6 +15,8 @@
 (= (maxActivityAtomsChars) (empty))
 (= (maxScratchAtomsChars) (empty))
 
+!(import_prolog_function once)
+
 (= (initLoop)
    (progn (configure maxNewInputLoops 12) ;bounded restart posture; the agent can choose more with energy skills
           (configure maxWakeLoops 6) ;warm autonomous wake posture, not idle-only
@@ -35,6 +37,10 @@
           (configure maxScratchAtomsChars 20000)
           (change-state! &prevmsg "")
           (change-state! &lastresults "")
+          (change-state! &maxNewInputLoops (maxNewInputLoops))
+          (change-state! &maxWakeLoops (maxWakeLoops))
+          (change-state! &sleepInterval (sleepInterval))
+          (change-state! &wakeupInterval (wakeupInterval))
           (change-state! &maxPersistentAtomsChars (maxPersistentAtomsChars))
           (change-state! &maxAgendaAtomsChars (maxAgendaAtomsChars))
           (change-state! &maxBeliefAtomsChars (maxBeliefAtomsChars))
@@ -42,10 +48,7 @@
           (change-state! &maxEventAtomsChars (maxEventAtomsChars))
           (change-state! &maxActivityAtomsChars (maxActivityAtomsChars))
           (change-state! &maxScratchAtomsChars (maxScratchAtomsChars))
-          (change-state! &maxNewInputLoops (maxNewInputLoops))
-          (change-state! &maxWakeLoops (maxWakeLoops))
-          (change-state! &sleepInterval (sleepInterval))
-          (change-state! &wakeupInterval (wakeupInterval))
+          ; Neutral boot posture: enough attention to orient, then the agent can choose.
           (change-state! &energyMode "warm")
           (change-state! &cycle 1)
           (change-state! &practiceStartCycle 1)
@@ -53,30 +56,44 @@
           (change-state! &nextWakeAt (+ (get_time) (get-state &wakeupInterval)))
           (change-state! &loops (get-state &maxNewInputLoops))))
 
+(= (initRuntimeOrgans)
+   (let $started (collapse (match &self (RuntimeOrgan $name $call)
+                                  (if (runtime-organ-trusted $name)
+                                      (RuntimeOrganStarted $name (eval $call))
+                                      (RuntimeOrganRejected $name untrusted))))
+        (if (== $started ()) RuntimeOrgansNone $started)))
+
 (= (getContext)
-   (getContext ""))
+   (getContext "" "" ""))
 
 (= (getContext $inputctx)
-   (getContext $inputctx ""))
+   (getContext $inputctx "" ""))
 
 (= (getContext $inputctx $skillctx)
-   (string-safe (py-str ("PROMPT: " (getPrompt) " SKILLS: " (getSkills)
+   (getContext $inputctx $skillctx ""))
+
+(= (getContext $inputctx $skillctx $currentinput)
+   (string-safe (py-str ("PROMPT: " (getPrompt)
+                         " SKILLS: " (getSkills)
+                         " BACKGROUND_PROMOTED_MEMORY_HINTS: " (promoted-memory-hints)
+                         " RELEVANT_INPUT_RECALL: " $inputctx
+                         " SKILL_RECALL: " $skillctx
+                         " RECENT_HISTORY: " (getHistory)
+                         " LAST_SKILL_USE_RESULTS: " (py-call (helper.context_last_results (get-state &lastresults) (maxLastResultsContext)))
+                         " CURRENT_INPUT: " $currentinput
+                         " CURRENT_FRAME: " (py-call (helper.context_current_frame $currentinput (get-state &lastresults)))
+                         " TIME: " (get_time_as_string)
                          " OUTPUT_FORMAT: Up to 5 lines, do not wrap quotes around args, do not use variables:" (newline)
                          " toolName1 arg1" (newline)
                          " toolName2 arg2" (newline)
                          " toolName3 arg3" (newline)
                          " toolName4 arg4" (newline)
-                         " toolName5 arg5" (newline)
-                         " LAST_SKILL_USE_RESULTS: " (py-call (helper.context_last_results (get-state &lastresults) (maxLastResultsContext))) " HISTORY: " (getHistory)
-                         " INPUT_RECALL: " $inputctx
-                         " SKILL_RECALL: " $skillctx
-                         " PROMOTED_MEMORY_HINTS: " (promoted-memory-hints) " TIME: " (get_time_as_string)))))
+                         " toolName5 arg5" (newline)))))
 
 (= (HandleError $msg $cmd $sexpr)
    (case $sexpr (((Error $a $b) (let $new (append (get-state &error) (($msg $cmd)))
                                           (change-state! &error $new)))
                  ($else $sexpr))))
-
 
 (= (command-results $items)
    (if (== $items ())
@@ -85,18 +102,21 @@
               ($rest (cdr-atom $items))
               ($result (HandleError SINGLE_COMMAND_FORMAT_ERROR_NOTHING_WAS_DONE_PLEASE_FIX_AND_RETRY
                                     $cmd
-                                    (catch (let $R (car-atom (collapse (reduce $cmd)))
+                                    (catch (let $R (once (reduce $cmd))
                                                 (py-call (helper.normalize_string $R)))))))
              (cons (COMMAND_RETURN: ($cmd $result))
                    (command-results $rest)))))
 
 (= (omegaclaw)
    (omegaclaw 1))
+
 (= (omegaclaw $k)
    (progn (if (== $k 1) (progn (initLoop)
                                (initMemory)
-                               (initChannels))
-                        (change-state! &loops (- (get-state &loops) 1)))
+                               (initChannels)
+                               (initRuntimeOrgans))
+	                        (progn (change-state! &loops (- (get-state &loops) 1))
+	                               (run-runtime-hooks cycle)))
           (change-state! &cycle $k)
           (progn (println! (---------iteration $k))
                  (let* (($msgrcv (string-safe (repr (receive))))
@@ -107,12 +127,12 @@
                                 (change-state! &loops (get-state &maxNewInputLoops)) _))
                         ($inputctx (input-recall $msgnew $msg))
                         ($skillctx (skill-recall $msgnew $msg))
-                        ($prompt (getContext $inputctx $skillctx)))
-                            (if (> (get-state &loops) 0)
-                                (let* (($lastmessage (if $msgnew (HUMAN-MSG: $msg) (if (spamShield) " DO NOT RE-SEND OR SPAM!" "")))
-                                       ($_ (change-state! &nextWakeAt (+ (get_time) (get-state &wakeupInterval))))
-                                       ($_ (println! $lastmessage))
-                                       ($send (py-str ($prompt :-:-:-: $lastmessage)))
+                        ($lastmessage (if $msgnew (HUMAN-MSG: $msg) (if (spamShield) " DO NOT RE-SEND OR SPAM!" "")))
+                        ($prompt (getContext $inputctx $skillctx $lastmessage)))
+	                            (if (> (get-state &loops) 0)
+	                                (let* (($_ (change-state! &nextWakeAt (+ (get_time) (get-state &wakeupInterval))))
+	                                       ($_ (println! $lastmessage))
+	                                       ($send $prompt)
                                        ($_ (println! (CHARS_SENT: (string_length $send) $send)))
                                        ($respi (if (== (provider) OpenAI)
                                                    (useGPT (LLM) (maxOutputToken) (reasoningMode) $send)
@@ -129,7 +149,7 @@
                                              (change-state! &lastresults (string-safe (repr $results)))))
                                 (if (> (get_time) (get-state &nextWakeAt))
                                     (change-state! &loops (+ 2 (get-state &maxWakeLoops))) _)))
-                 (bound-runtime-spaces-by-role memory)
+	              (bound-runtime-spaces-by-role memory)
                  (save-runtime-spaces-by-role memory)
                  (sleep (get-state &sleepInterval))
                  (cut)

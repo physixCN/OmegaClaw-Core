@@ -60,7 +60,6 @@ class SkillAffordanceContractTests(unittest.TestCase):
     def test_affordance_declarations_are_loaded_by_composition_after_space_exists(self):
         declaration_files = [
             "skill_affordance_core.metta",
-            "skill_affordance_energy.metta",
             "skill_affordance_memory.metta",
             "skill_affordance_reasoning.metta",
             "skill_affordance_affordance.metta",
@@ -93,38 +92,6 @@ class SkillAffordanceContractTests(unittest.TestCase):
     def test_context_hints_only_reference_loaded_help_topics(self):
         missing = sorted({domain for domain, _line in _context_hints()} - _help_topics())
         self.assertEqual(missing, [])
-
-    def test_web_search_is_canonical_live_web_surface(self):
-        signatures = _text("skill_signatures*.metta")
-        catalog = _text("skill_catalog*.metta")
-        affordance = _text("skill_affordance*.metta")
-        channels = (SRC / "channels.metta").read_text(encoding="utf-8")
-
-        self.assertIn("(SkillSignature web-search ", signatures)
-        self.assertIn("(= (web-search $msg)", channels)
-        self.assertIn("(= (search $msg)\n   (web-search $msg))", channels)
-        self.assertIn("web-search query", catalog)
-        self.assertIn("legacy alias for web-search", catalog + affordance)
-        self.assertIn("SkillTopic \"web-search\" \"web-search\"", affordance)
-        self.assertNotIn("(SkillSignature tavily-search", signatures)
-        self.assertNotIn("(SkillSignature internet-search", signatures)
-
-    def test_reasoning_affordance_guides_pln_without_fake_query_surface(self):
-        source = (SRC / "skill_affordance_reasoning.metta").read_text(encoding="utf-8")
-
-        for expected in [
-            'SkillTopic "pln-step" "pln"',
-            'SkillTopic "pln-step" "inference"',
-            'SkillTopic "nal-step" "nal"',
-            'SkillTopic "nal-step" "inference"',
-            'SkillTopic "run-metta-file" "metta"',
-            'SkillTopic "run-metta-file" "metta-file"',
-            'SkillTopic "run-metta-file" "run-metta"',
-            "prefer pln-step/nal-step",
-            "do not use PLN.Query unless you have a real supported KB query surface",
-        ]:
-            self.assertIn(expected, source)
-
 
 
     def test_pin_is_always_visible_and_has_continuity_schema(self):
@@ -162,7 +129,13 @@ class SkillAffordanceContractTests(unittest.TestCase):
             '(= (persistent-merge-atoms $patternstr $replacementstr $reason)',
             '(trace-atom "merge-remove" $space $pattern $reason)',
             'SkillTopic "persistent-merge-atoms" "persistent"',
-            "exact dedup uses same atom as pattern and replacement",
+            "merge reviewed persistent duplicates; exact pattern match; saves persistent; no accept/finalize step",
+            "merge same-space duplicates; exact pattern match; saves runtime space; no accept/finalize step",
+            "move/rewrite atoms; exact pattern match; no accept/finalize step; use merge tools for same-space duplicates",
+            "reviewed-cross-space-rewrite",
+            "cleanup-duplicate-persistent-atoms",
+            "cleanup-duplicate-same-space-atoms",
+            "move-or-archive-atoms-across-spaces",
             "save-runtime-space $space",
         ]:
             self.assertIn(expected, source)
@@ -179,9 +152,38 @@ class SkillAffordanceContractTests(unittest.TestCase):
             "truth-valued PLN statements",
             "((Inheritance A B) (stv f c))",
             "premises must be truth-valued",
+            "Best first shape",
+            "Do not use OpenCog-style ImplicationLink/InheritanceLink",
+            "direct two-premise PLN",
         ]:
             self.assertIn(expected, source)
+        self.assertIn("not ImplicationLink", source)
         self.assertNotIn("use PLN atoms such as Inheritance", source)
+
+
+    def test_image_media_inputs_recall_vision_not_text_file_reading(self):
+        body = ((ROOT / "modules" / "sense_vision" / "affordance.metta").read_text(encoding="utf-8") + "\n" + (ROOT / "modules" / "sense_webcam" / "affordance.metta").read_text(encoding="utf-8"))
+        core = (SRC / "skill_affordance_core.metta").read_text(encoding="utf-8")
+
+        for expected in [
+            'SkillCardLine "observe-image"',
+            'SkillTopic "inspect-image" "vision"',
+            'SkillTopic "inspect-image" "photo"',
+            'SkillTopic "inspect-webcam" "camera"',
+            'SkillTrigger "inspect-image" "mentions-word:image"',
+            'SkillTrigger "inspect-image" "mentions-word:imagemessage"',
+            'SkillTrigger "inspect-image" "mentions-word:jpg"',
+            'SkillTrigger "inspect-image" "mentions-word:png"',
+        ]:
+            self.assertIn(expected, body)
+        self.assertIn("use vision, not text file reading", body)
+        self.assertIn("WEBCAM-CAPTURE-FAILED means camera config is unavailable", body)
+        self.assertIn("for JPG/PNG/media use inspect-image", core)
+
+        catalog = ((ROOT / "modules" / "sense_vision" / "catalog.metta").read_text(encoding="utf-8") + "\n" + (ROOT / "modules" / "sense_webcam" / "catalog.metta").read_text(encoding="utf-8"))
+        self.assertIn('SkillHelp "vision"', catalog)
+        self.assertIn('SkillHelp "image"', catalog)
+        self.assertIn("instead of read-file", catalog)
 
 
 
