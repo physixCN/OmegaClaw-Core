@@ -7,7 +7,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-import vision
+try:
+    from modules.sense_vision.src import vision
+except ImportError:  # pragma: no cover - direct MeTTa file imports may expose top-level names.
+    import vision
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]

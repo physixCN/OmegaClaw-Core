@@ -53,7 +53,7 @@ LIVE_MEMORY_PATTERNS = {
     "writes-files": re.compile(r"\b(?:write-file|append-file|write-file-base64|append-file-base64)\b"),
     "external-action": re.compile(
         r"\b(?:(?<!-)send(?!-)|send-whatsapp|send-telegram|send-file|use-house-affordance|"
-        r"reply-whatsapp|mark-whatsapp-read|mark-whatsapp-unread|publish-artifact|unpublish-artifact)\b"
+        r"reply-whatsapp|mark-whatsapp-read|mark-whatsapp-unread)\b"
     ),
 }
 

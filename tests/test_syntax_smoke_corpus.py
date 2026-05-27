@@ -67,11 +67,11 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
         )
         self.assertIn(
             "card: beliefs-about domain relation - inspect exact belief relation",
-            parser.signature_balance_parentheses("beliefs-about Anna"),
+            parser.signature_balance_parentheses("beliefs-about TestPerson"),
         )
         self.assertIn(
             "run beliefs-for domain if relation is unknown",
-            parser.signature_balance_parentheses("beliefs-about Anna"),
+            parser.signature_balance_parentheses("beliefs-about TestPerson"),
         )
         self.assertIn(
             '(syntax-error "space-find" "unknown space nowhere; known spaces:',

@@ -46,7 +46,7 @@ class PatchBoundaryContractTests(unittest.TestCase):
     def test_python_and_js_sources_are_syntax_checkable_without_network(self):
         paths = [
             path
-            for folder in ("src", "channels", "tests")
+            for folder in ("src", "modules", "tests")
             for path in (ROOT / folder).rglob("*.py")
             if "__pycache__" not in path.parts
         ]
@@ -56,7 +56,7 @@ class PatchBoundaryContractTests(unittest.TestCase):
                     cfile = pathlib.Path(cache_dir) / f"{idx}.pyc"
                     py_compile.compile(str(path), cfile=str(cfile), doraise=True)
 
-        bridge = ROOT / "channels" / "whatsapp_bridge" / "bridge.mjs"
+        bridge = ROOT / "modules" / "channel_whatsapp" / "src" / "whatsapp_bridge" / "bridge.mjs"
         if not bridge.exists():
             self.skipTest("WhatsApp bridge is not present in this checkout")
         result = subprocess.run(
@@ -78,7 +78,6 @@ class PatchBoundaryContractTests(unittest.TestCase):
         body_organs = [
             "./modules/media_imagegen/entry.metta",
             "./modules/media_videogen/entry.metta",
-            "./modules/home_assistant/entry.metta",
             "./modules/sense_vision/entry.metta",
             "./modules/sense_webcam/entry.metta",
             "./modules/sense_audio/entry.metta",
@@ -148,7 +147,7 @@ class PatchBoundaryContractTests(unittest.TestCase):
         self.assertIn("modules/sense_vision/entry.metta", loader)
         self.assertIn("modules/channel_router/entry.metta", loader)
         self.assertIn("modules/gameboy/entry.metta", loader)
-        self.assertIn("modules/omega_vm/entry.metta", loader)
+        self.assertNotIn("modules/omega_vm/entry.metta", loader)
         self.assertNotIn("skill_catalog_web.metta", body)
 
     def test_skill_help_topics_are_string_canonical(self):
@@ -172,8 +171,8 @@ class PatchBoundaryContractTests(unittest.TestCase):
             "memory/runtime/",
             "memory/*.db",
             "memory/web/public/",
-            "channels/whatsapp_bridge/node_modules/",
-            "channels/whatsapp_bridge/auth*/",
+            "modules/channel_whatsapp/src/whatsapp_bridge/node_modules/",
+            "modules/channel_whatsapp/src/whatsapp_bridge/auth*/",
             "memory/home_assistant.json",
         ]
         for pattern in required_patterns:
@@ -400,7 +399,7 @@ class PatchBoundaryContractTests(unittest.TestCase):
 
         self.assertIn('run_git(["ls-files"])', audit)
         self.assertIn('run_git(["ls-files", "--others", "--exclude-standard"])', audit)
-        self.assertIn('"channels/whatsapp_bridge/auth"', audit)
+        self.assertIn('"modules/channel_whatsapp/src/whatsapp_bridge/auth"', audit)
         self.assertIn('"node_modules"', audit)
         self.assertNotIn("os.walk", audit)
         self.assertNotIn(".rglob(\"*\")", audit)

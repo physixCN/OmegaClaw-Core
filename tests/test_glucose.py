@@ -9,9 +9,9 @@ from unittest import mock
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT))
 
-import glucose  # noqa: E402
+from modules.health_glucose.src import glucose  # noqa: E402
 
 
 class GlucoseConnectorTests(unittest.TestCase):

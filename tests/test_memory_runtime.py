@@ -43,7 +43,7 @@ class MemoryRuntimeTests(unittest.TestCase):
                 ' ((write-file-base64 "/tmp/big" "' + ("A" * 2000) + '"))\n'
                 ' "RESULTS: " "ok"\n)\n'
                 '("2026-05-27 01:55:14"\n'
-                ' "HUMAN_MESSAGE: " WHATSAPP: Jon: Omega?\n'
+                ' "HUMAN_MESSAGE: " WHATSAPP: Operator: Omega?\n'
                 ' ((reply-whatsapp-to "523@lid" "I used 🛉 here"))\n'
                 ' "RESULTS: " "ok"\n)\n',
                 encoding="utf-8",
@@ -181,17 +181,17 @@ class MemoryRuntimeTests(unittest.TestCase):
             history_path = memory_dir / "history.metta"
             history_path.write_text(
                 '("2026-05-27 10:00:00"\n'
-                ' "HUMAN_MESSAGE: " WHATSAPP: FAMILY id=family@lid::m1 at=2026-05-27T10:00:00Z: Lydia: I love dogs\n'
+                ' "HUMAN_MESSAGE: " WHATSAPP: PRIMARY id=primary@lid::m1 at=2026-05-27T10:00:00Z: SpeakerA: I love dogs\n'
                 ' ((reply-whatsapp-to "lydia" "noted"))\n'
                 ' "RESULTS: " "ok"\n'
                 ')\n'
                 '("2026-05-27 10:01:00"\n'
-                ' "HUMAN_MESSAGE: " WHATSAPP: OTHER id=other@lid::m2 at=2026-05-27T10:01:00Z: Dad: I like tea\n'
+                ' "HUMAN_MESSAGE: " WHATSAPP: OTHER id=other@lid::m2 at=2026-05-27T10:01:00Z: SpeakerB: I like tea\n'
                 ' ((reply-whatsapp-to "dad" "heard"))\n'
                 ' "RESULTS: " "ok"\n'
                 ')\n'
                 '("2026-05-27 10:02:00"\n'
-                ' "HUMAN_MESSAGE: " WHATSAPP: FAMILY id=family@lid::m3 at=2026-05-27T10:02:00Z: Jon: Coffee is too bitter for me\n'
+                ' "HUMAN_MESSAGE: " WHATSAPP: PRIMARY id=primary@lid::m3 at=2026-05-27T10:02:00Z: SpeakerC: Coffee is too bitter for me\n'
                 ' ((reply-whatsapp-to "jon" "heard"))\n'
                 ' "RESULTS: " "ok"\n'
                 ')\n',
@@ -206,13 +206,13 @@ class MemoryRuntimeTests(unittest.TestCase):
             )
             fake_chroma = types.SimpleNamespace(
                 query_with_ids_and_dists=lambda embedding, count: [
-                    ("coffee-id", "2026-05-27 10:01:00", "Jon dislikes bitter coffee", 0.11),
-                    ("dogs-id", "2026-05-27 10:00:00", "Lydia likes dogs", 0.42),
+                    ("coffee-id", "2026-05-27 10:01:00", "SpeakerC dislikes bitter coffee", 0.11),
+                    ("dogs-id", "2026-05-27 10:00:00", "SpeakerA likes dogs", 0.42),
                 ]
             )
 
             with mock.patch.dict(sys.modules, {"lib_llm_ext": fake_llm, "lib_chromadb": fake_chroma}):
-                current = "WHATSAPP: FAMILY id=family@lid::m4 at=2026-05-27T10:03:00Z: Lydia: I don't like it"
+                current = "WHATSAPP: PRIMARY id=primary@lid::m4 at=2026-05-27T10:03:00Z: SpeakerA: I don't like it"
                 view = helper_recall.context_input_recall_text(
                     current,
                     max_items=2,
@@ -221,19 +221,19 @@ class MemoryRuntimeTests(unittest.TestCase):
 
             self.assertEqual(len(embedded), 2)
             self.assertEqual(embedded[0], current)
-            self.assertIn("Lydia: I love dogs", embedded[1])
-            self.assertIn("Jon: Coffee is too bitter for me", embedded[1])
-            self.assertIn("Lydia: I don't like it", embedded[1])
+            self.assertIn("SpeakerA: I love dogs", embedded[1])
+            self.assertIn("SpeakerC: Coffee is too bitter for me", embedded[1])
+            self.assertIn("SpeakerA: I don't like it", embedded[1])
             self.assertNotIn("Dad: I like tea", embedded[1])
             self.assertIn(
-                'DIALOGUE_FRAME view_kind=recent-speaker-turns-no-resolution current_speaker="Lydia" current_channel="WHATSAPP:family@lid"',
+                'DIALOGUE_FRAME view_kind=recent-speaker-turns-no-resolution current_speaker="SpeakerA" current_channel="WHATSAPP:primary@lid"',
                 view,
             )
             self.assertIn(
-                'TURN rel=-2 speaker_relation=same-speaker source="WHATSAPP" channel="WHATSAPP:family@lid" time="2026-05-27 10:00:00" age_seconds=180',
+                'TURN rel=-2 speaker_relation=same-speaker source="WHATSAPP" channel="WHATSAPP:primary@lid" time="2026-05-27 10:00:00" age_seconds=180',
                 view,
             )
-            self.assertIn('same_speaker_gap_seconds=180 speaker="Lydia" text="I don\'t like it"', view)
+            self.assertIn('same_speaker_gap_seconds=180 speaker="SpeakerA" text="I don\'t like it"', view)
             self.assertIn("channel_gap_seconds=60 same_speaker_gap_seconds=180", view)
             self.assertIn("Coffee is too bitter for me", view)
             self.assertNotIn("I like tea", view)

@@ -38,15 +38,7 @@ organs and reusable membranes, not instance-specific runtime state.
   - `demos/assume/`
   - Assume tests and MeTTa smokes
 - Optional reusable body apps, if reviewed as separate app organs:
-  - `src/home.py`
-  - `src/vision.py`
-  - `src/audio.py`
-  - `src/webcam.py`
-  - `src/glucose.py`
-  - `src/imagegen.py`
-  - `src/videogen.py`
-  - `channels/router.py`
-  - `channels/web_control.py`
+  - module-owned device/channel bridges under `modules/*/src/`
   - channel bridge modules and their transport-specific runtimes
 
 ## Exclude From Core Review

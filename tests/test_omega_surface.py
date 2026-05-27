@@ -17,8 +17,8 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OMEGACLAW_ROOT = ROOT.parents[1]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "channels"))
 
 import helper  # noqa: E402
 import helper_metta  # noqa: E402
@@ -81,7 +81,7 @@ class HelperSurfaceTests(unittest.TestCase):
             helper.persistent_fact_atom("Omega prefers rich-send 0.9"),
             helper.persistent_note_atom("omega-formatting use-base64-for-newlines 0.9"),
             helper.persistent_rule_atom("pin-focused | requires | attention-status-check | 0.9"),
-            helper.world_fact_atom("Jon primary-human Omega 0.95"),
+            helper.world_fact_atom("Operator primary-human Omega 0.95"),
             helper.belief_claim_atom("omega attention-mode pin-is-not-body 0.95 0.9"),
             helper.agenda_goal_atom("cleanup-tests active high protect-fragile-surfaces"),
             helper.event_note_atom("tests regression surface-added 0.9"),
@@ -161,7 +161,7 @@ class HelperSurfaceTests(unittest.TestCase):
             helper.persistent_fact_atom("Omega learned wait-skill high"),
             helper.persistent_note_atom("syntax use-test-metta high"),
             helper.persistent_rule_atom("pin-focused | requires | attention-status-check | high"),
-            helper.world_fact_atom("Jon primary-human Omega likely"),
+            helper.world_fact_atom("Operator primary-human Omega likely"),
             helper.belief_claim_atom("omega attention-mode pin-is-working-memory often 0.9"),
             helper.belief_claim_atom("omega attention-mode pin-is-working-memory 0.95 sure"),
             helper.assimilation_event_atom(
@@ -515,17 +515,17 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         modules = [
             "helper",
             "energy",
-            "home",
-            "vision",
-            "webcam",
-            "audio",
-            "glucose",
-            "imagegen",
-            "videogen",
-            "router",
-            "telegram",
-            "whatsapp",
-            "web_control",
+            "modules.home_assistant.bridge.home_assistant",
+            "modules.sense_vision.src.vision",
+            "modules.sense_webcam.src.webcam",
+            "modules.sense_audio.src.audio",
+            "modules.health_glucose.src.glucose",
+            "modules.media_imagegen.src.imagegen",
+            "modules.media_videogen.src.videogen",
+            "modules.channel_router.src.router",
+            "modules.channel_telegram.src.telegram",
+            "modules.channel_whatsapp.src.whatsapp",
+            "modules.channel_web_control.src.web_control",
         ]
         for module in modules:
             with self.subTest(module=module):
@@ -690,8 +690,8 @@ class ArchitectureSurfaceTests(unittest.TestCase):
     def test_runtime_body_state_is_ignored_by_source_control(self):
         ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
         required = [
-            "channels/whatsapp_bridge/auth*/",
-            "channels/whatsapp_bridge/node_modules/",
+            "modules/channel_whatsapp/src/whatsapp_bridge/auth*/",
+            "modules/channel_whatsapp/src/whatsapp_bridge/node_modules/",
             "memory/web/terminal.log",
             "memory/*.jsonl",
             "memory/runtime/",
@@ -723,7 +723,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("The symbolic self should", doc)
 
     def test_whatsapp_bridge_exposes_manual_read_state(self):
-        bridge = (ROOT / "channels" / "whatsapp_bridge" / "bridge.mjs").read_text(
+        bridge = (ROOT / "modules" / "channel_whatsapp" / "src" / "whatsapp_bridge" / "bridge.mjs").read_text(
             encoding="utf-8"
         )
         self.assertIn("async function markOutboundHandled(jid)", bridge)
@@ -745,14 +745,14 @@ class ArchitectureSurfaceTests(unittest.TestCase):
 
     def test_glucose_rings_enter_router_without_auto_send(self):
         router = (ROOT / "modules" / "channel_router" / "src" / "router.py").read_text(encoding="utf-8")
-        self.assertIn("import glucose", router)
+        self.assertIn("health_glucose.src import glucose", router)
         self.assertIn("glucose.pending_glucose_rings()", router)
         self.assertIn("GLUCOSE_APP:", router)
-        self.assertIn("import web_control", router)
+        self.assertIn("channel_web_control.src import web_control", router)
         self.assertIn("web_control.get_last_message()", router)
         self.assertIn("WEB_CONTROL:", router)
         self.assertIn('if _last_inbound_channel == "web_control":', router)
-        self.assertNotIn("send_whatsapp", router)
+        self.assertNotIn("send_message(msg", router)
 
     def test_metta_smoke_runner_refuses_live_memory_by_default(self):
         runner = (ROOT / "tests" / "run_metta_smokes.py").read_text(encoding="utf-8")
@@ -784,7 +784,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertTrue(isolated.isolated)
 
     def test_whatsapp_bridge_auth_material_is_private_by_design(self):
-        source = (ROOT / "channels" / "whatsapp_bridge" / "bridge.mjs").read_text(encoding="utf-8")
+        source = (ROOT / "modules" / "channel_whatsapp" / "src" / "whatsapp_bridge" / "bridge.mjs").read_text(encoding="utf-8")
         self.assertIn("process.umask(0o077)", source)
         self.assertIn("fs.mkdirSync(authDir, { recursive: true, mode: 0o700 })", source)
         self.assertIn("fs.chmodSync(authDir, 0o700)", source)

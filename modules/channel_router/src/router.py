@@ -1,9 +1,15 @@
 import base64
 
-import telegram
-import whatsapp
-import glucose
-import web_control
+try:
+    from modules.channel_telegram.src import telegram
+    from modules.channel_whatsapp.src import whatsapp
+    from modules.health_glucose.src import glucose
+    from modules.channel_web_control.src import web_control
+except ImportError:  # pragma: no cover - direct MeTTa file imports may expose top-level names.
+    import telegram
+    import whatsapp
+    import glucose
+    import web_control
 
 _last_inbound_channel = "control"
 
@@ -101,7 +107,7 @@ def send_telegram_base64(payload):
     return _rich_result(telegram.send_message(text) or "TELEGRAM-RICH-SEND-SUCCESS", text)
 
 
-def send_family(text):
+def send_whatsapp_primary(text):
     return whatsapp.send_message(text)
 
 
@@ -116,14 +122,14 @@ def send_primary_operator_base64(payload):
     return _rich_result(whatsapp.send_primary_operator(text), text)
 
 
-def send_family_base64(payload):
+def send_whatsapp_primary_base64(payload):
     text, error = _decode_rich_text(payload)
     if error:
         return error
     return _rich_result(whatsapp.send_message(text), text)
 
 
-def send_family_mention(phone, text):
+def send_whatsapp_mention(phone, text):
     return whatsapp.send_mention(phone, text)
 
 
@@ -165,7 +171,7 @@ def send_control_file(path, caption=""):
     return telegram.send_file(path, caption)
 
 
-def send_family_file(path, caption=""):
+def send_whatsapp_primary_file(path, caption=""):
     return whatsapp.send_file(path, caption)
 
 

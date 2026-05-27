@@ -18,11 +18,11 @@ class BodyContainerModuleTests(unittest.TestCase):
 
         status = body_container.body_container_status()
         self.assertIn("BODY-CONTAINER-STATUS", status)
-        self.assertIn("omega-body-vm", status)
+        self.assertIn("omega-runtime-body", status)
 
         atoms = body_container.body_container_self()
-        self.assertIn("(BodyContainer omega-body-vm)", atoms)
-        self.assertIn("(Embodies omega-body-vm agent-self)", atoms)
+        self.assertIn("(BodyContainer omega-runtime-body)", atoms)
+        self.assertIn("(Embodies omega-runtime-body agent-self)", atoms)
 
         launcher = body_container.body_container_launcher()
         self.assertIn("BODY-CONTAINER-LAUNCHER", launcher)

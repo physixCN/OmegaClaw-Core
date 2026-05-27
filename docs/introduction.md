@@ -116,20 +116,17 @@ lib_omegaclaw.metta       loads all submodules
 ├── src/loop.metta        agentic loop, turn structure
 ├── src/memory.metta      long-term memory + history
 ├── src/skills.metta      callable skill surface
-├── src/channels.metta    receive/send/search dispatch
+├── modules/loader.metta default enabled module composition
 ├── src/utils.metta       configure, string ops, time
 ├── src/helper.py         parenthesis balancing, normalization
-├── src/agentverse.py     remote-agent bridge
+├── modules/agentverse/  remote-agent bridge module
 ├── src/skills.pl         Prolog helpers (shell, first_char)
 ├── lib_nal.metta         NAL truth functions
 ├── lib_pln.metta         PLN rules
 └── lib_llm_ext.py        Claude / GPT / MiniMax / local embeddings
 
-channels/irc.py           IRC adapter
-channels/telegram.py      Telegram adapter
-channels/slack.py         Slack adapter
-channels/mattermost.py    Mattermost adapter
-channels/websearch.py     web search
+modules/channel_*        communication channel modules
+modules/web_search        external search module
 
 memory/prompt.txt         system prompt (agent identity + values)
 memory/history.metta      episodic trace (written at runtime)

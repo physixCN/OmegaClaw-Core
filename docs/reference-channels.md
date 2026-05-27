@@ -1,73 +1,25 @@
-# Reference — Channels
+# Reference - Channels
 
-Channels are the I/O surface the agent uses to talk to the outside world. Adapters live in `channels/`; MeTTa-side dispatch lives in `src/channels.metta`.
+Channels are optional modules that expose communication surfaces through symbolic skills and trace declarations. In v0.01a, channel source lives under `modules/channel_*`; legacy root `channels/` adapters are not part of the shareable core.
 
-## The adapter contract
+## Module Shape
 
-Each adapter exposes:
+A channel module provides:
 
-| Function | Purpose |
-|---|---|
-| `start_<name>(...)` | Called once from `initChannels`. Opens sockets / spawns listener threads as needed. |
-| `getLastMessage()` | Returns the next unread inbound message as a string. Returns `""` if none. |
-| `send_message(str)` | Posts an outbound message. |
+- `entry.metta` for symbolic module, channel, skill, risk, and trace atoms.
+- `module.toml` for package metadata and runtime-secret declarations.
+- `signatures.metta`, `catalog.metta`, `affordance.metta`, and `skills.metta` for the visible skill surface.
+- `src/` only for transport IO: polling, sending, bridge calls, and trace writes.
 
-The MeTTa side reads `commchannel` and branches:
+## Included Channels
 
-```metta
-(= (receive)
-   (if (== (commchannel) irc)
-       (py-call (irc.getLastMessage))
-       (if (== (commchannel) telegram)
-           (py-call (telegram.getLastMessage))
-           (if (== (commchannel) slack)
-               (py-call (slack.getLastMessage))
-               (py-call (mattermost.getLastMessage))))))
-```
+- `modules/channel_router` - primary operator routing and channel dispatch.
+- `modules/channel_whatsapp` - WhatsApp bridge, quoted replies, reactions, edits/deletes, read state, and append-only message trace.
+- `modules/channel_telegram` - Telegram Bot API adapter.
+- `modules/channel_mattermost` - Mattermost bot adapter.
+- `modules/channel_web_control` - local operator-control queue/channel.
+- `modules/channel_irc`, `modules/channel_slack`, and `modules/channel_mock` - optional modules, not enabled by default in v0.01a.
 
-## `channels/irc.py`
+## Adding A Channel
 
-IRC adapter with simple one-time-secret authentication.
-
-- `start_irc(channel, server, port, user)` — connect and join.
-- Inbound traffic is filtered to the first user who types `auth <one-time-secret>`. All other speakers are ignored.
-- Uses QuakeNet (`irc.quakenet.org`) by default.
-
-## `channels/mattermost.py`
-
-Mattermost adapter using a bot token.
-
-- `start_mattermost(url, channel_id, bot_token)` — connect to a Mattermost instance.
-- Requires `MM_BOT_TOKEN` configured (empty by default — set via `configure` or command line).
-
-## `channels/telegram.py`
-
-Telegram adapter using Bot API long polling.
-
-- `start_telegram(bot_token, chat_id, poll_timeout)` — starts a poll loop.
-- `TG_CHAT_ID` is optional; if empty, the adapter can auto-bind to the first valid inbound chat.
-- Outbound messages are chunked to Telegram-safe lengths.
-
-## `channels/slack.py`
-
-Slack adapter using Slack Web API polling.
-
-- `start_slack(bot_token, channel_id, poll_interval)` — starts a poll loop.
-- Requires `SL_BOT_TOKEN`; `SL_CHANNEL_ID` is optional.
-- The bot user must already be invited to the target channel.
-- If `SL_CHANNEL_ID` is empty, the adapter auto-binds to the first channel where auth succeeds.
-- Adapter respects Slack `Retry-After` backoff on HTTP 429 and enforces a minimum 60s poll interval.
-- Uses the same one-time `auth <secret>` ownership gate as the other adapters.
-
-## `channels/websearch.py`
-
-Not a communication channel in the `send`/`receive` sense — this is the backend for the `web-search` skill. Exposes `websearch.search(query)` to the MeTTa wrapper.
-
-## Adding a new channel
-
-See [tutorial-04-adding-a-channel.md](./tutorial-04-adding-a-channel.md).
-
-## Related reference
-
-- [reference-skills-communication.md](./reference-skills-communication.md) — the MeTTa surface (`send`, `receive`, `web-search`).
-- [reference-configuration.md](./reference-configuration.md) — channel parameters.
+Create a new `modules/channel_name/` package using the module contract. Do not add new root-level channel adapters. The MeTTa entrypoint should declare `(Channel name)`, provided skills, runtime dependencies, runtime-secret config, and trace events. Python should only perform transport IO and trace writes.

@@ -37,7 +37,7 @@ Choose the closest MeTTa organ file:
 - `src/skills_memory.metta` — structured memory/world/belief/event/agenda writes and reads
 - `src/skills_energy.metta` — energy, attention mode, cycle-status, loop pacing affordances
 - `modules/assume/skills.metta` — Assume/FabricPC prediction and mutation-review affordances
-- `src/skills_body.metta` — optional devices/apps such as vision, audio, glucose, house control
+- `modules/*/skills.metta` — optional devices/apps such as vision, audio, glucose, house control
 - `src/skills_reasoning_spaces.metta` — MeTTa/NAL/PLN and read-only space inspection
 - `src/skills_attention.metta` — attention ledger and ECAN-lite immune affordances
 - `src/skills_space_mutation.metta` — explicit reviewed space mutation/retirement utilities

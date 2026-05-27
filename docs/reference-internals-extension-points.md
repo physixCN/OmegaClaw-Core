@@ -119,7 +119,7 @@ loop, and full traces should be enabled only by an explicit runtime setting.
 
 ## Add a remote skill
 
-Same as above, but the body delegates to `src/agentverse.py`:
+Same as above, but the body delegates to `modules/agentverse/src/agentverse_bridge.py`:
 
 ```metta
 (= (my-remote-skill $arg)
@@ -132,8 +132,8 @@ Full walkthrough: [tutorial-06-remote-agentverse-skills.md](./tutorial-06-remote
 
 Three touch points:
 
-1. New Python module `channels/myadapter.py` implementing `start_*`, `getLastMessage`, `send_message`.
-2. A new branch in `initChannels`, `(receive)`, and `(send $msg)` in `src/channels.metta`.
+1. New module directory `modules/channel_myadapter/` with the standard module contract.
+2. `entry.metta`, signatures, catalog, affordance cards, and Python transport under `src/`.
 3. New parameters declared via `(= (MY_*) (empty))` and bound by `configure`.
 
 Full walkthrough: [tutorial-04-adding-a-channel.md](./tutorial-04-adding-a-channel.md).

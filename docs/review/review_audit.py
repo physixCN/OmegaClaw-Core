@@ -4,7 +4,9 @@
 The important property of this audit is that it is git-aware. It only scans
 tracked files and untracked files that git does not ignore, so runtime memory,
 WhatsApp sessions, credentials, and dependency trees stay outside the review
-surface.
+surface. When generated patch-series files are present, it also checks their
+coverage/applicability; direct v0.01a repository-normalization branches may run
+without generated patch files.
 """
 
 from __future__ import annotations
@@ -29,7 +31,7 @@ EXCLUDED_PARTS = {
 
 EXCLUDED_PREFIXES = (
     "memory/",
-    "channels/whatsapp_bridge/auth",
+    "modules/channel_whatsapp/src/whatsapp_bridge/auth",
 )
 
 SECRET_PATTERNS = [
@@ -83,7 +85,7 @@ BODY_PATCHES = {
 
 FORBIDDEN_CORE_DIFF_PATHS = (
     "web/",
-    "channels/whatsapp_bridge/auth",
+    "modules/channel_whatsapp/src/whatsapp_bridge/auth",
     "memory/web/",
 )
 
@@ -308,6 +310,8 @@ def check_patch_library_imports() -> list[Finding]:
 
 def check_review_surface_coverage() -> list[Finding]:
     findings: list[Finding] = []
+    if not patch_files():
+        return findings
     changed = set(run_git(["diff", "--name-only", "HEAD"]).splitlines())
     changed.update(run_git(["ls-files", "--others", "--exclude-standard"]).splitlines())
 
@@ -347,7 +351,7 @@ def check_patch_apply() -> list[Finding]:
     findings: list[Finding] = []
     patches = patch_files()
     if not patches:
-        return [Finding("patch-apply", "no generated patch files found")]
+        return findings
     tmp_parent = Path(tempfile.mkdtemp(prefix="omega-review-audit-"))
     worktree = tmp_parent / "worktree"
     try:

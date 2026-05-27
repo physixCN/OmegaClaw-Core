@@ -33,7 +33,7 @@ This reads a command-line override via `argk` (`name=value` on the MeTTa command
 | `maxHistory` | 30000 (chars) | Tail of `memory/history.metta` included in the prompt. |
 | `embeddingprovider` | `Local` | `Local` (Python-side model) or `OpenAI`. |
 
-## Channels (`src/channels.metta`, `initChannels`)
+## Channels (`modules/channel_*`)
 
 | Parameter | Default | Meaning |
 |---|---|---|

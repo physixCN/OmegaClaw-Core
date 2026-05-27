@@ -42,7 +42,7 @@ class RepositoryBoundaryTests(unittest.TestCase):
             "memory/inbox/",
             "memory/outbox/",
             "memory/web/public/",
-            "channels/whatsapp_bridge/auth",
+            "modules/channel_whatsapp/src/whatsapp_bridge/auth",
         )
         leaked = [
             path
