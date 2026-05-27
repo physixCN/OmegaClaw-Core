@@ -1,3 +1,6 @@
+; smoke-mode: runtime-skill
+; smoke-purpose: imported OmegaClaw skill behavior; covered by Python unit tests and full-runtime live checks.
+; smoke-note: direct MeTTa file execution does not reliably reduce imported skill definitions.
 !(import! &self (library lib_import))
 !(import! &self (library lib_spaces))
 !(git-import! "https://github.com/asi-alliance/OmegaClaw-Core.git")
