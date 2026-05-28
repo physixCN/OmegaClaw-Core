@@ -169,6 +169,7 @@ class SkillAffordanceContractTests(unittest.TestCase):
 
     def test_image_media_inputs_recall_vision_not_text_file_reading(self):
         body = ((ROOT / "modules" / "sense_vision" / "affordance.metta").read_text(encoding="utf-8") + "\n" + (ROOT / "modules" / "sense_webcam" / "affordance.metta").read_text(encoding="utf-8"))
+        imagegen = ((ROOT / "modules" / "media_imagegen" / "affordance.metta").read_text(encoding="utf-8") + "\n" + (ROOT / "modules" / "media_imagegen" / "catalog.metta").read_text(encoding="utf-8"))
         core = (SRC / "skill_affordance_core.metta").read_text(encoding="utf-8")
 
         for expected in [
@@ -185,6 +186,16 @@ class SkillAffordanceContractTests(unittest.TestCase):
         self.assertIn("use vision, not text file reading", body)
         self.assertIn("WEBCAM-CAPTURE-FAILED means camera config is unavailable", body)
         self.assertIn("for JPG/PNG/media use inspect-image", core)
+        for expected in [
+            'SkillTopic "generate-image" "imagegen"',
+            'SkillTopic "generate-image" "draw"',
+            'SkillAlias "imagegen" "media"',
+            'SkillAlias "draw" "media"',
+            'SkillTrigger "generate-image" "mentions-word:imagegen"',
+            'SkillTrigger "generate-image" "mentions-word:draw"',
+            "returns IMAGE-GENERATED path=... artifact_id=...",
+        ]:
+            self.assertIn(expected, imagegen)
 
         catalog = ((ROOT / "modules" / "sense_vision" / "catalog.metta").read_text(encoding="utf-8") + "\n" + (ROOT / "modules" / "sense_webcam" / "catalog.metta").read_text(encoding="utf-8"))
         self.assertIn('SkillHelp "vision"', catalog)
