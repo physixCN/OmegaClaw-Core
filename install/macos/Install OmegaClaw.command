@@ -9,15 +9,29 @@ echo "This installs source dependencies, asks for modules/channel/provider once,
 echo "and writes local configuration under ~/OmegaClaw."
 echo
 
+pause_before_exit() {
+  echo
+  printf "Press Return to close this window. "
+  # Terminal.app may close command windows immediately after exit; keep the
+  # explanation visible for double-click installs.
+  read _answer || true
+}
+
 if ! command -v xcode-select >/dev/null 2>&1 || ! xcode-select -p >/dev/null 2>&1; then
-  echo "Installing Apple command line tools. Re-run this installer when that finishes."
+  echo "Apple Command Line Tools are not installed yet."
+  echo
+  echo "macOS is about to open Apple's installer dialog. Finish that install first."
+  echo "When it completes, run this OmegaClaw installer again and it will continue."
+  echo
   xcode-select --install || true
+  pause_before_exit
   exit 1
 fi
 
 if ! command -v brew >/dev/null 2>&1; then
   echo "Homebrew is required for SWI-Prolog, Python, Git, and Node."
   echo "Install Homebrew from https://brew.sh/ and re-run this installer."
+  pause_before_exit
   exit 1
 fi
 
