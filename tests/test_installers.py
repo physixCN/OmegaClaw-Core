@@ -91,6 +91,7 @@ class InstallerTests(unittest.TestCase):
             "scratch_space": installer.ModuleInfo("scratch_space", "scratch_space", "core", True, "entry.metta", ()),
             "web_search": installer.ModuleInfo("web_search", "web_search", "channel", True, "entry.metta", ()),
             "channel_whatsapp": installer.ModuleInfo("channel_whatsapp", "channel_whatsapp", "channel", False, "entry.metta", ()),
+            "channel_telegram": installer.ModuleInfo("channel_telegram", "channel_telegram", "channel", False, "entry.metta", ()),
             "agentverse": installer.ModuleInfo("agentverse", "agentverse", "remote", False, "entry.metta", ()),
         }
         asked = []
@@ -101,16 +102,41 @@ class InstallerTests(unittest.TestCase):
                 return "agentverse" in prompt
 
             installer.yes_no = fake_yes_no
-            enabled = installer.choose_modules(modules, {"channel_whatsapp"})
+            enabled = installer.choose_modules(modules, {"channel_telegram"})
         finally:
             installer.yes_no = original_yes_no
 
         self.assertIn("channel_router", enabled)
         self.assertIn("scratch_space", enabled)
         self.assertIn("web_search", enabled)
-        self.assertIn("channel_whatsapp", enabled)
+        self.assertIn("channel_telegram", enabled)
+        self.assertNotIn("channel_whatsapp", enabled)
         self.assertIn("agentverse", enabled)
         self.assertEqual(asked, [("Enable optional module agentverse (remote)", False)])
+
+    def test_primary_channel_choice_is_explicit_and_records_primary_route(self):
+        installer = load_installer_common()
+        answers = iter(["telegram", "", "20"])
+        original_ask = installer.ask
+        original_getpass = installer.getpass.getpass
+        try:
+            installer.ask = lambda prompt, default=None: next(answers)
+            installer.getpass.getpass = lambda prompt: "telegram-token"
+            channel, env, enabled = installer.choose_channel()
+        finally:
+            installer.ask = original_ask
+            installer.getpass.getpass = original_getpass
+
+        self.assertEqual(channel, "telegram")
+        self.assertEqual(env["commchannel"], "telegram")
+        self.assertEqual(env["OMEGACLAW_PRIMARY_CHANNEL"], "telegram")
+        self.assertEqual(env["TG_BOT_TOKEN"], "telegram-token")
+        self.assertEqual(enabled, {"channel_telegram"})
+
+    def test_whatsapp_is_not_the_installer_default_primary_channel(self):
+        installer = load_installer_common()
+        self.assertIn("whatsapp", installer.PRIMARY_CHANNEL_CHOICES)
+        self.assertNotEqual(installer.PRIMARY_CHANNEL_CHOICES[0], "whatsapp")
 
     def test_installer_personalizes_agent_name_without_renaming_framework(self):
         installer = load_installer_common()

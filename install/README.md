@@ -52,9 +52,12 @@ Secrets are local runtime configuration. Do not commit `.env`.
 Module defaults come from each `modules/*/module.toml`:
 
 - `default_enabled = true` modules are enabled automatically.
-- `default_enabled = false` modules are offered as opt-in questions.
+- `default_enabled = false` non-channel modules are offered as opt-in questions.
 - The selected primary channel is enabled even when its module is normally
   optional.
+- Other channel modules stay disabled unless enabled later, so WhatsApp is not
+  assumed for users who choose Telegram, web control, mock, IRC, Slack, or
+  Mattermost.
 
 The result is a normal MeTTa module loader file, not hidden Python routing.
 Selected module dependencies are installed during setup where the platform has
@@ -63,7 +66,8 @@ a supported package manager.
 ## Provider And Channel Choices
 
 Provider setup asks for provider, model, and API key where needed. Channel setup
-asks for the selected channel's auth material. The agent-name step rewrites only
-the standalone default name `Omega`; `OmegaClaw` remains the framework name. On
-later runs the generated launcher reads `~/OmegaClaw/.env`; re-run the installer
-only when changing modules, channel, provider, or agent name.
+asks for one primary channel and then only that channel's auth material. The
+agent-name step rewrites only the standalone default name `Omega`; `OmegaClaw`
+remains the framework name. On later runs the generated launcher reads
+`~/OmegaClaw/.env`; re-run the installer only when changing modules, channel,
+provider, or agent name.

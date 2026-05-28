@@ -55,6 +55,16 @@ CHANNEL_MODULES = {
     "web_control": "channel_web_control",
 }
 
+PRIMARY_CHANNEL_CHOICES = [
+    "mock",
+    "web_control",
+    "telegram",
+    "irc",
+    "mattermost",
+    "slack",
+    "whatsapp",
+]
+
 PROVIDERS = {
     "1": ("OpenRouter", "OPENROUTER_API_KEY", "z-ai/glm-5.1"),
     "2": ("OpenAI", "OPENAI_API_KEY", "gpt-4.1"),
@@ -201,11 +211,13 @@ def choose_provider() -> dict[str, str]:
 
 def choose_channel() -> tuple[str, dict[str, str], set[str]]:
     print("\nPrimary channel")
-    choices = ["irc", "telegram", "slack", "mattermost", "mock", "whatsapp", "web_control"]
+    print("Choose the one channel OmegaClaw should treat as its primary control route.")
+    print("Other channel modules stay disabled unless you enable them later.")
+    choices = PRIMARY_CHANNEL_CHOICES
     for index, name in enumerate(choices, 1):
         print(f"  {index}) {name}")
     while True:
-        raw = ask("Choose primary channel", "1")
+        raw = ask("Choose primary channel")
         if raw.isdigit() and 1 <= int(raw) <= len(choices):
             channel = choices[int(raw) - 1]
             break
@@ -214,7 +226,10 @@ def choose_channel() -> tuple[str, dict[str, str], set[str]]:
             break
         print("Choose by number or name.")
 
-    env: dict[str, str] = {"commchannel": channel}
+    env: dict[str, str] = {
+        "commchannel": channel,
+        "OMEGACLAW_PRIMARY_CHANNEL": channel,
+    }
     enabled = {CHANNEL_MODULES[channel]}
     if channel == "irc":
         env["IRC_channel"] = ask("IRC channel", "##omegaclaw")
@@ -245,6 +260,7 @@ def choose_modules(modules: dict[str, ModuleInfo], channel_modules: set[str]) ->
         for name, info in modules.items()
         if info.default_enabled
     } | set(FORCED_MODULES) | set(channel_modules)
+    non_primary_channel_modules = set(CHANNEL_MODULES.values()) - set(channel_modules)
 
     print("\nDefault modules")
     default_names = sorted(name for name in enabled if name in modules)
@@ -255,6 +271,8 @@ def choose_modules(modules: dict[str, ModuleInfo], channel_modules: set[str]) ->
     print("\nOptional modules")
     for name, info in modules.items():
         if name in enabled:
+            continue
+        if name in non_primary_channel_modules:
             continue
         prompt = f"Enable optional module {name} ({info.kind})"
         if yes_no(prompt, False):

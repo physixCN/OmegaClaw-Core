@@ -274,11 +274,15 @@ inside WSL and places a `Start OmegaClaw.cmd` launcher on the Windows desktop.
 
 The installer asks once for:
 
-- optional modules whose `module.toml` has `default_enabled = false`;
 - agent name, used to personalize the local `memory/prompt.txt`;
-- primary channel: IRC, Telegram, Slack, Mattermost, mock, WhatsApp, or web control;
+- primary channel: mock, web control, Telegram, IRC, Mattermost, Slack, or WhatsApp;
+- optional non-channel modules whose `module.toml` has `default_enabled = false`;
 - LLM provider and model: OpenRouter, OpenAI, Anthropic, ASICloud, ASIOne, or Ollama;
 - provider/channel API keys and auth values needed by those choices.
+
+The selected primary channel module is enabled automatically. Other channel
+modules stay disabled unless you deliberately enable them later, so a normal
+install does not assume WhatsApp.
 
 It writes the selected module imports to `modules/loader.metta`, writes the
 chosen agent name into the local prompt, and writes local secrets to `.env`.
