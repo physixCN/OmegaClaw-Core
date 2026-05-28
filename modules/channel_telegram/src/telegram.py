@@ -26,6 +26,11 @@ _auth_secret = ""
 _authenticated_user_id = None
 _authenticated_chat_id = None
 
+_LEADING_TELEGRAM_TARGET_RE = re.compile(
+    r"^\s*(?:TELEGRAM:|telegram:|chat[_-]?id\s*[:=]\s*|-?\d{6,})\S*\s+",
+    re.I,
+)
+
 
 def _set_last(msg):
     global _last_message
@@ -62,6 +67,19 @@ def _parse_auth_candidate(msg):
     if lower.startswith("/auth "):
         return text[6:].strip()
     return text
+
+
+def _guard_configured_chat_body(text, command="send-telegram"):
+    body = str(text or "")
+    match = _LEADING_TELEGRAM_TARGET_RE.match(body)
+    if not match:
+        return ""
+    target = match.group(0).strip()
+    return (
+        f"MESSAGE-NOT-DELIVERED TELEGRAM-TARGET-IN-MESSAGE-BODY command={command} "
+        f"target={target} reason=telegram uses configured control chat; "
+        "send message body only, no TELEGRAM:/chat_id prefix"
+    )
 
 
 def _display_name(user, chat):
@@ -387,15 +405,20 @@ def stop_telegram():
 def send_message(text):
     text = str(text).replace("\\n", "\n").replace("\r", "")
     if not text:
-        return
+        return "TELEGRAM-SEND-FAILED empty-message"
+
+    guard = _guard_configured_chat_body(text, "send-telegram")
+    if guard:
+        return guard
 
     with _state_lock:
         target_chat = _chat_id
 
     if not _connected or not target_chat:
-        return
+        return "TELEGRAM-SEND-NOT-CONNECTED"
 
     max_len = 3900
+    sent = 0
     for i in range(0, len(text), max_len):
         chunk = text[i:i + max_len]
         if not chunk:
@@ -407,9 +430,11 @@ def send_message(text):
                 timeout=15,
                 use_post=True,
             )
+            sent += 1
         except Exception as exc:
             print(f"[TELEGRAM] Send failed: {exc}")
-            return
+            return f"TELEGRAM-SEND-FAILED {exc}"
+    return f"TELEGRAM-SEND-SUCCESS chunks={sent}"
 
 def send_file(path, caption=""):
     with _state_lock:
@@ -417,6 +442,9 @@ def send_file(path, caption=""):
 
     if not _connected or not target_chat:
         return "TELEGRAM-SEND-FILE-NOT-CONNECTED"
+    guard = _guard_configured_chat_body(caption, "send-telegram-file-caption")
+    if guard:
+        return guard
 
     try:
         _api_multipart(
