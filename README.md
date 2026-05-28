@@ -240,9 +240,10 @@ try to enter source control.
 ## Installation
 
 The recommended install path is the interactive installer. It is designed for a
-clean machine: it installs/checks dependencies, asks which modules to enable,
-asks which channel and LLM provider to configure, writes local secrets to
-`~/OmegaClaw/.env`, and creates a launcher for future runs.
+clean machine: it installs/checks dependencies, asks what to name the agent,
+asks which modules to enable, asks which channel and LLM provider to configure,
+writes local secrets to `~/OmegaClaw/.env`, and creates a launcher for future
+runs.
 
 ### macOS Installer
 
@@ -272,14 +273,16 @@ inside WSL and places a `Start OmegaClaw.cmd` launcher on the Windows desktop.
 The installer asks once for:
 
 - module profile: minimal, recommended, full, then per-module overrides;
+- agent name, used to personalize the local `memory/prompt.txt`;
 - primary channel: IRC, Telegram, Slack, Mattermost, mock, WhatsApp, or web control;
 - LLM provider and model: OpenRouter, OpenAI, Anthropic, ASICloud, ASIOne, or Ollama;
 - provider/channel API keys and auth values needed by those choices.
 
-It writes the selected module imports to `modules/loader.metta` and local secrets
-to `.env`. Re-running the generated launcher uses the saved configuration and
-does not ask again. Re-run the installer when you want to change modules,
-provider, or channel.
+It writes the selected module imports to `modules/loader.metta`, writes the
+chosen agent name into the local prompt, and writes local secrets to `.env`.
+Re-running the generated launcher uses the saved configuration and does not ask
+again. Re-run the installer when you want to change modules, provider, channel,
+or agent name.
 
 See `install/README.md` for more detail.
 

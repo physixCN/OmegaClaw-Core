@@ -1,9 +1,10 @@
 # OmegaClaw Installers
 
 These installers are for source installs from the public repository. They create
-a local PeTTa workspace, install Python/runtime dependencies, ask which modules
-to enable, ask for the primary communication channel and LLM provider, then save
-that configuration so later starts do not ask again.
+a local PeTTa workspace, install Python/runtime dependencies, ask what to name
+the agent, ask which modules to enable, ask for the primary communication
+channel and LLM provider, then save that configuration so later starts do not
+ask again.
 
 ## macOS
 
@@ -43,6 +44,7 @@ The installer creates or updates:
 - `~/OmegaClaw/repos/petta_lib_chromadb`.
 - `~/OmegaClaw/.venv` for Python packages.
 - `~/OmegaClaw/.env` for local provider/channel secrets.
+- `~/OmegaClaw/repos/OmegaClaw-Core/memory/prompt.txt` with the chosen agent name.
 - `~/OmegaClaw/repos/OmegaClaw-Core/modules/loader.metta` for selected modules.
 - `~/OmegaClaw/start-omegaclaw.sh` and a platform launcher.
 
@@ -62,6 +64,7 @@ The result is a normal MeTTa module loader file, not hidden Python routing.
 ## Provider And Channel Choices
 
 Provider setup asks for provider, model, and API key where needed. Channel setup
-asks for the selected channel's auth material. On later runs the generated
-launcher reads `~/OmegaClaw/.env`; re-run the installer only when changing
-modules, channel, or provider.
+asks for the selected channel's auth material. The agent-name step rewrites only
+the standalone default name `Omega`; `OmegaClaw` remains the framework name. On
+later runs the generated launcher reads `~/OmegaClaw/.env`; re-run the installer
+only when changing modules, channel, provider, or agent name.

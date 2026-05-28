@@ -61,8 +61,30 @@ class InstallerTests(unittest.TestCase):
         for text in [readme, install_readme]:
             self.assertIn("modules/loader.metta", text)
             self.assertIn(".env", text)
+            self.assertIn("agent name", text.lower())
             self.assertIn("provider", text.lower())
             self.assertIn("channel", text.lower())
+
+    def test_installer_personalizes_agent_name_without_renaming_framework(self):
+        installer = load_installer_common()
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_core = pathlib.Path(tmp)
+            (fake_core / "memory").mkdir()
+            (fake_core / "memory" / "prompt.txt").write_text(
+                "You are Omega, an OmegaClaw agent. Omega remembers.\n",
+                encoding="utf-8",
+            )
+            installer.write_agent_prompt(fake_core, "Ada")
+            text = (fake_core / "memory" / "prompt.txt").read_text(encoding="utf-8")
+            self.assertIn("You are Ada", text)
+            self.assertIn("OmegaClaw agent", text)
+            self.assertIn("Ada remembers", text)
+            self.assertNotIn("AdaClaw", text)
+
+    def test_public_prompt_has_no_private_operator_names(self):
+        prompt = (ROOT / "memory" / "prompt.txt").read_text(encoding="utf-8")
+        for private_name in ["Jon", "Lydia", "Anna", "Suzie", "Dad"]:
+            self.assertNotIn(private_name, prompt)
 
 
 if __name__ == "__main__":

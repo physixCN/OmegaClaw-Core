@@ -123,6 +123,16 @@ def yes_no(prompt: str, default: bool = False) -> bool:
         print("Please answer yes or no.")
 
 
+def ask_agent_name() -> str:
+    print("\nAgent identity")
+    print("This names the running agent in the local prompt. The framework remains OmegaClaw.")
+    while True:
+        name = ask("Agent name", "Omega").strip()
+        if re.fullmatch(r"[A-Za-z][A-Za-z0-9 _'-]{0,39}", name):
+            return " ".join(name.split())
+        print("Use 1-40 characters: letters first, then letters/numbers/spaces/_/'/-.")
+
+
 def require_tool(name: str) -> None:
     if shutil.which(name) is None:
         raise SystemExit(f"Missing required command: {name}")
@@ -138,6 +148,13 @@ def clone_or_update(url: str, path: pathlib.Path) -> None:
         path.rmdir()
     path.parent.mkdir(parents=True, exist_ok=True)
     run(["git", "clone", url, str(path)])
+
+
+def restore_generated_repo_files(core: pathlib.Path) -> None:
+    if not (core / ".git").exists():
+        return
+    for rel in ["memory/prompt.txt", "modules/loader.metta"]:
+        run(["git", "restore", rel], cwd=core, check=False)
 
 
 def parse_bool(text: str, key: str, default: bool) -> bool:
@@ -318,6 +335,24 @@ def write_root_run(workspace: pathlib.Path) -> None:
     )
 
 
+def write_agent_prompt(core: pathlib.Path, agent_name: str) -> pathlib.Path:
+    prompt_path = core / "memory" / "prompt.txt"
+    result = subprocess.run(
+        ["git", "show", "HEAD:memory/prompt.txt"],
+        cwd=str(core),
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+    text = result.stdout if result.returncode == 0 else prompt_path.read_text(encoding="utf-8")
+    # Replace the default agent name only as a standalone word. OmegaClaw remains
+    # the framework name and should not be rewritten.
+    text = re.sub(r"\bOmega\b", agent_name, text)
+    prompt_path.write_text(text, encoding="utf-8")
+    return prompt_path
+
+
 def write_start_scripts(workspace: pathlib.Path) -> None:
     start_sh = workspace / "start-omegaclaw.sh"
     start_sh.write_text(
@@ -394,6 +429,7 @@ def prepare_workspace(workspace: pathlib.Path, repo_url: str) -> pathlib.Path:
     require_tool("git")
     clone_or_update(PETTA_URL, workspace)
     repos = workspace / "repos"
+    restore_generated_repo_files(repos / "OmegaClaw-Core")
     clone_or_update(repo_url, repos / "OmegaClaw-Core")
     clone_or_update(CHROMA_URL, repos / "petta_lib_chromadb")
     write_root_run(workspace)
@@ -415,23 +451,26 @@ def main() -> int:
     core = prepare_workspace(workspace, args.repo_url)
     modules = discover_modules(core)
 
+    agent_name = ask_agent_name()
     provider_env = choose_provider()
     channel, channel_env, channel_modules = choose_channel()
     enabled = choose_modules(modules, channel_modules)
     enabled |= FORCED_MODULES
     enabled.add(CHANNEL_MODULES[channel])
 
-    env_values = {**provider_env, **channel_env}
+    env_values = {**provider_env, **channel_env, "OMEGACLAW_AGENT_NAME": agent_name}
     pip_install(workspace, enabled)
     install_fabricpc(workspace, enabled, env_values)
     install_node_deps(core, enabled)
     write_loader(core, modules, enabled)
+    prompt_path = write_agent_prompt(core, agent_name)
     env_path = write_env(workspace, env_values)
     write_start_scripts(workspace)
 
     print("\nOmegaClaw install complete.")
     print(f"Config: {env_path}")
     print(f"Modules: {core / 'modules' / 'loader.metta'}")
+    print(f"Prompt: {prompt_path}")
     print(f"Start script: {workspace / 'start-omegaclaw.sh'}")
     print(f"Auth secret: {env_values['OMEGACLAW_AUTH_SECRET']}")
     print("Run again later with the generated Start OmegaClaw launcher; it will reuse .env.")
