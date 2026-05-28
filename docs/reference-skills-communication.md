@@ -1,6 +1,6 @@
 # Reference — Communication Skills
 
-Defined by the enabled `modules/channel_*` packages and the channel router module.
+Defined in `src/channels.metta`. Dispatch depends on the `commchannel` configuration parameter (see [reference-configuration.md](./reference-configuration.md)).
 
 ---
 
@@ -68,7 +68,7 @@ The agent does not normally call `receive` itself; the loop wraps it:
 ```
 
 ### Purpose
-Perform a live web search through `modules/web_search`. Legacy `(search "query")` delegates to this command.
+Perform a live web search through the `channels/websearch.py` adapter. Legacy `(search "query")` delegates to this command.
 
 ### Parameters
 - `query` — the search string.

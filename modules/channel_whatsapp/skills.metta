@@ -7,11 +7,13 @@
        (progn (change-state! &lastsend $msg)
               (let $safemsg (string-replace $msg "
 " "\n")
-                   (py-call (router.send_whatsapp_primary $safemsg)))) _))
+                   (py-call (router.send_family $safemsg)))) _))
 
 (= (send-whatsapp-base64 $payload)
-   (py-call (router.send_whatsapp_primary_base64 $payload)))
+   (py-call (router.send_family_base64 $payload)))
 
+(= (send-family $msg)
+   (send-whatsapp $msg))
 
 (= (send-primary-operator $msg)
    (let $safemsg (string-replace $msg "
@@ -24,19 +26,21 @@
 (= (send-whatsapp-mention $phone $msg)
    (let $safemsg (string-replace $msg "
 " "\n")
-        (py-call (router.send_whatsapp_mention $phone $safemsg))))
+        (py-call (router.send_family_mention $phone $safemsg))))
 
 (= (send-whatsapp-mention-to $jid $phone $msg)
    (let $safemsg (string-replace $msg "
 " "\n")
         (py-call (router.send_chat_mention $jid $phone $safemsg))))
 
+(= (send-family-mention $phone $msg)
+   (send-whatsapp-mention $phone $msg))
 
 (= (send-whatsapp-file $path)
-   (py-call (router.send_whatsapp_primary_file $path)))
+   (py-call (router.send_family_file $path)))
 
 (= (send-whatsapp-file-caption $path $caption)
-   (py-call (router.send_whatsapp_primary_file $path $caption)))
+   (py-call (router.send_family_file $path $caption)))
 
 (= (send-whatsapp-file-to $jid $path)
    (py-call (router.send_chat_file $jid $path)))
@@ -50,6 +54,11 @@
 (= (reply-whatsapp-file-caption-to $jid $path $caption)
    (py-call (router.reply_chat_file $jid $path $caption)))
 
+(= (send-family-file $path)
+   (send-whatsapp-file $path))
+
+(= (send-family-file-caption $path $caption)
+   (send-whatsapp-file-caption $path $caption))
 
 (= (whatsapp-chats)
    (py-call (whatsapp.list_chats)))

@@ -14,6 +14,7 @@
 (PrimaryOperatorRoute whatsapp runtime-configured)
 (Provides omegaclaw.channel.whatsapp (Channel whatsapp))
 (Provides omegaclaw.channel.whatsapp (Skill send-whatsapp))
+(Provides omegaclaw.channel.whatsapp (Skill send-family))
 (Provides omegaclaw.channel.whatsapp (Skill send-primary-operator))
 (Provides omegaclaw.channel.whatsapp (Skill send-whatsapp-base64))
 (Provides omegaclaw.channel.whatsapp (Skill send-primary-operator-base64))

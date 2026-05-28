@@ -1,44 +1,79 @@
-# Tutorial 04 - Adding A Channel
+# Tutorial 04 — Adding a Channel
 
-Goal: add a communication surface as a proper OmegaClaw module.
+**Goal:** plug OmegaClaw into a new communication surface (Slack, Discord, a REST endpoint, a terminal) by writing a channel adapter.
 
-## 1. Create The Module Directory
+## Prerequisites
 
-Use this shape:
+- A local clone.
+- Familiarity with the existing adapters in `channels/irc.py`, `channels/telegram.py`, and `channels/slack.py`.
 
-```text
-modules/channel_example/
-  entry.metta
-  module.toml
-  signatures.metta
-  catalog.metta
-  affordance.metta
-  skills.metta
-  src/example.py
-```
+## The channel contract
 
-## 2. Declare The Symbolic Contract
+A channel adapter is a Python module that exposes:
 
-`entry.metta` should declare the module, channel, provided skills, risks/effects, runtime config, and trace events. Example atoms:
+- `start_<name>(...)` — called once from `initChannels` in `src/channels.metta`. Opens any background threads/sockets needed.
+- `getLastMessage()` — returns the most recent unread inbound message as a string, or an empty string if none.
+- `send_message(str)` — posts a string outbound.
+
+The MeTTa side in `src/channels.metta` dispatches on the `commchannel` configuration:
 
 ```metta
-(Module omegaclaw.channel.example)
-(ModuleKind omegaclaw.channel.example channel)
-(Channel example)
-(Provides omegaclaw.channel.example (Channel example))
-(Provides omegaclaw.channel.example (Skill send-example))
-(TraceWrites omegaclaw.channel.example ExampleMessageSent)
-(TraceWrites omegaclaw.channel.example ExampleMessageReceived)
+(= (receive)
+   (if (== (commchannel) irc)
+       (py-call (irc.getLastMessage))
+       (if (== (commchannel) telegram)
+           (py-call (telegram.getLastMessage))
+           (if (== (commchannel) slack)
+               (py-call (slack.getLastMessage))
+               (py-call (mattermost.getLastMessage))))))
 ```
 
-## 3. Keep Python As Transport
+Your adapter adds another branch to that dispatch.
 
-The Python file may poll, send, parse transport payloads, and append traces. It should not decide goals, infer meaning, choose personality, or hide routing policy.
+## 1. Write the adapter
 
-## 4. Add Skills And Cards
+Create `channels/myadapter.py` exposing `start_myadapter`, `getLastMessage`, and `send_message`. Model the file on `channels/irc.py`:
 
-Expose command syntax in `signatures.metta`, implementation in `skills.metta`, and help/trigger lines in `catalog.metta` and `affordance.metta`.
+```python
+_inbox = []
 
-## 5. Enable Deliberately
+def start_myadapter(...):
+    # open a socket, spawn a listener thread, etc.
+    ...
 
-Set `default_enabled = true` only when the channel is part of the out-of-box surface. Otherwise leave it optional and import it only in a deployment-specific loader.
+def getLastMessage():
+    if _inbox:
+        return _inbox.pop(0)
+    return ""
+
+def send_message(msg):
+    # publish msg to your surface
+    ...
+```
+
+## 2. Wire it into MeTTa
+
+In `src/channels.metta`:
+
+- Add a `(= (MY_*) (empty))` entry for each runtime parameter your adapter needs.
+- Extend `initChannels` with a new branch that calls `configure` and then `(py-call (myadapter.start_myadapter ...))`.
+- Extend `(receive)` and `(send $msg)` with corresponding branches.
+
+## 3. Import the module
+
+Make sure the file can be found. The existing adapters are imported by virtue of being in `channels/` and being called via `py-call`. If you need explicit imports, add them alongside the others.
+
+## 4. Select the channel
+
+Set `commchannel` to your new name — either by editing `initChannels` or through an `argk` override on startup.
+
+## Verification
+
+- On startup, logs show your adapter's initialization line.
+- Messages sent through your surface land in `getLastMessage()` and trigger a `HUMAN-LAST-MSG` in the loop.
+- `(send ...)` calls reach the surface.
+
+## Next steps
+
+- [reference-channels.md](./reference-channels.md) — the full adapter reference.
+- [reference-internals-extension-points.md](./reference-internals-extension-points.md) — other extension seams.
