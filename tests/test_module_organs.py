@@ -129,13 +129,28 @@ class OmegaClawInstalledModuleTests(unittest.TestCase):
         self.assertIn("canonical-symbolic-graph", result.stdout)
         self.assertIn("ASSUME-SMOKE-PASS", result.stdout)
 
-    def test_real_scratch_space_module_smoke_is_runtime_skill_classified(self):
+    def test_real_publishing_module_loads_through_metta_entrypoint(self):
+        result = run_module_smoke("tests/module_publishing_smoke.metta")
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("isolated\ttests/module_publishing_smoke.metta", result.stdout)
+        if not HAS_METTA_RUNNER:
+            return
+        self.assertIn("omegaclaw.skill.publishing", result.stdout)
+        self.assertIn("(Skill write-web-page)", result.stdout)
+        self.assertIn("demo.html", result.stdout)
+
+    def test_real_scratch_space_module_loads_through_metta_entrypoint(self):
         result = run_module_smoke("tests/module_scratch_space_smoke.metta")
 
         self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertIn("tests/module_scratch_space_smoke.metta", result.stdout)
-        self.assertIn("requires-runtime-skill-eval", result.stdout)
-        self.assertIn("smoke-summary", result.stdout)
+        self.assertIn("isolated\ttests/module_scratch_space_smoke.metta", result.stdout)
+        if not HAS_METTA_RUNNER:
+            return
+        self.assertIn("omegaclaw.memory.scratch-space", result.stdout)
+        self.assertIn("(Skill scratch-add)", result.stdout)
+        self.assertIn("SCRATCH-SMOKE-PASS", result.stdout)
+        self.assertIn("SCRATCH-PROMOTION-PASS", result.stdout)
 
     def test_real_module_manifests_match_entrypoint_atoms(self):
         for module in real_modules():

@@ -5,8 +5,8 @@
 !(register-space-alias scratch "scratch")
 !(register-space-alias scratch-ttl "scratch-ttl")
 !(register-space-limit "scratch" &maxScratchAtomsChars)
-!(register-space-persistence "scratch" (library OmegaClaw-Core ./memory/scratch.metta) runtime-state)
-!(register-space-persistence "scratch-ttl" (library OmegaClaw-Core ./memory/scratch-ttl.metta) runtime-state)
+!(register-space-persistence "scratch" ./repos/OmegaClaw-Core/memory/scratch.metta runtime-state)
+!(register-space-persistence "scratch-ttl" ./repos/OmegaClaw-Core/memory/scratch-ttl.metta runtime-state)
 
 (= (initScratchOrgan)
    (progn (register-space "scratch" &scratch memory)
@@ -14,8 +14,8 @@
           (register-space-alias scratch "scratch")
           (register-space-alias scratch-ttl "scratch-ttl")
           (register-space-limit "scratch" &maxScratchAtomsChars)
-          (register-space-persistence "scratch" (library OmegaClaw-Core ./memory/scratch.metta) runtime-state)
-          (register-space-persistence "scratch-ttl" (library OmegaClaw-Core ./memory/scratch-ttl.metta) runtime-state)
+          (register-space-persistence "scratch" ./repos/OmegaClaw-Core/memory/scratch.metta runtime-state)
+          (register-space-persistence "scratch-ttl" ./repos/OmegaClaw-Core/memory/scratch-ttl.metta runtime-state)
           (ScratchOrganReady)))
 
 (= (scratch-default-ttl)

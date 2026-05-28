@@ -1,11 +1,11 @@
-id = "openclaw.surface.operator-console"
+id = "omegaclaw.os.omega-surface"
 kind = "operating-surface"
 version = "0.1.0"
 entrypoint = "entry.metta"
 optional = true
 
 provides = [
-  "surface:operator-console",
+  "surface:omega-os",
   "skill:open-window",
   "skill:show-artifact",
   "skill:move-window",
@@ -19,7 +19,7 @@ requires = [
 
 [trace]
 writes = [
-  "SurfaceEvent",
-  "OperatorInteraction",
+  "UIEvent",
+  "UserInteraction",
   "SurfaceStateChanged",
 ]

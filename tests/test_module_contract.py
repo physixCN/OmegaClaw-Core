@@ -15,7 +15,7 @@ OMEGACLAW_ROOT = ROOT.parents[1]
 HAS_METTA_RUNNER = (OMEGACLAW_ROOT / "run.sh").exists()
 FIXTURE = ROOT / "tests" / "fixtures" / "modules" / "whatsapp_channel"
 ECHO_FIXTURE = ROOT / "tests" / "fixtures" / "modules" / "echo_channel"
-SURFACE_FIXTURE = ROOT / "tests" / "fixtures" / "modules" / "operator_console_surface"
+OS_FIXTURE = ROOT / "tests" / "fixtures" / "modules" / "omega_os_surface"
 GAME_FIXTURE = ROOT / "tests" / "fixtures" / "modules" / "metta_maze_game"
 MODULE_FIXTURES = ROOT / "tests" / "fixtures" / "modules"
 
@@ -138,12 +138,12 @@ class OmegaClawModuleContractTests(unittest.TestCase):
         self.assertIn("ChannelMessageSent", result.stdout)
 
     def test_large_modules_can_be_worlds_not_only_skills(self):
-        surface_entry = (SURFACE_FIXTURE / "entry.metta").read_text(encoding="utf-8")
+        os_entry = (OS_FIXTURE / "entry.metta").read_text(encoding="utf-8")
         game_entry = (GAME_FIXTURE / "entry.metta").read_text(encoding="utf-8")
 
-        self.assertIn("(ModuleKind openclaw.surface.operator-console operating-surface)", surface_entry)
-        self.assertIn("(Provides openclaw.surface.operator-console (Surface operator-console))", surface_entry)
-        self.assertIn("(SurfaceCapability operator-console runtime-state-view)", surface_entry)
+        self.assertIn("(ModuleKind omegaclaw.os.omega-surface operating-surface)", os_entry)
+        self.assertIn("(Provides omegaclaw.os.omega-surface (Surface omega-os))", os_entry)
+        self.assertIn("(SurfaceCapability omega-os live-mind-map)", os_entry)
         self.assertIn("(ModuleKind openclaw.game.metta-maze simulation)", game_entry)
         self.assertIn("(Provides openclaw.game.metta-maze (Simulation metta-maze))", game_entry)
         self.assertIn("(SimulationCapability metta-maze action-feedback)", game_entry)
@@ -156,11 +156,11 @@ class OmegaClawModuleContractTests(unittest.TestCase):
             return
         self.assertIn("operating-surface", result.stdout)
         self.assertIn("simulation", result.stdout)
-        self.assertIn("SurfaceProvider openclaw.surface.operator-console operator-console", result.stdout)
+        self.assertIn("SurfaceProvider omegaclaw.os.omega-surface omega-os", result.stdout)
         self.assertIn("SimulationProvider openclaw.game.metta-maze metta-maze", result.stdout)
         self.assertIn("open-window", result.stdout)
         self.assertIn("act-in-game", result.stdout)
-        self.assertIn("SurfaceEvent", result.stdout)
+        self.assertIn("UIEvent", result.stdout)
         self.assertIn("GameStateObserved", result.stdout)
 
     def test_module_manifests_match_entrypoint_atoms(self):
