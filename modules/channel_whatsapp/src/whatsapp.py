@@ -55,6 +55,15 @@ def _message_jid(jid):
     return str(jid or "").strip().split("::", 1)[0]
 
 
+def _jid_digits(jid):
+    return re.sub(r"[^0-9]+", "", _message_jid(jid).split("@", 1)[0])
+
+
+def _jid_domain(jid):
+    value = _message_jid(jid)
+    return value.split("@", 1)[1] if "@" in value else ""
+
+
 _LEADING_JID_RE = re.compile(r"^\s*([0-9A-Za-z._:-]+@(?:lid|g\.us|s\.whatsapp\.net)(?:::[0-9A-Za-z._:-]+)?)\s+")
 
 
@@ -89,10 +98,29 @@ def _known_reply_jids():
     return known
 
 
+def _current_primary_jid():
+    if _primary_jid:
+        return _message_jid(_primary_jid)
+    try:
+        payload = _json_request("GET", "/inbox", timeout=5)
+        if payload.get("primaryJid"):
+            return _message_jid(payload.get("primaryJid"))
+    except Exception:
+        pass
+    return ""
+
+
 def _validate_reply_jid(jid):
     safe_jid = _message_jid(jid)
     if not safe_jid:
         return "", "WHATSAPP-UNKNOWN-CHAT empty-jid"
+    current_primary = _current_primary_jid()
+    primary_digits = _jid_digits(current_primary)
+    if primary_digits and _jid_digits(safe_jid) == primary_digits and _jid_domain(safe_jid) != _jid_domain(current_primary):
+        return "", (
+            f"WHATSAPP-STALE-PRIMARY-ALIAS jid={safe_jid} current_primary={current_primary} "
+            "use send for the current primary route or set-whatsapp-primary after inspecting the live inbox"
+        )
     known = _known_reply_jids()
     if safe_jid in known:
         return safe_jid, ""
@@ -374,8 +402,11 @@ def set_primary(jid):
 
 
 def send_to_chat(jid, text):
+    safe_jid, error = _validate_reply_jid(jid)
+    if error:
+        return f"WHATSAPP-SEND-TO-CHAT-FAILED {error}"
     try:
-        payload = _json_request("POST", "/send", {"text": str(text or ""), "to": str(jid or "")}, timeout=15)
+        payload = _json_request("POST", "/send", {"text": str(text or ""), "to": safe_jid}, timeout=15)
         if payload.get("ok"):
             return f"WHATSAPP-SEND-TO-CHAT-SUCCESS handled={payload.get('handled')}"
         return f"WHATSAPP-SEND-TO-CHAT-FAILED {payload.get('error')}"

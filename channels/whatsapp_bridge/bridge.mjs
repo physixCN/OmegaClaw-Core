@@ -91,11 +91,28 @@ const STATE_RANK = { unread: 0, delivered: 1, seen: 2, read: 3 }
 function normalizeJid(value) {
   const raw = String(value || '').trim()
   if (!raw) return ''
+  if (/^[A-Za-z_]+:/.test(raw)) return ''
   const messageKeyMatch = raw.match(/^(.+?@(lid|g\.us|s\.whatsapp\.net|broadcast|newsletter))(?:[:].*)?$/)
   if (messageKeyMatch) return messageKeyMatch[1]
   if (raw.includes('@')) return raw
   const digits = raw.replace(/[^0-9]/g, '')
   return digits ? `${digits}@s.whatsapp.net` : ''
+}
+
+function jidDigits(jid) {
+  return String(jid || '').split('@', 1)[0].replace(/[^0-9]/g, '')
+}
+
+function jidDomain(jid) {
+  const parts = String(jid || '').split('@')
+  return parts.length > 1 ? parts.slice(1).join('@') : ''
+}
+
+function stalePrimaryAliasError(jid) {
+  const primaryDigits = jidDigits(primaryJid)
+  if (!primaryDigits || jidDigits(jid) !== primaryDigits) return ''
+  if (jidDomain(jid) === jidDomain(primaryJid)) return ''
+  return `WHATSAPP-STALE-PRIMARY-ALIAS jid=${jid} current_primary=${primaryJid} use primary route or inspect live inbox before changing primary`
 }
 
 function isPrimaryJid(jid) {
@@ -815,6 +832,8 @@ async function handle(req, res) {
       const to = normalizeJid(body.to || targetJid || primaryJid)
       if (!connected || !sock) return sendJson(res, 503, { ok: false, error: 'not connected' })
       if (!to) return sendJson(res, 400, { ok: false, error: 'missing target jid' })
+      const staleAlias = stalePrimaryAliasError(to)
+      if (staleAlias) return sendJson(res, 400, { ok: false, error: staleAlias })
       const text = `${outboundPrefix}${String(body.text || '')}`
       const result = await sock.sendMessage(to, { text })
       rememberBridgeSent(result, to, { text })
@@ -826,6 +845,8 @@ async function handle(req, res) {
       const mention = mentionJid(body.phone)
       if (!connected || !sock) return sendJson(res, 503, { ok: false, error: 'not connected' })
       if (!to) return sendJson(res, 400, { ok: false, error: 'missing target jid' })
+      const staleAlias = stalePrimaryAliasError(to)
+      if (staleAlias) return sendJson(res, 400, { ok: false, error: staleAlias })
       if (!mention) return sendJson(res, 400, { ok: false, error: 'missing mention phone' })
       const text = `${outboundPrefix}${withMentionText(body.text, body.phone)}`
       const result = await sock.sendMessage(to, { text, mentions: [mention] })
@@ -839,6 +860,8 @@ async function handle(req, res) {
       const caption = body.caption ? `${outboundPrefix}${String(body.caption || '')}` : outboundPrefix.trim()
       if (!connected || !sock) return sendJson(res, 503, { ok: false, error: 'not connected' })
       if (!to) return sendJson(res, 400, { ok: false, error: 'missing target jid' })
+      const staleAlias = stalePrimaryAliasError(to)
+      if (staleAlias) return sendJson(res, 400, { ok: false, error: staleAlias })
       if (!filePath || !fs.existsSync(filePath)) return sendJson(res, 400, { ok: false, error: 'file not found' })
       const mimetype = body.mimetype || 'application/octet-stream'
       const base = { mimetype, fileName: path.basename(filePath), caption }
