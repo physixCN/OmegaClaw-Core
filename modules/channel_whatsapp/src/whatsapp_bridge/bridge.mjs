@@ -228,8 +228,8 @@ async function saveMedia(msg, kind) {
   return target
 }
 
-function pushNotice(notice, delivery = null) {
-  queue.push({ notice, delivery })
+function pushNotice(notice, delivery = null, event = null) {
+  queue.push({ notice, delivery, event })
   if (queue.length > 200) queue = queue.slice(-200)
 }
 
@@ -387,6 +387,20 @@ function noticeMeta(item) {
   return `${id}${at}`
 }
 
+function channelEvent(item, route, event = 'message', extra = {}) {
+  return {
+    event,
+    channel: 'whatsapp',
+    route,
+    conversation_id: item.jid || '',
+    message_id: item.messageId || '',
+    sender: item.from || '',
+    chat: item.chatName || '',
+    text: item.text || item.caption || '',
+    ...extra,
+  }
+}
+
 function unreadReminderNotices() {
   const notices = []
   const summaries = inboxSummary()
@@ -404,10 +418,14 @@ function unreadReminderNotices() {
       notices.push({
         notice: `WHATSAPP_UNREAD_PRIMARY${noticeMeta(latest)}: ${latest.from}: ${latest.text || latest.kind || 'message'} jid=${summary.jid} pending=${pending.length} read_with=read-whatsapp-chat "${summary.jid}"`,
         delivery: { jid: summary.jid, ids: pending.map(item => item.messageId).filter(Boolean), state: 'read' },
+        event: channelEvent(latest, 'primary-operator', 'message', { unread: pending.length, reply_affordance: 'send message', explicit_reply_affordance: 'reply-whatsapp-to-message conversation_id message_id message' }),
       })
     } else {
       const where = summary.isGroup ? ` in ${summary.name}` : ''
-      notices.push({ notice: `WHATSAPP_UNREAD_NOTICE${noticeMeta(latest)}: pending ${latest.kind || 'message'} from ${latest.from}${where} jid=${summary.jid} pending=${pending.length}` })
+      notices.push({
+        notice: `WHATSAPP_UNREAD_NOTICE${noticeMeta(latest)}: pending ${latest.kind || 'message'} from ${latest.from}${where} jid=${summary.jid} pending=${pending.length}`,
+        event: channelEvent(latest, 'explicit-chat', 'message-notice', { unread: pending.length, reply_affordance: 'send-whatsapp-to conversation_id message', explicit_reply_affordance: 'reply-whatsapp-to-message conversation_id message_id message' }),
+      })
     }
   }
   return notices.slice(0, 5)
@@ -644,14 +662,36 @@ async function startSocket() {
           const remembered = rememberInbox(jid, item)
           if (!remembered.fresh || msg.key.fromMe || oldReplay) continue
           const unread = (inboxByJid.get(jid) || []).filter(entry => entry.state === 'unread').length
-          if (!primaryJid || isPrimaryJid(jid)) pushNotice(`WHATSAPP_PRIMARY${noticeMeta(item)}: ${prefix} sent ${kind.replace('Message', '')} saved at ${saved}${caption}`, { jid, ids: item.messageId ? [item.messageId] : [], state: 'read' })
-          else pushNotice(`WHATSAPP_INBOX_NOTICE${noticeMeta(item)}: new ${kind.replace('Message', '')} from ${from}${where} jid=${jid} unread=${unread} saved at ${saved}${caption}`)
+          if (!primaryJid || isPrimaryJid(jid)) {
+            pushNotice(
+              `WHATSAPP_PRIMARY${noticeMeta(item)}: ${prefix} sent ${kind.replace('Message', '')} saved at ${saved}${caption}`,
+              { jid, ids: item.messageId ? [item.messageId] : [], state: 'read' },
+              channelEvent(item, 'primary-operator', 'media', { text: caption || '', reply_affordance: 'send message', explicit_reply_affordance: 'reply-whatsapp-to-message conversation_id message_id message' })
+            )
+          } else {
+            pushNotice(
+              `WHATSAPP_INBOX_NOTICE${noticeMeta(item)}: new ${kind.replace('Message', '')} from ${from}${where} jid=${jid} unread=${unread} saved at ${saved}${caption}`,
+              null,
+              channelEvent(item, 'explicit-chat', 'media-notice', { unread, text: '<inspect-chat-for-current-text>', reply_affordance: 'send-whatsapp-to conversation_id message', explicit_reply_affordance: 'reply-whatsapp-to-message conversation_id message_id message' })
+            )
+          }
         } else if (text) {
           const remembered = rememberInbox(jid, item)
           if (!remembered.fresh || msg.key.fromMe || oldReplay) continue
           const unread = (inboxByJid.get(jid) || []).filter(entry => entry.state === 'unread').length
-          if (!primaryJid || isPrimaryJid(jid)) pushNotice(`WHATSAPP_PRIMARY${noticeMeta(item)}: ${prefix}: ${text}`, { jid, ids: item.messageId ? [item.messageId] : [], state: 'read' })
-          else pushNotice(`WHATSAPP_INBOX_NOTICE${noticeMeta(item)}: new message from ${from}${where} jid=${jid} unread=${unread}`)
+          if (!primaryJid || isPrimaryJid(jid)) {
+            pushNotice(
+              `WHATSAPP_PRIMARY${noticeMeta(item)}: ${prefix}: ${text}`,
+              { jid, ids: item.messageId ? [item.messageId] : [], state: 'read' },
+              channelEvent(item, 'primary-operator', 'message', { reply_affordance: 'send message', explicit_reply_affordance: 'reply-whatsapp-to-message conversation_id message_id message' })
+            )
+          } else {
+            pushNotice(
+              `WHATSAPP_INBOX_NOTICE${noticeMeta(item)}: new message from ${from}${where} jid=${jid} unread=${unread}`,
+              null,
+              channelEvent(item, 'explicit-chat', 'message-notice', { unread, text: '<inspect-chat-for-current-text>', reply_affordance: 'send-whatsapp-to conversation_id message', explicit_reply_affordance: 'reply-whatsapp-to-message conversation_id message_id message' })
+            )
+          }
         }
       } catch (err) {
         console.log('[WHATSAPP] Message handling failed:', err?.message || err)
@@ -677,7 +717,11 @@ async function startSocket() {
         }
         applyMessageEvent(reactionEvent)
         if (item && !item.fromMe && isPrimaryJid(item.jid)) {
-          pushNotice(`WHATSAPP_PRIMARY_REACTION id=${messageId} emoji=${reactionEvent.emoji || 'removed'} jid=${item.jid}`)
+          pushNotice(
+            `WHATSAPP_PRIMARY_REACTION id=${messageId} emoji=${reactionEvent.emoji || 'removed'} jid=${item.jid}`,
+            null,
+            channelEvent(item, 'primary-operator', 'reaction', { emoji: reactionEvent.emoji || 'removed', reply_affordance: 'send message' })
+          )
         }
       } catch (err) {
         console.log('[WHATSAPP] Reaction handling failed:', err?.message || err)
@@ -706,7 +750,11 @@ async function startSocket() {
         }
         applyMessageEvent(editEvent)
         if (item && !item.fromMe && isPrimaryJid(item.jid)) {
-          pushNotice(`WHATSAPP_PRIMARY_EDIT id=${messageId} jid=${item.jid}: ${text}`)
+          pushNotice(
+            `WHATSAPP_PRIMARY_EDIT id=${messageId} jid=${item.jid}: ${text}`,
+            null,
+            channelEvent(item, 'primary-operator', 'edit', { text, reply_affordance: 'send message' })
+          )
         }
       } catch (err) {
         console.log('[WHATSAPP] Edit handling failed:', err?.message || err)
@@ -730,7 +778,11 @@ async function startSocket() {
         }
         applyMessageEvent(deleteEvent)
         if (item && !item.fromMe && isPrimaryJid(item.jid)) {
-          pushNotice(`WHATSAPP_PRIMARY_DELETE id=${messageId} jid=${item.jid}`)
+          pushNotice(
+            `WHATSAPP_PRIMARY_DELETE id=${messageId} jid=${item.jid}`,
+            null,
+            channelEvent(item, 'primary-operator', 'delete', { text: '', reply_affordance: 'send message' })
+          )
         }
       } catch (err) {
         console.log('[WHATSAPP] Delete handling failed:', err?.message || err)
@@ -771,7 +823,10 @@ async function handle(req, res) {
         await applyDeliveryState(entry.delivery)
         return entry.notice
       }))
-      return sendJson(res, 200, { ok: true, messages })
+      const events = entries
+        .filter(entry => entry && typeof entry === 'object' && entry.event)
+        .map(entry => entry.event)
+      return sendJson(res, 200, { ok: true, messages, events })
     }
     if (req.method === 'GET' && url.pathname === '/chats') {
       const list = await refreshChats()

@@ -15,6 +15,7 @@ _target_jid = ""
 _primary_jid = ""
 _prefix = ""
 _bridge_dir = pathlib.Path(__file__).resolve().parent / "whatsapp_bridge"
+_last_events = []
 
 
 def _url(path):
@@ -152,11 +153,18 @@ def stop_whatsapp():
 
 
 def getLastMessage():
+    global _last_events
     try:
         payload = _json_request("GET", "/messages", timeout=3)
+        _last_events = payload.get("events") or []
         return " | ".join(payload.get("messages") or [])
     except Exception:
+        _last_events = []
         return ""
+
+
+def getLastEvents():
+    return list(_last_events)
 
 
 def send_message(text):
