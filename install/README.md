@@ -28,7 +28,7 @@ install/windows/Install OmegaClaw.cmd
 ```
 
 OmegaClaw runs on Windows through Ubuntu on WSL. The installer enables/uses WSL,
-installs Ubuntu packages, then creates the Linux workspace at `~/OmegaClaw`
+installs Ubuntu packages, then lets the shared installer add selected module dependencies and creates the Linux workspace at `~/OmegaClaw`
 inside WSL. If Windows asks for a reboot or asks you to create a Linux user,
 finish that step and run the installer again.
 

@@ -260,6 +260,8 @@ before creating `~/OmegaClaw`.
 
 ### Windows Installer
 
+The Windows wrapper installs only the base WSL packages up front. Optional module system dependencies such as VM or firewall tooling are installed later by the shared installer only when their modules are selected.
+
 Download or clone this repository, then double-click:
 
 ```text

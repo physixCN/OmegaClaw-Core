@@ -114,6 +114,15 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("agentverse", enabled)
         self.assertEqual(asked, [("Enable optional module agentverse (remote)", False)])
 
+    def test_windows_wrapper_leaves_optional_system_deps_to_shared_installer(self):
+        script = (ROOT / "install" / "windows" / "Install-OmegaClaw.ps1").read_text(encoding="utf-8")
+        base_install_line = next(line for line in script.splitlines() if line.startswith("sudo apt-get install -y"))
+        for required in ["git", "python3", "swi-prolog", "nodejs", "npm", "build-essential"]:
+            self.assertIn(required, base_install_line)
+        for optional in ["qemu-system-aarch64", "busybox", "nftables", "ufw"]:
+            self.assertNotIn(optional, base_install_line)
+
+
     def test_primary_channel_choice_is_explicit_and_records_primary_route(self):
         installer = load_installer_common()
         answers = iter(["telegram", "", "20"])
