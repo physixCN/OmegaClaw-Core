@@ -253,10 +253,11 @@ Download or clone this repository, then double-click:
 install/macos/Install OmegaClaw.command
 ```
 
-The installer opens Apple's command-line tools installer if needed, installs
-Homebrew automatically when missing, then uses Homebrew to install `git`,
-`python@3.11`, `swi-prolog`, `node`, `cmake`, `pkg-config`, and `openblas`
-before creating `~/OmegaClaw`.
+The installer opens Apple's command-line tools installer if needed. When
+Homebrew is already available, it uses Homebrew to install `git`, `python@3.11`,
+`swi-prolog`, `node`, `cmake`, `pkg-config`, and `openblas`. When Homebrew is
+missing or cannot install the required packages, it installs the same toolchain
+from conda-forge under `~/OmegaClaw/.micromamba` without requiring sudo.
 
 ### Windows Installer
 

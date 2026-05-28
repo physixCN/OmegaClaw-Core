@@ -123,6 +123,17 @@ class InstallerTests(unittest.TestCase):
             self.assertNotIn(optional, base_install_line)
 
 
+    def test_macos_installer_has_no_admin_local_toolchain_fallback(self):
+        script = (ROOT / "install" / "macos" / "Install OmegaClaw.command").read_text(encoding="utf-8")
+        self.assertIn("install_local_toolchain", script)
+        self.assertIn("micro.mamba.pm/api/micromamba", script)
+        self.assertIn("No administrator password is required", script)
+        self.assertIn("~/OmegaClaw/.micromamba", (ROOT / "README.md").read_text(encoding="utf-8"))
+        self.assertIn("without sudo", (ROOT / "install" / "README.md").read_text(encoding="utf-8"))
+        self.assertNotIn("raw.githubusercontent.com/Homebrew/install", script)
+        self.assertNotIn("NONINTERACTIVE=1", script)
+
+
     def test_primary_channel_choice_is_explicit_and_records_primary_route(self):
         installer = load_installer_common()
         answers = iter(["telegram", "", "20"])
@@ -146,6 +157,17 @@ class InstallerTests(unittest.TestCase):
         installer = load_installer_common()
         self.assertIn("whatsapp", installer.PRIMARY_CHANNEL_CHOICES)
         self.assertNotEqual(installer.PRIMARY_CHANNEL_CHOICES[0], "whatsapp")
+
+    def test_start_script_loads_user_local_macos_toolchain(self):
+        installer = load_installer_common()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp)
+            installer.write_start_scripts(workspace)
+            start = (workspace / "start-omegaclaw.sh").read_text(encoding="utf-8")
+            self.assertIn(".micromamba/envs/omegaclaw/bin", start)
+            self.assertIn("MAMBA_ROOT_PREFIX", start)
+            self.assertIn("PATH=\"$LOCAL_TOOLCHAIN:$PATH\"", start)
+
 
     def test_installer_personalizes_agent_name_without_renaming_framework(self):
         installer = load_installer_common()

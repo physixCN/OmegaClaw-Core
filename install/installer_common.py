@@ -361,6 +361,11 @@ def write_start_scripts(workspace: pathlib.Path) -> None:
               . ./.env
               set +a
             fi
+            LOCAL_TOOLCHAIN="$PWD/.micromamba/envs/omegaclaw/bin"
+            if [ -d "$LOCAL_TOOLCHAIN" ]; then
+              export MAMBA_ROOT_PREFIX="$PWD/.micromamba"
+              export PATH="$LOCAL_TOOLCHAIN:$PATH"
+            fi
             if [ -f .venv/bin/activate ]; then
               . ./.venv/bin/activate
             fi
