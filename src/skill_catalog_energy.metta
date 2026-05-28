@@ -1,7 +1,6 @@
 ; Energy skill catalog declarations.
 ; Imported as SkillCatalog / SkillHelp atoms by the core loader.
 
-(SkillContextHint "energy" "Energy: energy-status, cost-last-call, cycle-status for tired/cost/usage.")
 (SkillCatalog "Energy: energy-status, cost-last-call, cycle-status, set-energy-mode mode reason, wake-for loops reason, sleep-for seconds reason")
 (SkillHelp "energy" "Energy affordances:")
 (SkillHelp "energy" "energy-status, cost-last-call - inspect spend and provider cost")

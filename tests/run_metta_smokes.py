@@ -39,8 +39,6 @@ OMEGACLAW_ROOT = _default_omegaclaw_root()
 
 LIVE_SPACE_NAMES = ("persistent", "agenda", "beliefs", "world", "events", "activity", "cleanup", "attention", "assume")
 
-METADATA_RE = re.compile(r"^;\s*smoke-([a-z-]+):\s*(.*?)\s*$", re.MULTILINE)
-
 LIVE_MEMORY_PATTERNS = {
     "imports-full-runtime": re.compile(r"lib_omegaclaw"),
     "mutates-persistent": re.compile(r"(?:add|remove)-atom\s+&persistent|export!\s+&persistent"),
@@ -55,14 +53,8 @@ LIVE_MEMORY_PATTERNS = {
     "writes-files": re.compile(r"\b(?:write-file|append-file|write-file-base64|append-file-base64)\b"),
     "external-action": re.compile(
         r"\b(?:(?<!-)send(?!-)|send-whatsapp|send-telegram|send-file|use-house-affordance|"
-        r"reply-whatsapp|mark-whatsapp-read|mark-whatsapp-unread)\b"
+        r"reply-whatsapp|mark-whatsapp-read|mark-whatsapp-unread|publish-artifact|unpublish-artifact)\b"
     ),
-}
-
-MODE_REASONS = {
-    "runtime-skill": "requires-runtime-skill-eval",
-    "full-runtime": "imports-full-runtime",
-    "manual": "manual-smoke",
 }
 
 
@@ -71,32 +63,21 @@ class SmokeFile:
     path: pathlib.Path
     reasons: tuple[str, ...]
     isolated: bool
-    mode: str = "auto"
-    purpose: str = ""
 
 
 def _binds_temp_space(text: str, space: str) -> bool:
     return bool(re.search(rf"bind!\s+&{re.escape(space)}\s+\(new-space\)", text))
 
 
-def smoke_metadata(text: str) -> dict[str, str]:
-    return {match.group(1): match.group(2).strip() for match in METADATA_RE.finditer(text)}
-
-
 def classify(path: pathlib.Path) -> SmokeFile:
     text = path.read_text(encoding="utf-8", errors="replace")
-    meta = smoke_metadata(text)
-    mode = meta.get("mode", "auto")
     reasons = [name for name, pattern in LIVE_MEMORY_PATTERNS.items() if pattern.search(text)]
-    if mode in MODE_REASONS and MODE_REASONS[mode] not in reasons:
-        reasons.append(MODE_REASONS[mode])
 
     # A file that mutates a space is still isolated if it explicitly rebinds
-    # that same space to a fresh MeTTa space, does not import the full runtime,
-    # and does not declare a runtime/manual mode.
+    # that same space to a fresh MeTTa space and does not import the full runtime.
     unresolved = []
     for reason in reasons:
-        if reason.startswith("mutates-") and mode == "auto":
+        if reason.startswith("mutates-"):
             space = reason.removeprefix("mutates-")
             if not _binds_temp_space(text, space):
                 unresolved.append(reason)
@@ -104,13 +85,7 @@ def classify(path: pathlib.Path) -> SmokeFile:
             unresolved.append(reason)
 
     isolated = not unresolved
-    return SmokeFile(
-        path=path,
-        reasons=tuple(reasons),
-        isolated=isolated,
-        mode=mode,
-        purpose=meta.get("purpose", ""),
-    )
+    return SmokeFile(path=path, reasons=tuple(reasons), isolated=isolated)
 
 
 def iter_smokes(selected: Iterable[str] | None = None) -> list[SmokeFile]:
@@ -147,49 +122,33 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("files", nargs="*", help="Optional smoke files to classify/run")
     parser.add_argument("--list", action="store_true", help="Only list classifications")
     parser.add_argument("--allow-live-memory", action="store_true", help="Allow risky live-memory smoke files")
-    parser.add_argument("--allow-runtime-skill", action="store_true", help="Allow runtime-skill smokes that call imported skill definitions")
-    parser.add_argument("--summary-only", action="store_true", help="Print classifications and final summary, but suppress passing smoke stdout")
     parser.add_argument("--timeout", type=int, default=30)
     args = parser.parse_args(argv)
 
     smokes = iter_smokes(args.files)
     exit_code = 0
     for smoke in smokes:
-        if smoke.isolated:
-            state = "isolated"
-        elif "requires-runtime-skill-eval" in smoke.reasons:
-            state = "runtime-skill-risk"
-        else:
-            state = "live-memory-risk"
+        state = "isolated" if smoke.isolated else "live-memory-risk"
         reason_text = ",".join(smoke.reasons) if smoke.reasons else "none"
         rel = smoke.path.relative_to(ROOT)
         print(f"{state}\t{rel}\t{reason_text}")
         if args.list:
             continue
-        if not smoke.isolated:
-            if "requires-runtime-skill-eval" in smoke.reasons and not args.allow_runtime_skill:
-                continue
-            if not args.allow_live_memory:
-                continue
+        if not smoke.isolated and not args.allow_live_memory:
+            continue
         try:
             result = run_smoke(smoke, args.timeout)
         except subprocess.TimeoutExpired as exc:
             print(f"TIMEOUT\t{rel}\t{exc}")
             exit_code = 1
             continue
-        if not args.summary_only or result.returncode != 0 or re.search(r"(?:^|\n)(?:\x1b\[[0-9;]*m)*[A-Z0-9-]*FAILED-[A-Z0-9-]*\b", result.stdout):
-            print(result.stdout[-12000:])
+        print(result.stdout[-12000:])
         if result.returncode != 0:
             print(f"FAILED\t{rel}\texit={result.returncode}")
             exit_code = 1
         if re.search(r"(?:^|\n)(?:\x1b\[[0-9;]*m)*[A-Z0-9-]*FAILED-[A-Z0-9-]*\b", result.stdout):
             print(f"FAILED\t{rel}\tsemantic-failure-sentinel")
             exit_code = 1
-    total = len(smokes)
-    isolated_count = sum(1 for smoke in smokes if smoke.isolated)
-    runtime_skill_count = sum(1 for smoke in smokes if "requires-runtime-skill-eval" in smoke.reasons)
-    live_risk_count = sum(1 for smoke in smokes if (not smoke.isolated and "requires-runtime-skill-eval" not in smoke.reasons))
-    print(f"smoke-summary total={total} isolated={isolated_count} runtime_skill={runtime_skill_count} live_memory_or_manual={live_risk_count} exit={exit_code}")
     return exit_code
 
 

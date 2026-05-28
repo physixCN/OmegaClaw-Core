@@ -30,7 +30,7 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             'remember "user said test carefully before changing syntax"': '((remember "user said test carefully before changing syntax"))',
             'pin "WARM | testing quoted rest args | next replay"': '((pin "WARM | testing quoted rest args | next replay"))',
             'send "Line one_newline_Line two: still same send"': '((send "Line one Line two: still same send"))',
-            'shell "grep -n SkillSignature src/skills_runtime_spaces.metta"': '((shell "grep -n SkillSignature src/skills_runtime_spaces.metta"))',
+            'shell "grep -n PAGE_MEMBER_HINTS src/webhost.py"': '((shell "grep -n PAGE_MEMBER_HINTS src/webhost.py"))',
             "send Dinner (pasta) is ready": '((send "Dinner (pasta) is ready"))',
             "shell find memory/web -maxdepth 2 -type f": '((shell "find memory/web -maxdepth 2 -type f"))',
             "remember UI preference: warm | simple | private": '((remember "UI preference: warm | simple | private"))',
@@ -67,11 +67,11 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
         )
         self.assertIn(
             "card: beliefs-about domain relation - inspect exact belief relation",
-            parser.signature_balance_parentheses("beliefs-about TestPerson"),
+            parser.signature_balance_parentheses("beliefs-about Anna"),
         )
         self.assertIn(
             "run beliefs-for domain if relation is unknown",
-            parser.signature_balance_parentheses("beliefs-about TestPerson"),
+            parser.signature_balance_parentheses("beliefs-about Anna"),
         )
         self.assertIn(
             '(syntax-error "space-find" "unknown space nowhere; known spaces:',
@@ -101,8 +101,6 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
             'persistent-cleanup-propose pc-123 merge-duplicate exact duplicate review': '((persistent-cleanup-propose "pc-123" "merge-duplicate" "exact duplicate review"))',
             'persistent-cleanup-commit pp-123': '((persistent-cleanup-commit "pp-123"))',
             'cleanup-proposals': '((cleanup-proposals))',
-            'persistent-cleanup-proposals': '((persistent-cleanup-proposals))',
-            'cleanup-proposals-for persistent': '((cleanup-proposals-for "persistent"))',
             'agenda-complete cleanup-test duplicate merged': '((agenda-complete "cleanup-test" "duplicate merged"))',
             'belief-derived Omega autonomy relational 0.84 0.8': '((belief-derived "Omega autonomy relational 0.84 0.8"))',
             'beliefs-for Omega': '((beliefs-for "Omega"))',

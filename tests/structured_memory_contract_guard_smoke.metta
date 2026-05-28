@@ -6,11 +6,11 @@
 !(bind! &world (new-space))
 !(bind! &beliefs (new-space))
 !(bind! &events (new-space))
-!(import! &self (library OmegaClaw-Core ./src/helper.py))
+!(import! &self ./repos/OmegaClaw-Core/src/helper.py)
 
 (= (trace-atom $action $space $atom $source) ())
 
-!(import! &self (library OmegaClaw-Core ./src/skills_memory.metta))
+!(import! &self ./repos/OmegaClaw-Core/src/skills_memory.metta)
 
 !(println! (eval (persistent-note "syntax use-test-metta high")))
 !(println! (eval (persistent-fact "the agent learned wait-skill high")))

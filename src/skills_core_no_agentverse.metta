@@ -1,5 +1,7 @@
 (= (read-file $file)
-   (py-call (helper.read_file_text $file)))
+   (progn (translatePredicate (exists_file $file))
+          (translatePredicate (read_file_to_string $file $content ()))
+          $content))
 
 (= (write-file $file $str)
    (progn (translatePredicate (open $file write $Out))

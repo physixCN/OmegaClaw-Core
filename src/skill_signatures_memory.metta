@@ -24,8 +24,6 @@
 (SkillSignature persistent-cleanup-propose (Arg text candidate-id) (Arg text action) (Arg rest-text reason))
 (SkillSignature persistent-cleanup-commit (Arg text proposal-id))
 (SkillSignature cleanup-proposals)
-(SkillSignature persistent-cleanup-proposals)
-(SkillSignature cleanup-proposals-for (Arg space space))
 (SkillSignature persistent-expression (Arg metta expression))
 (SkillSignature persistent-atoms)
 (SkillSignature persistent-review)

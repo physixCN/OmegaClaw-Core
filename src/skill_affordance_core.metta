@@ -283,18 +283,3 @@
 !(add-atom &skills (PreferredWhen "events-all" "inspect-event-space" 0.76 "inspect compact event atoms"))
 !(add-atom &skills (Effect "events-all" "event-observation"))
 !(add-atom &skills (SkillCardLine "events-all" "events-all - inspect compact event atoms"))
-
-; Skill-card hygiene: every callable signature has a visible card and argument shape.
-!(add-atom &skills (SkillArg "current-swipl-pid" 0 "none" "none"))
-!(add-atom &skills (SkillArg "body-status" 0 "none" "none"))
-!(add-atom &skills (SkillArg "cost-last-call" 0 "none" "none"))
-!(add-atom &skills (SkillArg "context-organ-status" 0 "none" "none"))
-!(add-atom &skills (SkillArg "cycle-status" 0 "none" "none"))
-!(add-atom &skills (SkillArg "activity-traces" 0 "none" "none"))
-!(add-atom &skills (SkillArg "events-all" 0 "none" "none"))
-
-; Skill-card hygiene follow-up for cross-module aliases and triggers.
-!(add-atom &skills (SkillTopic "search" "search"))
-!(add-atom &skills (SkillTopic "search" "current-info"))
-!(add-atom &skills (SkillArg "search" 1 "rest-text" "query"))
-!(add-atom &skills (SkillCardLine "search" "search query - current external information alias; use query for memory and web-search/search for outside-world lookup"))

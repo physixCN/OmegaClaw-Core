@@ -130,12 +130,9 @@ class SkillAffordanceContractTests(unittest.TestCase):
             '(trace-atom "merge-remove" $space $pattern $reason)',
             'SkillTopic "persistent-merge-atoms" "persistent"',
             "EXPERT exact atom merge; prefer persistent-cleanup workflow",
-            "persistent-cleanup-candidates limit - inspect persistent and refresh the current reviewable pc-... candidate id set",
-            "candidate-id must be a pc-... id from latest persistent-cleanup-candidates",
+            "persistent-cleanup-candidates limit",
+            "persistent-cleanup-propose candidate-id action reason",
             "persistent-cleanup-commit proposal-id",
-            "persistent-cleanup-proposals - alias for cleanup-proposals",
-            "cleanup-proposals-for space",
-            "commit takes a pp-... proposal id, not a space",
             "merge same-space duplicates; exact pattern match; saves runtime space; no accept/finalize step",
             "move/rewrite atoms; exact pattern match; no accept/finalize step; use merge tools for same-space duplicates",
             "reviewed-cross-space-rewrite",
@@ -150,30 +147,7 @@ class SkillAffordanceContractTests(unittest.TestCase):
         self.assertIn("(SkillSignature persistent-cleanup-candidates", signatures)
         self.assertIn("(SkillSignature persistent-cleanup-propose", signatures)
         self.assertIn("(SkillSignature persistent-cleanup-commit", signatures)
-        self.assertIn("(SkillSignature persistent-cleanup-proposals", signatures)
-        self.assertIn("(SkillSignature cleanup-proposals-for", signatures)
 
-
-    def test_energy_usage_words_surface_energy_affordances(self):
-        source = (
-            (SRC / "skill_affordance_energy.metta").read_text(encoding="utf-8")
-            + (SRC / "skill_catalog_energy.metta").read_text(encoding="utf-8")
-        )
-        for expected in [
-            'SkillContextHint "energy"',
-            'SkillTopic "energy-status" "usage"',
-            'SkillTopic "cost-last-call" "usage"',
-            'SkillTopic "cost-last-call" "cost"',
-            'SkillTopic "cost-last-call" "spend"',
-            'SkillTopic "energy-status" "tired"',
-            'SkillAlias "usage" "energy"',
-            'SkillAlias "tired" "energy"',
-            'SkillTrigger "energy-status" "usage"',
-            'SkillTrigger "cost-last-call" "usage"',
-            'SkillTrigger "energy-status" "tired"',
-            'before answering tired/usage questions',
-        ]:
-            self.assertIn(expected, source)
 
     def test_pln_affordance_requires_truth_valued_premises(self):
         source = (
@@ -262,55 +236,6 @@ class SkillAffordanceContractTests(unittest.TestCase):
         self.assertIn("helper.input_skill_signals_expr", affordance)
         self.assertNotIn("(SkillTrigger", helper)
         self.assertNotIn("(SkillCardLine", helper)
-
-
-    def test_skill_affordance_cards_cover_visible_and_callable_skills(self):
-        def names(source: str, predicate: str) -> set[str]:
-            quoted = set(re.findall(rf'\({predicate}\s+"([^"]+)"', source))
-            bare = set(re.findall(rf'\({predicate}\s+([^\s()"]+)', source))
-            return quoted | bare
-
-        def signature_names(source: str) -> set[str]:
-            return set(re.findall(r"\(SkillSignature\s+([^\s()]+)", source))
-
-        affordance_files = list(SRC.glob("skill_affordance*.metta")) + list((ROOT / "modules").glob("*/affordance.metta"))
-        missing_skill: dict[str, list[str]] = {}
-        missing_card: dict[str, list[str]] = {}
-        missing_arg: dict[str, list[str]] = {}
-        for file in sorted(affordance_files):
-            source = file.read_text(encoding="utf-8")
-            skills = names(source, "Skill")
-            visible = names(source, "SkillTopic") | names(source, "SkillCardLine") | names(source, "SkillArg") | names(source, "SkillTrigger")
-            cards = names(source, "SkillCardLine")
-            args = names(source, "SkillArg")
-            if visible - skills:
-                missing_skill[str(file.relative_to(ROOT))] = sorted(visible - skills)
-            if skills - cards:
-                missing_card[str(file.relative_to(ROOT))] = sorted(skills - cards)
-            if skills - args:
-                missing_arg[str(file.relative_to(ROOT))] = sorted(skills - args)
-
-        self.assertEqual(missing_skill, {})
-        self.assertEqual(missing_card, {})
-        self.assertEqual(missing_arg, {})
-
-        missing_signature_surface: dict[str, list[str]] = {}
-        signature_files = list(SRC.glob("skill_signatures*.metta")) + list((ROOT / "modules").glob("*/signatures.metta"))
-        for signature_file in sorted(signature_files):
-            if signature_file.parent == SRC:
-                affordance_file = signature_file.with_name(signature_file.name.replace("skill_signatures", "skill_affordance"))
-            else:
-                affordance_file = signature_file.with_name("affordance.metta")
-            if not affordance_file.exists():
-                continue
-            source = affordance_file.read_text(encoding="utf-8")
-            surface = names(source, "SkillTopic") & names(source, "SkillCardLine") & names(source, "SkillArg")
-            missing = signature_names(signature_file.read_text(encoding="utf-8")) - surface
-            if missing:
-                missing_signature_surface[str(signature_file.relative_to(ROOT))] = sorted(missing)
-
-        self.assertEqual(missing_signature_surface, {})
-
 
     def test_affordance_files_do_not_contain_deployment_secrets(self):
         source = _text("skill_affordance*.metta") + _text("skill_catalog_affordance.metta")
