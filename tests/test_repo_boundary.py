@@ -30,6 +30,7 @@ class RepositoryBoundaryTests(unittest.TestCase):
         tracked = git_lines("ls-files")
         forbidden_exact = {
             "memory/history.metta",
+            "memory/prompt.txt",
             "memory/promoted_memories.metta",
             "memory/home_assistant.json",
             "memory/librelinkup.json",
@@ -37,12 +38,20 @@ class RepositoryBoundaryTests(unittest.TestCase):
             "memory/web/admin_token.txt",
             "memory/web/sessions.json",
             "memory/web/users.json",
+            "src/webhost.py",
+            "tests/test_webhost_local.py",
+            "docs/reference-spline-omega-os-brief.md",
+            "docs/review/patch-series/patches/90-local-web-ui-not-for-upstream.patch",
         }
         forbidden_prefixes = (
             "memory/inbox/",
             "memory/outbox/",
             "memory/web/public/",
+            "channels/whatsapp_bridge/auth",
+            "channels/whatsapp_bridge/auth_omega/",
             "modules/channel_whatsapp/src/whatsapp_bridge/auth",
+            "web/omega-os/",
+            "docs/retired/omega-os-three-prototype/",
         )
         leaked = [
             path
@@ -50,6 +59,22 @@ class RepositoryBoundaryTests(unittest.TestCase):
             if path in forbidden_exact or any(path.startswith(prefix) for prefix in forbidden_prefixes)
         ]
         self.assertEqual(leaked, [])
+
+    def test_docs_do_not_link_removed_testing_benchmark_page(self):
+        tracked = git_lines("ls-files")
+        offenders = []
+        for rel in tracked:
+            path = ROOT / rel
+            if not path.is_file() or path.suffix not in {".md", ".py", ".metta"}:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            removed_page = "reference-testing-" + "benchmarks.md"
+            if removed_page in text:
+                offenders.append(rel)
+        self.assertEqual(offenders, [])
 
     def test_tracked_text_files_do_not_contain_obvious_secret_tokens(self):
         tracked = git_lines("ls-files")

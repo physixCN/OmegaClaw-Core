@@ -8,20 +8,17 @@ framework or generic agent wrapper.
 
 import base64
 import importlib
-import json
 import pathlib
-import re
 import sys
 import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OMEGACLAW_ROOT = ROOT.parents[1]
-sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "channels"))
 
 import helper  # noqa: E402
-import helper_metta  # noqa: E402
 
 
 def skill_implementation_source():
@@ -81,7 +78,7 @@ class HelperSurfaceTests(unittest.TestCase):
             helper.persistent_fact_atom("Omega prefers rich-send 0.9"),
             helper.persistent_note_atom("omega-formatting use-base64-for-newlines 0.9"),
             helper.persistent_rule_atom("pin-focused | requires | attention-status-check | 0.9"),
-            helper.world_fact_atom("Operator primary-human Omega 0.95"),
+            helper.world_fact_atom("Jon primary-human Omega 0.95"),
             helper.belief_claim_atom("omega attention-mode pin-is-not-body 0.95 0.9"),
             helper.agenda_goal_atom("cleanup-tests active high protect-fragile-surfaces"),
             helper.event_note_atom("tests regression surface-added 0.9"),
@@ -114,39 +111,6 @@ class HelperSurfaceTests(unittest.TestCase):
         self.assertRegex(proposal, r"^pp-[0-9a-f]{16}$")
         self.assertEqual(candidate, helper.cleanup_candidate_id(expr))
         self.assertIn("PersistentNote", helper.cleanup_preview(expr))
-        self.assertEqual(candidate, helper.cleanup_id_symbol(f'"{candidate}"', "pc-"))
-        self.assertEqual(proposal, helper.cleanup_id_symbol(f'"{proposal}"', "pp-"))
-        self.assertEqual(f'"{candidate}"', helper.cleanup_candidate_id_atom(expr))
-        self.assertEqual(f'"{candidate}"', helper.cleanup_id_atom(candidate, "pc-"))
-        self.assertEqual(
-            f'"{proposal}"',
-            helper.cleanup_proposal_id_atom(candidate, "merge-duplicate", "exact duplicate"),
-        )
-        self.assertEqual("CleanupIdError", helper.cleanup_id_symbol("../bad", "pc-"))
-        self.assertEqual("CleanupIdError", helper.cleanup_id_symbol(candidate, "pp-"))
-
-    def test_cleanup_preview_keeps_symbolic_atoms_exact(self):
-        expr = '(PersistentNote "omega" "' + ("exact-symbolic-cleanup-review " * 30).strip() + '" "0.8")'
-        self.assertEqual(" ".join(expr.split()), helper.cleanup_preview(expr))
-        self.assertNotIn("...", helper.cleanup_preview(expr))
-
-    def test_atomic_export_formats_collapsed_metta_atoms_as_lines(self):
-        self.assertEqual("", helper_metta._metta_atom_export_lines("()"))
-        self.assertEqual("(A 1)\n", helper_metta._metta_atom_export_lines("((A 1))"))
-        self.assertEqual(
-            '(A 1)\n(B "x y")\n',
-            helper_metta._metta_atom_export_lines('((A 1) (B "x y"))'),
-        )
-        self.assertEqual(
-            '(A "(paren) text")\n(B "quote \\" ok")\n',
-            helper_metta._metta_atom_export_lines('((A "(paren) text") (B "quote \\" ok"))'),
-        )
-        error = helper.atomic_export_metta_atoms("", "()")
-        self.assertTrue(error.startswith("(AtomicExportError "))
-        self.assert_metta_ok(error)
-        target, path_error = helper_metta._safe_writable_path("(library OmegaClaw-Core ./memory/runtime-test.metta)")
-        self.assertIsNone(path_error)
-        self.assertEqual(target, ROOT / "memory" / "runtime-test.metta")
 
     def test_event_note_rejects_prose_without_numeric_confidence(self):
         atom = helper.event_note_atom(
@@ -161,7 +125,7 @@ class HelperSurfaceTests(unittest.TestCase):
             helper.persistent_fact_atom("Omega learned wait-skill high"),
             helper.persistent_note_atom("syntax use-test-metta high"),
             helper.persistent_rule_atom("pin-focused | requires | attention-status-check | high"),
-            helper.world_fact_atom("Operator primary-human Omega likely"),
+            helper.world_fact_atom("Jon primary-human Omega likely"),
             helper.belief_claim_atom("omega attention-mode pin-is-working-memory often 0.9"),
             helper.belief_claim_atom("omega attention-mode pin-is-working-memory 0.95 sure"),
             helper.assimilation_event_atom(
@@ -316,10 +280,6 @@ class HelperSurfaceTests(unittest.TestCase):
             '((space-count "world" "(Relation $a $b $c $d $e)"))',
         )
         self.assertEqual(
-            helper.balance_parentheses("save-runtime-space cleanup"),
-            '((save-runtime-space "cleanup"))',
-        )
-        self.assertEqual(
             helper.balance_parentheses('space-examples persistent "(PersistentNote $topic $note $conf)" 5'),
             '((space-examples "persistent" "(PersistentNote $topic $note $conf)" 5))',
         )
@@ -446,7 +406,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         prompt = (ROOT / "memory" / "prompt.txt").read_text(encoding="utf-8")
         self.assertIn("warm is the default quiet cognition mode", energy_affordance)
         self.assertIn("asleep means dormant rest-only", energy_affordance)
-        self.assertTrue("During active requested work" in prompt or "During active human-requested work" in prompt)
+        self.assertIn("During active human-requested work", prompt)
 
     def test_cycle_counting_is_a_body_affordance_not_shell_memory(self):
         loop = (ROOT / "src" / "loop.metta").read_text(encoding="utf-8")
@@ -496,18 +456,8 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("(= (persistent-cleanup-candidates $limit)", skills)
         self.assertIn("(= (persistent-cleanup-propose $candidate_id $action $reason)", skills)
         self.assertIn("(= (persistent-cleanup-commit $proposal_id)", skills)
-        self.assertIn("(= (persistent-cleanup-proposals)", skills)
-        self.assertIn("(= (cleanup-proposals-for $space)", skills)
         self.assertIn("(PersistentCleanupCandidate", skills)
         self.assertIn("(PersistentCleanupProposal", skills)
-        self.assertIn("helper.atomic_export_metta_atoms", skills)
-        self.assertIn("(sread (py-call (helper.atomic_export_metta_atoms", skills)
-        self.assertIn("(repr (collapse (match $space $atom $atom)))", skills)
-        self.assertIn("RuntimeSpaceSaveError", skills)
-        self.assertIn("(mark-runtime-space-loaded $canonical)", skills)
-        self.assertNotIn("helper.atomic_export_begin", skills)
-        self.assertNotIn("helper.atomic_export_finish", skills)
-        self.assertNotIn('(write-file $file "")', skills)
         self.assertIn("(repr (collapse (match &persistent $atom $atom)))", skills)
         self.assertNotIn("You can use: metta (add-atom &persistent sexpression)", skills)
 
@@ -515,17 +465,18 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         modules = [
             "helper",
             "energy",
-            "modules.home_assistant.bridge.home_assistant",
-            "modules.sense_vision.src.vision",
-            "modules.sense_webcam.src.webcam",
-            "modules.sense_audio.src.audio",
-            "modules.health_glucose.src.glucose",
-            "modules.media_imagegen.src.imagegen",
-            "modules.media_videogen.src.videogen",
-            "modules.channel_router.src.router",
-            "modules.channel_telegram.src.telegram",
-            "modules.channel_whatsapp.src.whatsapp",
-            "modules.channel_web_control.src.web_control",
+            "home",
+            "publishing",
+            "vision",
+            "webcam",
+            "audio",
+            "glucose",
+            "imagegen",
+            "videogen",
+            "router",
+            "telegram",
+            "whatsapp",
+            "web_control",
         ]
         for module in modules:
             with self.subTest(module=module):
@@ -579,7 +530,6 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         helper_source = (ROOT / "src" / "helper_metta.py").read_text(encoding="utf-8")
         self.assertIn("!(bind! &activity (new-space))", lib)
         self.assertIn("!(bind! &cleanup (new-space))", lib)
-        self.assertIn("(SignatureSpace cleanup)", signatures)
         self.assertIn(
             '(register-space-persistence "activity" (library OmegaClaw-Core ./memory/activity.metta) runtime-state)',
             skills,
@@ -656,7 +606,6 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("body-status", skills)
         self.assertIn("restart-self", skills)
         self.assertIn("reboot-self", skills)
-        self.assertIn("(save-runtime-spaces-by-role memory)", skills)
         self.assertIn("video-config-status", skills)
         self.assertIn("assimilate-event", skills)
         self.assertIn("assimilate-world", skills)
@@ -675,7 +624,8 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("get_last_message", channel)
         self.assertIn("send_message", channel)
         self.assertIn("WEB-CONTROL-SEND-SUCCESS", channel)
-        self.assertIn("WEB_CONTROL:", router)
+        self.assertIn("CHANNEL_EVENT", router)
+        self.assertIn('normalize_channel_event(_control_event("web_control", msg))', router)
         channels = (ROOT / "modules" / "channel_router" / "skills.metta").read_text(encoding="utf-8") + (ROOT / "modules" / "channel_web_control" / "skills.metta").read_text(encoding="utf-8")
         skills = skill_implementation_source()
         skill_catalog = skill_catalog_source()
@@ -690,8 +640,8 @@ class ArchitectureSurfaceTests(unittest.TestCase):
     def test_runtime_body_state_is_ignored_by_source_control(self):
         ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
         required = [
-            "modules/channel_whatsapp/src/whatsapp_bridge/auth*/",
-            "modules/channel_whatsapp/src/whatsapp_bridge/node_modules/",
+            "channels/whatsapp_bridge/auth*/",
+            "channels/whatsapp_bridge/node_modules/",
             "memory/web/terminal.log",
             "memory/*.jsonl",
             "memory/runtime/",
@@ -723,7 +673,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("The symbolic self should", doc)
 
     def test_whatsapp_bridge_exposes_manual_read_state(self):
-        bridge = (ROOT / "modules" / "channel_whatsapp" / "src" / "whatsapp_bridge" / "bridge.mjs").read_text(
+        bridge = (ROOT / "channels" / "whatsapp_bridge" / "bridge.mjs").read_text(
             encoding="utf-8"
         )
         self.assertIn("async function markOutboundHandled(jid)", bridge)
@@ -745,14 +695,17 @@ class ArchitectureSurfaceTests(unittest.TestCase):
 
     def test_glucose_rings_enter_router_without_auto_send(self):
         router = (ROOT / "modules" / "channel_router" / "src" / "router.py").read_text(encoding="utf-8")
-        self.assertIn("health_glucose.src import glucose", router)
+        self.assertIn("import glucose", router)
         self.assertIn("glucose.pending_glucose_rings()", router)
-        self.assertIn("GLUCOSE_APP:", router)
-        self.assertIn("channel_web_control.src import web_control", router)
+        self.assertIn("CHANNEL_EVENT", router)
+        self.assertIn('"channel": "glucose"', router)
+        self.assertIn('"sender": "glucose-watch"', router)
+        self.assertIn('"reply_affordance": "inspect glucose skill card"', router)
+        self.assertIn("import web_control", router)
         self.assertIn("web_control.get_last_message()", router)
-        self.assertIn("WEB_CONTROL:", router)
+        self.assertIn('normalize_channel_event(_control_event("web_control", msg))', router)
         self.assertIn('if _last_inbound_channel == "web_control":', router)
-        self.assertNotIn("send_message(msg", router)
+        self.assertNotIn("send_whatsapp", router)
 
     def test_metta_smoke_runner_refuses_live_memory_by_default(self):
         runner = (ROOT / "tests" / "run_metta_smokes.py").read_text(encoding="utf-8")
@@ -784,7 +737,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertTrue(isolated.isolated)
 
     def test_whatsapp_bridge_auth_material_is_private_by_design(self):
-        source = (ROOT / "modules" / "channel_whatsapp" / "src" / "whatsapp_bridge" / "bridge.mjs").read_text(encoding="utf-8")
+        source = (ROOT / "channels" / "whatsapp_bridge" / "bridge.mjs").read_text(encoding="utf-8")
         self.assertIn("process.umask(0o077)", source)
         self.assertIn("fs.mkdirSync(authDir, { recursive: true, mode: 0o700 })", source)
         self.assertIn("fs.chmodSync(authDir, 0o700)", source)

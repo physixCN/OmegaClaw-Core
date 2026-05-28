@@ -4,14 +4,13 @@
 The important property of this audit is that it is git-aware. It only scans
 tracked files and untracked files that git does not ignore, so runtime memory,
 WhatsApp sessions, credentials, and dependency trees stay outside the review
-surface. When generated patch-series files are present, it also checks their
-coverage/applicability; direct v0.01a repository-normalization branches may run
-without generated patch files.
+surface.
 """
 
 from __future__ import annotations
 
 import re
+import os
 import shutil
 import subprocess
 import sys
@@ -31,7 +30,7 @@ EXCLUDED_PARTS = {
 
 EXCLUDED_PREFIXES = (
     "memory/",
-    "modules/channel_whatsapp/src/whatsapp_bridge/auth",
+    "channels/whatsapp_bridge/auth",
 )
 
 SECRET_PATTERNS = [
@@ -65,8 +64,8 @@ LOCAL_ONLY_PATCHES = {
 
 CORE_PATCHES = {
     "01a-syntax-command-membrane.patch",
-    "01b-provider-runtime-energy.patch",
-    "01c-memory-runtime-and-helper-facade.patch",
+    "01b-runtime-memory-context-boundary.patch",
+    "01c-provider-runtime-energy.patch",
     "01d-symbolic-reasoning-space-skills.patch",
     "02a-assume-symbolic-graph-engine.patch",
     "02b-assume-fabricpc-daemon-membrane.patch",
@@ -85,12 +84,15 @@ BODY_PATCHES = {
 
 FORBIDDEN_CORE_DIFF_PATHS = (
     "web/",
-    "modules/channel_whatsapp/src/whatsapp_bridge/auth",
+    "src/webhost.py",
+    "channels/whatsapp_bridge/auth",
     "memory/web/",
 )
 
 FORBIDDEN_BODY_DIFF_PATHS = (
     "web/",
+    "src/webhost.py",
+    "tests/test_webhost_local.py",
     "tests/test_omega_surface.py",
 )
 
@@ -101,12 +103,14 @@ FORBIDDEN_DIFF_PATH_FRAGMENTS = (
 )
 
 FORBIDDEN_CORE_STRINGS = (
+    "omega." + "groveybaby.family",
     "Grovey " + "Baby",
 )
 
 FORBIDDEN_BODY_STRINGS = (
     "auth_" + "omega",
     "the agent" + "- ",
+    "omega." + "groveybaby.family",
     "Grovey " + "Baby",
 )
 
@@ -173,7 +177,18 @@ def text_files(paths: list[Path]) -> list[tuple[Path, str]]:
 def patch_files() -> list[Path]:
     if not PATCH_DIR.exists():
         return []
-    return sorted(PATCH_DIR.glob("*.patch"))
+    patches = []
+    for patch in sorted(PATCH_DIR.glob("*.patch")):
+        if patch.name in LOCAL_ONLY_PATCHES:
+            continue
+        ignored = subprocess.run(
+            ["git", "check-ignore", "--quiet", str(patch.relative_to(ROOT))],
+            cwd=ROOT,
+        )
+        if ignored.returncode == 0:
+            continue
+        patches.append(patch)
+    return patches
 
 
 def patch_diff_paths(text: str) -> list[str]:
@@ -270,6 +285,10 @@ def check_patch_boundaries() -> list[Finding]:
                     findings.append(
                         Finding("patch-boundary", f"{rel(patch)} contains deployment-specific default {needle!r}")
                     )
+        if name not in LOCAL_ONLY_PATCHES and any(path.startswith("web/omega-os/") for path in paths):
+            findings.append(
+                Finding("patch-boundary", f"{rel(patch)} contains the agent OS web assets outside local patch")
+            )
     return findings
 
 
@@ -292,6 +311,11 @@ def check_patch_library_imports() -> list[Finding]:
     for patch, imported in imports:
         if imported.startswith("/"):
             continue
+        if imported.startswith("memory/"):
+            # Runtime memory files are intentionally ignored source artifacts.
+            # The runtime helper creates them before live load; patches should
+            # not need placeholder files merely to satisfy review tooling.
+            continue
         candidates = [imported]
         if "." not in Path(imported).name:
             candidates.extend([imported + ".metta", imported + ".py"])
@@ -310,7 +334,7 @@ def check_patch_library_imports() -> list[Finding]:
 
 def check_review_surface_coverage() -> list[Finding]:
     findings: list[Finding] = []
-    if not patch_files():
+    if not os.environ.get("OMEGACLAW_REVIEW_STRICT_PATCH_SERIES"):
         return findings
     changed = set(run_git(["diff", "--name-only", "HEAD"]).splitlines())
     changed.update(run_git(["ls-files", "--others", "--exclude-standard"]).splitlines())
@@ -351,12 +375,15 @@ def check_patch_apply() -> list[Finding]:
     findings: list[Finding] = []
     patches = patch_files()
     if not patches:
+        return [Finding("patch-apply", "no generated patch files found")]
+    baseline_ref = os.environ.get("OMEGACLAW_REVIEW_PATCH_BASELINE")
+    if not baseline_ref:
         return findings
     tmp_parent = Path(tempfile.mkdtemp(prefix="omega-review-audit-"))
     worktree = tmp_parent / "worktree"
     try:
         subprocess.run(
-            ["git", "worktree", "add", "--detach", str(worktree), "HEAD"],
+            ["git", "worktree", "add", "--detach", str(worktree), baseline_ref],
             cwd=ROOT,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

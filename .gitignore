@@ -90,3 +90,10 @@ modules/channel_whatsapp/src/whatsapp_bridge/*.bak-*
 
 # Local website project; not part of v0.01a GitHub release yet
 web/omega-os/
+
+# Local website/webhost project; not part of v0.01a GitHub release yet
+src/webhost.py
+tests/test_webhost_local.py
+docs/reference-spline-omega-os-brief.md
+docs/retired/omega-os-three-prototype/
+docs/review/patch-series/patches/90-local-web-ui-not-for-upstream.patch

@@ -1,10 +1,15 @@
 # OmegaClaw Documentation
 
-This directory contains the full documentation for OmegaClaw. Every page is a sibling file — no subdirectories. Filename prefixes identify the section:
+This directory contains the documentation for OmegaClaw. Most user-facing pages
+are sibling files; review artifacts and retired experiments live in
+subdirectories so the first-pass docs stay readable. Filename prefixes identify
+the main section:
 
 - `intro-*` — conceptual introduction
 - `tutorial-NN-*` — numbered, task-oriented walkthroughs
 - `reference-*` — API, engines, orchestration, failure modes, and internals
+- `review/` — patch-series maps, benchmark harnesses, dependency audits, and release-readiness checks
+- `retired/` — old experiments kept for historical review only
 
 If you are new, read the Introduction in order, then pick tutorials that match what you want to build, and dip into the reference when you need details.
 
@@ -58,16 +63,7 @@ User-facing MeTTa skills the agent invokes. Each page follows the template **Sig
 
 - [reference-configuration.md](./reference-configuration.md) — `configure` form and all runtime parameters
 - [reference-channels.md](./reference-channels.md) — IRC, Telegram, Mattermost, and websearch adapters plus the channel contract
-- [reference-python-bridges.md](./reference-python-bridges.md) — `lib_llm_ext.py`, `modules/agentverse/src/agentverse_bridge.py`, `src/helper.py`, `src/skills.pl`
-- [reference-testing-benchmarks.md](./reference-testing-benchmarks.md) — required tests, smoke classification, optional skips, reviewer benchmarks, and demo suite
-
-### Review Materials
-
-- [review/v0.01a-technical-walkthrough.md](./review/v0.01a-technical-walkthrough.md) — chronological walkthrough of the v0.01a architecture changes, evidence, caveats, and confidence.
-- [review/v0.01a-benchmark-results.md](./review/v0.01a-benchmark-results.md) — baseline-vs-candidate benchmark artifact.
-- [review/v0.01a-demo-results.md](./review/v0.01a-demo-results.md) — deterministic demo results showing what the changes do.
-- [review/v0.01a-security-name-audit.md](./review/v0.01a-security-name-audit.md) — reviewer-facing name, secret, and private-state boundary notes.
-- [review/v0.01a-module-profile-recommendations.md](./review/v0.01a-module-profile-recommendations.md) — recommended clean-core vs Live-situated module defaults.
+- [reference-python-bridges.md](./reference-python-bridges.md) — `lib_llm_ext.py`, `src/agentverse.py`, `src/helper.py`, `src/skills.pl`
 
 ### Internals
 
@@ -75,3 +71,14 @@ User-facing MeTTa skills the agent invokes. Each page follows the template **Sig
 - [reference-internals-memory-store.md](./reference-internals-memory-store.md) — The three-tier memory architecture
 - [reference-internals-skill-dispatch.md](./reference-internals-skill-dispatch.md) — How `(skill args)` calls resolve
 - [reference-internals-extension-points.md](./reference-internals-extension-points.md) — Where to hook in new skills, tools, channels, LLMs, engines
+
+## Review Material
+
+Use these when reviewing the v0.01a readiness branch against the original core.
+
+- [../README.md](../README.md) — Main walkthrough of what changed, why, how it is implemented, and where to inspect it.
+- [review/patch-series/README.md](./review/patch-series/README.md) — Chronological patch-family map for core maintainers.
+- [review/clean-patch-boundary.md](./review/clean-patch-boundary.md) — What belongs in core, optional modules, and local deployment state.
+- [review/dependency-boundary-audit.md](./review/dependency-boundary-audit.md) — Dependency and runtime-state boundary notes.
+- [review/benchmark_suite.py](./review/benchmark_suite.py) — Reviewer-facing benchmark harness.
+- [review/review_audit.py](./review/review_audit.py) — Git-aware architecture, secret, and patch-boundary audit.
