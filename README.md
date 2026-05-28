@@ -239,6 +239,52 @@ try to enter source control.
 
 ## Installation
 
+The recommended install path is the interactive installer. It is designed for a
+clean machine: it installs/checks dependencies, asks which modules to enable,
+asks which channel and LLM provider to configure, writes local secrets to
+`~/OmegaClaw/.env`, and creates a launcher for future runs.
+
+### macOS Installer
+
+Download or clone this repository, then double-click:
+
+```text
+install/macos/Install OmegaClaw.command
+```
+
+The installer uses Homebrew to install `git`, `python@3.11`, `swi-prolog`,
+`node`, `cmake`, `pkg-config`, and `openblas`, then creates `~/OmegaClaw`.
+
+### Windows Installer
+
+Download or clone this repository, then double-click:
+
+```text
+install/windows/Install OmegaClaw.cmd
+```
+
+OmegaClaw runs on Windows through Ubuntu on WSL. The installer installs or uses
+WSL/Ubuntu, installs the Linux dependencies there, then creates `~/OmegaClaw`
+inside WSL and places a `Start OmegaClaw.cmd` launcher on the Windows desktop.
+
+### What The Installer Configures
+
+The installer asks once for:
+
+- module profile: minimal, recommended, full, then per-module overrides;
+- primary channel: IRC, Telegram, Slack, Mattermost, mock, WhatsApp, or web control;
+- LLM provider and model: OpenRouter, OpenAI, Anthropic, ASICloud, ASIOne, or Ollama;
+- provider/channel API keys and auth values needed by those choices.
+
+It writes the selected module imports to `modules/loader.metta` and local secrets
+to `.env`. Re-running the generated launcher uses the saved configuration and
+does not ask again. Re-run the installer when you want to change modules,
+provider, or channel.
+
+See `install/README.md` for more detail.
+
+### Manual Source Install
+
 Prerequisites:
 
 - Git
@@ -251,7 +297,7 @@ Install through a PeTTa checkout:
 git clone https://github.com/trueagi-io/PeTTa
 cd PeTTa
 mkdir -p repos
-git clone <omegaclaw-core-repo-url> repos/OmegaClaw-Core
+git clone https://github.com/physixCN/OmegaClaw-Core.git repos/OmegaClaw-Core
 git clone https://github.com/patham9/petta_lib_chromadb.git repos/petta_lib_chromadb
 cp repos/OmegaClaw-Core/run.metta ./
 ```
