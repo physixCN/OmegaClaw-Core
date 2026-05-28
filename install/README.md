@@ -18,8 +18,11 @@ The installer opens Apple's command-line tools installer if needed. It then
 uses Homebrew when Homebrew is already available. If Homebrew is missing or
 cannot install the required packages, the installer creates a user-local
 micromamba toolchain under
-`~/OmegaClaw/.micromamba` and installs `git`, `python=3.11`, `swi-prolog`,
-`nodejs`, `cmake`, `pkg-config`, and `openblas` from conda-forge without sudo.
+`~/OmegaClaw/.micromamba` and installs `git`, `python=3.11`, `nodejs`,
+`cmake`, `pkg-config`, and `openblas` from conda-forge. It installs the
+official universal SWI-Prolog macOS app bundle under `~/OmegaClaw/.local` and
+adds a local `swipl` wrapper, without sudo. It verifies Python 3.11.x, Node.js
+>=20, Git, and SWI-Prolog >=10.0 before continuing.
 
 ## Windows
 

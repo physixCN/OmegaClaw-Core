@@ -43,6 +43,9 @@ install_local_toolchain() {
   MICROMAMBA="$BOOTSTRAP_DIR/bin/micromamba"
   ENV_PREFIX="$MAMBA_ROOT/envs/omegaclaw"
   PLATFORM=$(micromamba_platform)
+  SWI_APP_DIR="$WORKSPACE/.local/SWI-Prolog.app"
+  SWI_DMG="$BOOTSTRAP_DIR/swipl-stable-macos-fat.dmg"
+  SWI_DMG_URL="https://www.swi-prolog.org/download/stable/bin/swipl-latest.fat.dmg"
 
   echo "Homebrew is not installed or not available on PATH."
   echo "Installing a user-local OmegaClaw toolchain instead."
@@ -59,7 +62,7 @@ install_local_toolchain() {
   fi
 
   export MAMBA_ROOT_PREFIX="$MAMBA_ROOT"
-  PACKAGES="python=3.11 swi-prolog nodejs git cmake pkg-config openblas"
+  PACKAGES="python=3.11 nodejs>=20 git cmake pkg-config openblas"
   if [ -x "$ENV_PREFIX/bin/python" ]; then
     echo "Updating local OmegaClaw toolchain..."
     "$MICROMAMBA" install -y -n omegaclaw -c conda-forge $PACKAGES
@@ -68,8 +71,55 @@ install_local_toolchain() {
     "$MICROMAMBA" create -y -n omegaclaw -c conda-forge $PACKAGES
   fi
 
+  install_swi_prolog_app "$WORKSPACE" "$ENV_PREFIX" "$BOOTSTRAP_DIR" "$SWI_APP_DIR" "$SWI_DMG" "$SWI_DMG_URL"
+
   export PATH="$ENV_PREFIX/bin:$PATH"
+  verify_toolchain_versions "$ENV_PREFIX/bin/python"
   exec "$ENV_PREFIX/bin/python" "$CORE_DIR/install/installer_common.py" --workspace "$WORKSPACE"
+}
+
+install_swi_prolog_app() {
+  WORKSPACE="$1"
+  ENV_PREFIX="$2"
+  BOOTSTRAP_DIR="$3"
+  SWI_APP_DIR="$4"
+  SWI_DMG="$5"
+  SWI_DMG_URL="$6"
+  SWIPL_WRAPPER="$ENV_PREFIX/bin/swipl"
+
+  if [ -x "$SWIPL_WRAPPER" ]; then
+    return 0
+  fi
+
+  mkdir -p "$WORKSPACE/.local" "$ENV_PREFIX/bin"
+  if [ ! -d "$SWI_APP_DIR" ]; then
+    echo "Downloading official SWI-Prolog macOS bundle..."
+    curl -fL "$SWI_DMG_URL" -o "$SWI_DMG"
+    MOUNT_DIR="$BOOTSTRAP_DIR/swi-mount"
+    rm -rf "$MOUNT_DIR"
+    mkdir -p "$MOUNT_DIR"
+    hdiutil attach "$SWI_DMG" -readonly -nobrowse -mountpoint "$MOUNT_DIR" >/dev/null
+    APP_SOURCE=$(find "$MOUNT_DIR" -maxdepth 2 -name "*.app" -type d | head -n 1)
+    if [ -z "$APP_SOURCE" ]; then
+      hdiutil detach "$MOUNT_DIR" >/dev/null || true
+      echo "Could not find SWI-Prolog.app inside downloaded disk image." >&2
+      exit 1
+    fi
+    rm -rf "$SWI_APP_DIR"
+    cp -R "$APP_SOURCE" "$SWI_APP_DIR"
+    hdiutil detach "$MOUNT_DIR" >/dev/null
+  fi
+
+  if [ ! -x "$SWI_APP_DIR/Contents/MacOS/swipl" ]; then
+    echo "SWI-Prolog app bundle did not contain Contents/MacOS/swipl." >&2
+    exit 1
+  fi
+
+  cat > "$SWIPL_WRAPPER" <<EOF
+#!/bin/sh
+exec "$SWI_APP_DIR/Contents/MacOS/swipl" "\$@"
+EOF
+  chmod +x "$SWIPL_WRAPPER"
 }
 
 install_homebrew_toolchain() {
@@ -84,7 +134,56 @@ install_homebrew_toolchain() {
   done
 
   PYTHON_BIN=$(command -v python3.11 || command -v python3)
+  verify_toolchain_versions "$PYTHON_BIN" || return 1
   exec "$PYTHON_BIN" "$CORE_DIR/install/installer_common.py" --workspace "${OMEGACLAW_WORKSPACE:-$HOME/OmegaClaw}"
+}
+
+verify_toolchain_versions() {
+  PYTHON_BIN="$1"
+  "$PYTHON_BIN" - <<'PYVERIFY'
+import re
+import subprocess
+import sys
+
+errors = []
+
+if sys.version_info[:2] != (3, 11):
+    errors.append(f"Python must be 3.11.x, found {sys.version.split()[0]}")
+
+checks = {
+    "git": ["git", "--version"],
+    "node": ["node", "--version"],
+    "swipl": ["swipl", "--version"],
+}
+outputs = {}
+for name, cmd in checks.items():
+    try:
+        outputs[name] = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT).strip()
+    except Exception as exc:
+        errors.append(f"{name} is not callable: {exc}")
+
+node = outputs.get("node", "")
+match = re.search(r"v(\d+)\.", node)
+if not match or int(match.group(1)) < 20:
+    errors.append(f"Node.js must be >=20.x, found {node or 'missing'}")
+
+swipl = outputs.get("swipl", "")
+match = re.search(r"version\s+(\d+)\.(\d+)", swipl, re.I)
+if not match or (int(match.group(1)), int(match.group(2))) < (10, 0):
+    errors.append(f"SWI-Prolog must be >=10.0, found {swipl or 'missing'}")
+
+if errors:
+    print("OmegaClaw toolchain verification failed:", file=sys.stderr)
+    for error in errors:
+        print(f"  - {error}", file=sys.stderr)
+    raise SystemExit(1)
+
+print("OmegaClaw toolchain verified:")
+print(f"  Python {sys.version.split()[0]}")
+print(f"  {outputs['node']}")
+print(f"  {outputs['git']}")
+print(f"  {outputs['swipl']}")
+PYVERIFY
 }
 
 while ! command -v xcode-select >/dev/null 2>&1 || ! xcode-select -p >/dev/null 2>&1; do
