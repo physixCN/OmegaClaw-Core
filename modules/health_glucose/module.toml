@@ -5,7 +5,7 @@ entrypoint = "entry.metta"
 catalog = "catalog.metta"
 signatures = "signatures.metta"
 optional = true
-default_enabled = true
+default_enabled = false
 
 provides = [
   "app:glucose",

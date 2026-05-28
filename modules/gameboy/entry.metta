@@ -8,7 +8,7 @@
 (ModuleVersion omegaclaw.simulation.gameboy "0.1.0")
 (ModuleEntrypoint omegaclaw.simulation.gameboy "entry.metta")
 (ModuleOptional omegaclaw.simulation.gameboy True)
-(ModuleDefaultEnabled omegaclaw.simulation.gameboy True)
+(ModuleDefaultEnabled omegaclaw.simulation.gameboy False)
 (ModuleImplementation omegaclaw.simulation.gameboy pyboy-membrane)
 
 (Simulation gameboy)

@@ -2,9 +2,9 @@
 
 These installers are for source installs from the public repository. They create
 a local PeTTa workspace, install Python/runtime dependencies, ask what to name
-the agent, ask which modules to enable, ask for the primary communication
-channel and LLM provider, then save that configuration so later starts do not
-ask again.
+the agent, enable default-on modules automatically, ask about optional modules,
+ask for the primary communication channel and LLM provider, then save that
+configuration so later starts do not ask again.
 
 ## macOS
 
@@ -14,13 +14,10 @@ Double-click:
 install/macos/Install OmegaClaw.command
 ```
 
-Requirements:
-
-- macOS command-line tools
-- Homebrew
-
-The installer uses Homebrew to install `git`, `python@3.11`, `swi-prolog`,
-`node`, `cmake`, `pkg-config`, and `openblas`, then creates `~/OmegaClaw`.
+The installer opens Apple's command-line tools installer if needed. It then
+installs Homebrew automatically when missing, uses Homebrew to install `git`,
+`python@3.11`, `swi-prolog`, `node`, `cmake`, `pkg-config`, and `openblas`,
+and creates `~/OmegaClaw`.
 
 ## Windows
 
@@ -50,16 +47,18 @@ The installer creates or updates:
 
 Secrets are local runtime configuration. Do not commit `.env`.
 
-## Module Profiles
+## Module Selection
 
-The installer offers:
+Module defaults come from each `modules/*/module.toml`:
 
-- Minimal: selected channel, channel router, scratch space, web search.
-- Recommended: minimal plus Assume, publishing, reminders, and senses.
-- Full: all modules, including device and advanced modules.
+- `default_enabled = true` modules are enabled automatically.
+- `default_enabled = false` modules are offered as opt-in questions.
+- The selected primary channel is enabled even when its module is normally
+  optional.
 
-After choosing a profile, each optional module can still be enabled or disabled.
 The result is a normal MeTTa module loader file, not hidden Python routing.
+Selected module dependencies are installed during setup where the platform has
+a supported package manager.
 
 ## Provider And Channel Choices
 

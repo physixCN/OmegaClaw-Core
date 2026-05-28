@@ -6,7 +6,7 @@
 (ModuleVersion omegaclaw.channel.mattermost "0.1.0")
 (ModuleEntrypoint omegaclaw.channel.mattermost "entry.metta")
 (ModuleOptional omegaclaw.channel.mattermost True)
-(ModuleDefaultEnabled omegaclaw.channel.mattermost True)
+(ModuleDefaultEnabled omegaclaw.channel.mattermost False)
 (ModuleImplementation omegaclaw.channel.mattermost mattermost-channel-membrane)
 
 

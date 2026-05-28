@@ -6,7 +6,7 @@
 (ModuleVersion omegaclaw.channel.whatsapp "0.1.0")
 (ModuleEntrypoint omegaclaw.channel.whatsapp "entry.metta")
 (ModuleOptional omegaclaw.channel.whatsapp True)
-(ModuleDefaultEnabled omegaclaw.channel.whatsapp True)
+(ModuleDefaultEnabled omegaclaw.channel.whatsapp False)
 (ModuleImplementation omegaclaw.channel.whatsapp whatsapp-baileys-bridge-membrane)
 
 

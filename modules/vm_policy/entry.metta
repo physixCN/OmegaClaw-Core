@@ -5,7 +5,7 @@
 (ModuleVersion omegaclaw.immune.vm-policy "0.1.0")
 (ModuleEntrypoint omegaclaw.immune.vm-policy "entry.metta")
 (ModuleOptional omegaclaw.immune.vm-policy True)
-(ModuleDefaultEnabled omegaclaw.immune.vm-policy True)
+(ModuleDefaultEnabled omegaclaw.immune.vm-policy False)
 (ModuleImplementation omegaclaw.immune.vm-policy vm-boundary-audit-membrane)
 
 (RuntimeOrgan "vm-policy" (initVMPolicyOrgan))

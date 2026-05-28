@@ -6,7 +6,7 @@
 (ModuleVersion omegaclaw.health.glucose "0.1.0")
 (ModuleEntrypoint omegaclaw.health.glucose "entry.metta")
 (ModuleOptional omegaclaw.health.glucose True)
-(ModuleDefaultEnabled omegaclaw.health.glucose True)
+(ModuleDefaultEnabled omegaclaw.health.glucose False)
 (ModuleImplementation omegaclaw.health.glucose glucose-app-membrane)
 
 

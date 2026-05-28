@@ -28,7 +28,7 @@ $repoUrl = "https://github.com/physixCN/OmegaClaw-Core.git"
 $script = @'
 set -euo pipefail
 sudo apt-get update
-sudo apt-get install -y git python3 python3-venv python3-pip swi-prolog nodejs npm build-essential cmake pkg-config libopenblas-dev libblas-dev liblapack-dev gfortran
+sudo apt-get install -y git python3 python3-venv python3-pip swi-prolog nodejs npm build-essential cmake pkg-config libopenblas-dev libblas-dev liblapack-dev gfortran qemu-system-aarch64 busybox nftables ufw
 mkdir -p "$HOME/OmegaClaw/repos"
 if [ ! -d "$HOME/OmegaClaw/repos/OmegaClaw-Core/.git" ]; then
   git clone https://github.com/physixCN/OmegaClaw-Core.git "$HOME/OmegaClaw/repos/OmegaClaw-Core"

@@ -8,7 +8,7 @@
 (ModuleVersion omegaclaw.device.omega-vm "0.1.0")
 (ModuleEntrypoint omegaclaw.device.omega-vm "entry.metta")
 (ModuleOptional omegaclaw.device.omega-vm True)
-(ModuleDefaultEnabled omegaclaw.device.omega-vm True)
+(ModuleDefaultEnabled omegaclaw.device.omega-vm False)
 (ModuleImplementation omegaclaw.device.omega-vm qemu-membrane)
 
 (WorkspaceDevice omega-vm)

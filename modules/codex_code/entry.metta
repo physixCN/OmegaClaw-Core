@@ -5,7 +5,7 @@
 (ModuleVersion omegaclaw.skill.codex-code "0.1.0")
 (ModuleEntrypoint omegaclaw.skill.codex-code "entry.metta")
 (ModuleOptional omegaclaw.skill.codex-code True)
-(ModuleDefaultEnabled omegaclaw.skill.codex-code True)
+(ModuleDefaultEnabled omegaclaw.skill.codex-code False)
 (ModuleImplementation omegaclaw.skill.codex-code codex-cli-openrouter-membrane)
 
 (Provider codex-code)

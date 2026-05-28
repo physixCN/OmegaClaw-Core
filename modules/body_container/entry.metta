@@ -9,7 +9,7 @@
 (ModuleVersion omegaclaw.body.container "0.1.0")
 (ModuleEntrypoint omegaclaw.body.container "entry.metta")
 (ModuleOptional omegaclaw.body.container True)
-(ModuleDefaultEnabled omegaclaw.body.container True)
+(ModuleDefaultEnabled omegaclaw.body.container False)
 (ModuleImplementation omegaclaw.body.container host-launcher-membrane)
 
 (RuntimeOrgan "body-container" (initBodyContainerOrgan))

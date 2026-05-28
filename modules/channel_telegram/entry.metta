@@ -6,7 +6,7 @@
 (ModuleVersion omegaclaw.channel.telegram "0.1.0")
 (ModuleEntrypoint omegaclaw.channel.telegram "entry.metta")
 (ModuleOptional omegaclaw.channel.telegram True)
-(ModuleDefaultEnabled omegaclaw.channel.telegram True)
+(ModuleDefaultEnabled omegaclaw.channel.telegram False)
 (ModuleImplementation omegaclaw.channel.telegram telegram-bot-api-membrane)
 
 

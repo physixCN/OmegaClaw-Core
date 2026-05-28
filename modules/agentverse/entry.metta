@@ -9,7 +9,7 @@
 (ModuleVersion omegaclaw.remote.agentverse "0.1.0")
 (ModuleEntrypoint omegaclaw.remote.agentverse "entry.metta")
 (ModuleOptional omegaclaw.remote.agentverse True)
-(ModuleDefaultEnabled omegaclaw.remote.agentverse True)
+(ModuleDefaultEnabled omegaclaw.remote.agentverse False)
 (ModuleImplementation omegaclaw.remote.agentverse uagents-agentverse-membrane)
 
 (Space agentverse)

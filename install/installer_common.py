@@ -30,43 +30,19 @@ BASE_PIP = [
     "chromadb",
     "janus-swi",
     "openai",
-    "uagents",
     "requests",
-    "websocket-client",
 ]
 
 OPTIONAL_PIP = {
+    "agentverse": ["uagents"],
     "assume": ["jax", "optax"],
+    "channel_mattermost": ["websocket-client"],
     "gameboy": ["pyboy", "pillow"],
 }
 
 FORCED_MODULES = {
     "channel_router",
     "scratch_space",
-}
-
-RECOMMENDED_MODULES = {
-    "web_search",
-    "assume",
-    "publishing",
-    "scheduler_reminders",
-    "sense_router",
-    "sense_vision",
-    "sense_webcam",
-    "sense_audio",
-    "media_imagegen",
-    "media_videogen",
-}
-
-ADVANCED_MODULES = {
-    "agentverse",
-    "body_container",
-    "codex_code",
-    "gameboy",
-    "health_glucose",
-    "home_assistant",
-    "omega_vm",
-    "vm_policy",
 }
 
 CHANNEL_MODULES = {
@@ -102,6 +78,10 @@ class ModuleInfo:
 def run(cmd: list[str], cwd: pathlib.Path | None = None, check: bool = True) -> subprocess.CompletedProcess:
     print("$ " + " ".join(cmd))
     return subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=check)
+
+
+def tool_exists(name: str) -> bool:
+    return shutil.which(name) is not None
 
 
 def ask(prompt: str, default: str | None = None) -> str:
@@ -260,28 +240,25 @@ def choose_channel() -> tuple[str, dict[str, str], set[str]]:
 
 
 def choose_modules(modules: dict[str, ModuleInfo], channel_modules: set[str]) -> set[str]:
-    print("\nModule profile")
-    print("  1) Minimal: selected channel, channel router, scratch space, web search")
-    print("  2) Recommended: minimal plus Assume, publishing, reminders, and senses")
-    print("  3) Full: all modules; may require device credentials and extra tools")
-    choice = ask("Choose profile", "2")
-    if choice == "1":
-        enabled = set(FORCED_MODULES) | channel_modules | {"web_search"}
-    elif choice == "3":
-        enabled = set(modules)
-    else:
-        enabled = set(FORCED_MODULES) | channel_modules | set(RECOMMENDED_MODULES)
+    enabled = {
+        name
+        for name, info in modules.items()
+        if info.default_enabled
+    } | set(FORCED_MODULES) | set(channel_modules)
+
+    print("\nDefault modules")
+    default_names = sorted(name for name in enabled if name in modules)
+    if default_names:
+        print("Enabled automatically from module defaults:")
+        print("  " + ", ".join(default_names))
 
     print("\nOptional modules")
     for name, info in modules.items():
-        if name in FORCED_MODULES or name in channel_modules:
+        if name in enabled:
             continue
-        default = name in enabled
-        prompt = f"Enable {name} ({info.kind})"
-        if yes_no(prompt, default):
+        prompt = f"Enable optional module {name} ({info.kind})"
+        if yes_no(prompt, False):
             enabled.add(name)
-        else:
-            enabled.discard(name)
     return {name for name in enabled if name in modules}
 
 
@@ -401,6 +378,34 @@ def pip_install(workspace: pathlib.Path, enabled: set[str]) -> None:
     run([str(python), "-m", "pip", "install", *packages])
 
 
+def install_system_deps(enabled: set[str]) -> None:
+    packages: list[str] = []
+    if "omega_vm" in enabled:
+        packages.extend(["qemu", "busybox"] if sys.platform == "darwin" else ["qemu-system-aarch64", "busybox"])
+    if "vm_policy" in enabled and sys.platform != "darwin":
+        packages.extend(["nftables", "ufw"])
+
+    if not packages:
+        return
+
+    deduped = list(dict.fromkeys(packages))
+    if sys.platform == "darwin" and tool_exists("brew"):
+        print("\nInstalling selected module system dependencies with Homebrew...")
+        for package in deduped:
+            if subprocess.run(["brew", "list", package], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
+                continue
+            run(["brew", "install", package])
+    elif sys.platform.startswith("linux") and tool_exists("apt-get"):
+        print("\nInstalling selected module system dependencies with apt...")
+        sudo = ["sudo"] if os.geteuid() != 0 and tool_exists("sudo") else []
+        run([*sudo, "apt-get", "update"])
+        run([*sudo, "apt-get", "install", "-y", *deduped])
+    else:
+        print("\nModule system dependencies were selected but no supported package manager was found:")
+        print("  " + ", ".join(deduped))
+        print("Install these packages manually before using the selected modules.")
+
+
 def install_node_deps(core: pathlib.Path, enabled: set[str]) -> None:
     if not ({"channel_whatsapp", "codex_code"} & enabled):
         return
@@ -409,7 +414,7 @@ def install_node_deps(core: pathlib.Path, enabled: set[str]) -> None:
         bridge = core / "modules" / "channel_whatsapp" / "src" / "whatsapp_bridge"
         if (bridge / "package.json").exists():
             run(["npm", "install"], cwd=bridge)
-    if "codex_code" in enabled and yes_no("Install @openai/codex globally for codex_code", False):
+    if "codex_code" in enabled:
         run(["npm", "install", "-g", "@openai/codex@0.133.0"])
 
 
@@ -417,12 +422,11 @@ def install_fabricpc(workspace: pathlib.Path, enabled: set[str], env_values: dic
     if "assume" not in enabled:
         return
     fabric = workspace / "repos" / "FabricPC"
-    if yes_no("Clone/install FabricPC for Assume", True):
-        clone_or_update(FABRICPC_URL, fabric)
-        python = workspace / ".venv" / "bin" / "python"
-        run([str(python), "-m", "pip", "install", "-e", str(fabric)])
-        env_values["FABRICPC_REPO"] = str(fabric)
-        env_values["FABRICPC_PYTHON"] = str(python)
+    clone_or_update(FABRICPC_URL, fabric)
+    python = workspace / ".venv" / "bin" / "python"
+    run([str(python), "-m", "pip", "install", "-e", str(fabric)])
+    env_values["FABRICPC_REPO"] = str(fabric)
+    env_values["FABRICPC_PYTHON"] = str(python)
 
 
 def prepare_workspace(workspace: pathlib.Path, repo_url: str) -> pathlib.Path:
@@ -459,6 +463,7 @@ def main() -> int:
     enabled.add(CHANNEL_MODULES[channel])
 
     env_values = {**provider_env, **channel_env, "OMEGACLAW_AGENT_NAME": agent_name}
+    install_system_deps(enabled)
     pip_install(workspace, enabled)
     install_fabricpc(workspace, enabled, env_values)
     install_node_deps(core, enabled)

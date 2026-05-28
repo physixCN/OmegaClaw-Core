@@ -61,9 +61,56 @@ class InstallerTests(unittest.TestCase):
         for text in [readme, install_readme]:
             self.assertIn("modules/loader.metta", text)
             self.assertIn(".env", text)
+            self.assertIn("default_enabled", text)
             self.assertIn("agent name", text.lower())
             self.assertIn("provider", text.lower())
             self.assertIn("channel", text.lower())
+
+    def test_module_defaults_separate_core_from_device_heavy_modules(self):
+        installer = load_installer_common()
+        modules = installer.discover_modules(ROOT)
+        for name in ["assume", "channel_router", "scratch_space", "web_search"]:
+            self.assertTrue(modules[name].default_enabled, name)
+        for name in [
+            "agentverse",
+            "channel_mattermost",
+            "channel_telegram",
+            "channel_whatsapp",
+            "codex_code",
+            "gameboy",
+            "health_glucose",
+            "omega_vm",
+            "vm_policy",
+        ]:
+            self.assertFalse(modules[name].default_enabled, name)
+
+    def test_installer_enables_default_modules_and_asks_only_for_optional(self):
+        installer = load_installer_common()
+        modules = {
+            "channel_router": installer.ModuleInfo("channel_router", "channel_router", "channel", True, "entry.metta", ()),
+            "scratch_space": installer.ModuleInfo("scratch_space", "scratch_space", "core", True, "entry.metta", ()),
+            "web_search": installer.ModuleInfo("web_search", "web_search", "channel", True, "entry.metta", ()),
+            "channel_whatsapp": installer.ModuleInfo("channel_whatsapp", "channel_whatsapp", "channel", False, "entry.metta", ()),
+            "agentverse": installer.ModuleInfo("agentverse", "agentverse", "remote", False, "entry.metta", ()),
+        }
+        asked = []
+        original_yes_no = installer.yes_no
+        try:
+            def fake_yes_no(prompt, default=False):
+                asked.append((prompt, default))
+                return "agentverse" in prompt
+
+            installer.yes_no = fake_yes_no
+            enabled = installer.choose_modules(modules, {"channel_whatsapp"})
+        finally:
+            installer.yes_no = original_yes_no
+
+        self.assertIn("channel_router", enabled)
+        self.assertIn("scratch_space", enabled)
+        self.assertIn("web_search", enabled)
+        self.assertIn("channel_whatsapp", enabled)
+        self.assertIn("agentverse", enabled)
+        self.assertEqual(asked, [("Enable optional module agentverse (remote)", False)])
 
     def test_installer_personalizes_agent_name_without_renaming_framework(self):
         installer = load_installer_common()

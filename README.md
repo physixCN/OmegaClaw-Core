@@ -240,10 +240,10 @@ try to enter source control.
 ## Installation
 
 The recommended install path is the interactive installer. It is designed for a
-clean machine: it installs/checks dependencies, asks what to name the agent,
-asks which modules to enable, asks which channel and LLM provider to configure,
-writes local secrets to `~/OmegaClaw/.env`, and creates a launcher for future
-runs.
+clean machine: it installs dependencies, asks what to name the agent, enables
+default-on modules automatically, asks about optional modules, asks which
+channel and LLM provider to configure, writes local secrets to
+`~/OmegaClaw/.env`, and creates a launcher for future runs.
 
 ### macOS Installer
 
@@ -253,8 +253,10 @@ Download or clone this repository, then double-click:
 install/macos/Install OmegaClaw.command
 ```
 
-The installer uses Homebrew to install `git`, `python@3.11`, `swi-prolog`,
-`node`, `cmake`, `pkg-config`, and `openblas`, then creates `~/OmegaClaw`.
+The installer opens Apple's command-line tools installer if needed, installs
+Homebrew automatically when missing, then uses Homebrew to install `git`,
+`python@3.11`, `swi-prolog`, `node`, `cmake`, `pkg-config`, and `openblas`
+before creating `~/OmegaClaw`.
 
 ### Windows Installer
 
@@ -272,7 +274,7 @@ inside WSL and places a `Start OmegaClaw.cmd` launcher on the Windows desktop.
 
 The installer asks once for:
 
-- module profile: minimal, recommended, full, then per-module overrides;
+- optional modules whose `module.toml` has `default_enabled = false`;
 - agent name, used to personalize the local `memory/prompt.txt`;
 - primary channel: IRC, Telegram, Slack, Mattermost, mock, WhatsApp, or web control;
 - LLM provider and model: OpenRouter, OpenAI, Anthropic, ASICloud, ASIOne, or Ollama;
