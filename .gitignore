@@ -31,7 +31,6 @@ memory/*.metta
 memory/*.md
 memory/*.html
 memory/*.txt
-!memory/prompt.txt
 memory/cycle-counter.txt
 memory/reboot_note.txt
 memory/backups/
@@ -68,16 +67,26 @@ memory/omega-practice.txt
 *.backup
 *.backup-*
 
+# Channel bridge runtime dependencies and private auth/session state
+channels/whatsapp_bridge/node_modules/
+channels/whatsapp_bridge/auth*/
+channels/whatsapp_bridge/*.bak-*
+channels/*.bak-*
 src/*.bak-*
 memory/*.bak-*
+web/omega-os/node_modules/
 
 # Credentials and local runtime config
 memory/home_assistant.json
 memory/librelinkup.json
 memory/librelinkup_cache.json
+channels/whatsapp_bridge/*auth*/
 # Module-owned WhatsApp bridge runtime dependencies and auth/session state
 modules/channel_whatsapp/src/whatsapp_bridge/node_modules/
 modules/channel_whatsapp/src/whatsapp_bridge/auth*/
 modules/channel_whatsapp/src/whatsapp_bridge/*auth*/
 modules/channel_whatsapp/src/whatsapp_bridge/*.bak-*
 
+
+# Local website project; not part of v0.01a GitHub release yet
+web/omega-os/
