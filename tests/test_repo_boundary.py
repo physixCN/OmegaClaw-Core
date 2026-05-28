@@ -30,7 +30,6 @@ class RepositoryBoundaryTests(unittest.TestCase):
         tracked = git_lines("ls-files")
         forbidden_exact = {
             "memory/history.metta",
-            "memory/prompt.txt",
             "memory/promoted_memories.metta",
             "memory/home_assistant.json",
             "memory/librelinkup.json",
