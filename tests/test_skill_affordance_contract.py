@@ -204,6 +204,24 @@ class SkillAffordanceContractTests(unittest.TestCase):
 
 
 
+    def test_whatsapp_file_send_cards_disambiguate_primary_and_explicit_routes(self):
+        source = (
+            (ROOT / "modules" / "channel_whatsapp" / "affordance.metta").read_text(encoding="utf-8")
+            + "\n"
+            + (ROOT / "modules" / "channel_whatsapp" / "catalog.metta").read_text(encoding="utf-8")
+        )
+
+        for expected in [
+            "send-file-caption path caption - send a file/image with caption to the current primary/control route",
+            "for a different WhatsApp chat use send-whatsapp-file-caption-to jid path caption",
+            "send-whatsapp-file-caption-to jid path caption - send a file/image to a specific different WhatsApp chat",
+            "jid is route metadata",
+            "never caption/body text",
+            "use the exact generated path returned by IMAGE-GENERATED",
+        ]:
+            self.assertIn(expected, source)
+
+
     def test_attention_trigger_surface_is_symbolic(self):
         source = (SRC / "skills_affordance.metta").read_text(encoding="utf-8")
         declarations = (SRC / "skill_affordance_affordance.metta").read_text(encoding="utf-8")
