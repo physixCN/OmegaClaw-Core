@@ -16,7 +16,7 @@ LLM and embedding bridges.
 
 OpenAI calls go through MeTTa-side helpers (`useGPT`, `useGPTEmbedding`) that are defined elsewhere in the library but use the same LLM call pattern.
 
-## `modules/agentverse/src/agentverse_bridge.py`
+## `modules/agentverse/src/agentverse_organ.py`
 
 Optional Agentverse/uAgents remote-agent transport membrane.
 
@@ -28,7 +28,8 @@ Optional Agentverse/uAgents remote-agent transport membrane.
 | `agentverse_ask(destination, schema, payload)` | Send a typed uAgents request to a raw destination. |
 | `agentverse_trace()` | Return recent local Agentverse trace atoms. |
 
-Agentverse is module-owned. New work should import `modules/agentverse/entry.metta`.
+`src/agentverse.py` is now only a compatibility shim for old deployments. New
+work should import `modules/agentverse/entry.metta`.
 
 ## `src/helper.py`
 

@@ -38,7 +38,15 @@ organs and reusable membranes, not instance-specific runtime state.
   - `demos/assume/`
   - Assume tests and MeTTa smokes
 - Optional reusable body apps, if reviewed as separate app organs:
-  - module-owned device/channel bridges under `modules/*/src/`
+  - `src/home.py`
+  - `src/vision.py`
+  - `src/audio.py`
+  - `src/webcam.py`
+  - `src/glucose.py`
+  - `src/imagegen.py`
+  - `src/videogen.py`
+  - `channels/router.py`
+  - `channels/web_control.py`
   - channel bridge modules and their transport-specific runtimes
 
 ## Exclude From Core Review
@@ -49,10 +57,11 @@ organs and reusable membranes, not instance-specific runtime state.
   - `memory/*.metta`
   - `memory/*.json`, `memory/*.jsonl`, `memory/*.db`
   - `memory/inbox/`, `memory/outbox/`, `memory/web/`, generated media
-- Private operator/publication surfaces:
-  - local web UI sources
-  - local publication backends
-  - deployment-specific UI tests and prototypes
+- Private web/publication surface:
+  - `src/webhost.py`
+  - `web/`
+  - webhost-specific tests and UI design notes
+  - `docs/retired/` UI prototypes
 - Live credentials/session state:
   - `.env`
   - channel bridge auth directories and vendored runtime dependencies
@@ -80,13 +89,27 @@ optional body/device organs:
   memory through the attention skill surface when needed.
 - `lib_omegaclaw_body.metta` imports optional app/device organs such as
   images/video, home control, vision, webcam, audio, health-data apps,
-  channel bridges, web-control, routing, body and channel
+  channel bridges, web-control, routing, publishing, and body/channel/web
   catalog atoms.
 - live `run.metta` imports all of these files, so a composed runtime can keep
   its current body while the core review can inspect the mind membrane
   independently.
 
-Local web UI and publication backends are excluded from the out-of-box core review.
+The live tree also previously imported the local webhost directly. That has
+been replaced with `src/publishing.py`, a small optional body membrane:
+
+- `lib_omegaclaw_body.metta` imports `./src/publishing.py`
+- `src/skills_body.metta` routes publication skills through `publishing.*`
+- when a local `webhost.py` organ exists, `publishing.py` delegates to it
+- when no local webhost organ exists, publication skills return a visible
+  `PUBLISHING-NOT-CONFIGURED` result instead of breaking the core runtime
+
+Remaining local-only webhost material should still be excluded from the core
+review:
+
+- `src/webhost.py`
+- `web/`
+- webhost-specific tests
 
 ## Reviewer Principles
 

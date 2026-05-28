@@ -15,9 +15,7 @@ modules/<module-id>/
   module.toml
   entry.metta
   catalog.metta
-  affordance.metta
   signatures.metta
-  skills.metta
   README.md
   src/ or bridge/ if needed
   tests/
@@ -58,17 +56,6 @@ OMEGACLAW_WA_AUTH_DIR = { required = false, runtime_state = true }
 (ChannelCapability whatsapp text-send)
 (TraceWrites omegaclaw.channel.whatsapp ChannelMessageReceived)
 ```
-
-`signatures.metta`, `catalog.metta`, `affordance.metta`, and `skills.metta`
-are separate on purpose:
-
-- `signatures.metta` declares parser-visible call shapes.
-- `catalog.metta` declares queryable help and full catalogue text.
-- `affordance.metta` declares topics, cards, arguments, risks, effects, and preferred-use hints.
-- `skills.metta` owns the actual callable MeTTa definitions.
-
-Keeping them separate lets Omega inspect a module without conflating parser
-syntax, attention hints, documentation, and execution.
 
 ## Principles
 
@@ -136,15 +123,15 @@ The agent can ask which channels can send files:
 (match &self (ChannelCapability $channel file-send) $channel)
 ```
 
-Large modules use the same pattern. An operator console or other operating surface can be declared
+Large modules use the same pattern. A spatial operating surface can be declared
 as an organ/world:
 
 ```metta
-(Module openclaw.surface.operator-console)
-(ModuleKind openclaw.surface.operator-console operating-surface)
-(Surface operator-console)
-(Provides openclaw.surface.operator-console (Skill open-panel))
-(SurfaceCapability operator-console runtime-state-view)
+(Module omegaclaw.os.omega-surface)
+(ModuleKind omegaclaw.os.omega-surface operating-surface)
+(Surface omega-os)
+(Provides omegaclaw.os.omega-surface (Skill open-window))
+(SurfaceCapability omega-os live-mind-map)
 ```
 
 A game or simulation can be declared similarly:
@@ -157,5 +144,6 @@ A game or simulation can be declared similarly:
 (SimulationCapability metta-maze state-observable)
 ```
 
-This keeps modules shareable like packages while preserving the core rule: the
-final affordance surface is symbolic, inspectable, and composable.
+This keeps modules shareable like packages while preserving the core
+core rule: the final affordance surface is symbolic, inspectable, and
+composable.

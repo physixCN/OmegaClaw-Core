@@ -1,0 +1,1339 @@
+diff --git a/demos/assume/README.md b/demos/assume/README.md
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/demos/assume/README.md
+@@ -0,0 +1,68 @@
++# Assume Demo Spaces
++
++`SmartHabitatDemoSpace.metta` is a public, sanitized demo for the
++FabricPC-backed Assume organ. It models a generalized smart habitat rather than
++any real home.
++
++The demo is intentionally small enough to run locally but large enough to show
++the point:
++
++- symbolic MeTTa atoms define situations, context features, actions, sparse
++  feature edges, outcomes, and errors;
++- FabricPC loads a warm executable graph view from those atoms;
++- prediction returns support, confidence, evidence, error pressure, and a
++  verdict;
++- explicit outcome/error evidence can train the graph;
++- writeback returns symbolic atoms that can be reviewed before committing;
++- every learned edge update is paired with an `AssumeWeightMutation` atom so
++  the neural update is inspectable as symbolic evidence.
++- mutation writeback also includes primitive facts, Fabric-local judgement
++  atoms, and MeTTa-reviewable pressure atoms, so the agent can reason over the
++  update before accepting it.
++
++Investor-facing story:
++
++> An LLM may guess that a house should dim lights for a movie. Assume can show
++> which symbolic signals supported that prediction, how confident it is, why
++> alternatives are weaker, and exactly how the graph changes after feedback.
++
++Reviewer commands:
++
++FabricPC is discovered through `FABRICPC_REPO` and `FABRICPC_PYTHON`; by
++default the tests look for `../FabricPC/.venv/bin/python` beside this repo.
++
++```bash
++python -B tests/assume_demo_story.py
++python -B tests/assume_demo_benchmark.py
++python -B -m unittest tests.test_assume_demo_space tests.test_assume_fabricd tests.test_assume
++```
++
++Claims:
++
++- The demo graph is represented as ordinary MeTTa-shaped Assume atoms.
++- FabricPC is a warm executable view of that graph, not the canonical memory.
++- Prediction/audit returns symbolic reports with support, confidence, evidence,
++  error pressure, verdict, reason, and NAL-style truth values.
++- Learning is explicit: prediction and audit are consumptive reads; weight
++  changes require `learn` or `learn-from-atoms`.
++- Writeback is a mutation delta, not a whole-graph export.
++- Mutation trace is symbolic and inspectable; it is not hidden inside the
++  neural runtime.
++- Mutation review is surfaced as explicit atoms. Fabric emits primitive facts
++  such as `AssumeWeightDelta`, `AssumeMutationSignedError`,
++  `AssumeMutationEvidence`, `AssumeAdjustmentPressure`, plus local judgement
++  atoms such as `AssumeFabricMutationVerdict`.
++- MeTTa can independently review those same facts with
++  `assume-review-mutation`, emit its own truth/verdict/reason atoms, and
++  compare its symbolic verdict against Fabric's local verdict.
++- Canonical persistence comes before live-space mutation. A failed persistence
++  commit returns an error atom and leaves `&assume` unchanged.
++- Reloading from committed atoms preserves learned prediction changes.
++
++Non-claims:
++
++- This is not a completed AGI substrate.
++- This is not a full hierarchical causal-coding cortex.
++- This does not act automatically on the world.
++- This does not make the LLM the agent; it exposes a prediction organ that
++  OmegaClaw can reason over and choose how to use.
+diff --git a/demos/assume/SmartHabitatDemoSpace.metta b/demos/assume/SmartHabitatDemoSpace.metta
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/demos/assume/SmartHabitatDemoSpace.metta
+@@ -0,0 +1,287 @@
++(
++  (AssumeDemoSpace SmartHabitatDemoSpace smart-habitat "Public demo space for symbolic-neural prediction in generalized smart homes and small buildings")
++
++  (AssumeSituation smart-habitat morning-wakeup "Resident is asleep near morning alarm; habitat predicts a gentle wake routine")
++  (AssumeSituation smart-habitat movie-evening "Resident is watching a film; habitat predicts comfort lighting without over-automation")
++  (AssumeSituation smart-habitat sleep-transition "House is going quiet at night; habitat predicts a low-noise sleep transition")
++  (AssumeSituation smart-habitat away-security "Building is empty with exterior activity; habitat predicts security posture")
++  (AssumeSituation smart-habitat guest-arrival "Known guest arrives after dark; habitat predicts welcome and safety affordances")
++  (AssumeSituation smart-habitat energy-peak "Grid price and load are high; habitat predicts comfort-preserving energy reduction")
++  (AssumeSituation smart-habitat storm-warning "Storm conditions are building; habitat predicts preparation actions")
++  (AssumeSituation smart-habitat elder-comfort "Older resident comfort signals are active; habitat predicts supportive environment checks")
++  (AssumeSituation smart-habitat pet-home-alone "Pet is home alone with comfort signals; habitat predicts quiet pet support")
++  (AssumeSituation smart-habitat maintenance-anomaly "Sensors disagree or look abnormal; habitat predicts inspection before action")
++
++  (AssumeContextFeature smart-habitat morning-wakeup resident-asleep 0.95 0.9 sleep-sensor)
++  (AssumeContextFeature smart-habitat morning-wakeup alarm-soon 0.9 0.9 calendar)
++  (AssumeContextFeature smart-habitat morning-wakeup sunrise-near 0.78 0.8 sun-sensor)
++  (AssumeContextFeature smart-habitat morning-wakeup bedroom-occupied 0.92 0.85 occupancy)
++  (AssumeContextFeature smart-habitat morning-wakeup cold-room 0.62 0.7 thermostat)
++  (AssumeContextFeature smart-habitat morning-wakeup weekday 0.75 0.8 calendar)
++  (AssumeContextFeature smart-habitat morning-wakeup previous-wakeup-liked 0.8 0.65 memory)
++
++  (AssumeContextFeature smart-habitat movie-evening resident-present 0.95 0.9 occupancy)
++  (AssumeContextFeature smart-habitat movie-evening evening 0.9 0.9 clock)
++  (AssumeContextFeature smart-habitat movie-evening tv-active 0.88 0.85 media-state)
++  (AssumeContextFeature smart-habitat movie-evening movie-context 0.86 0.75 media-inference)
++  (AssumeContextFeature smart-habitat movie-evening low-ambient-light 0.82 0.8 light-sensor)
++  (AssumeContextFeature smart-habitat movie-evening living-room-occupied 0.91 0.85 occupancy)
++  (AssumeContextFeature smart-habitat movie-evening privacy-sensitive 0.7 0.75 policy)
++
++  (AssumeContextFeature smart-habitat sleep-transition night 0.98 0.95 clock)
++  (AssumeContextFeature smart-habitat sleep-transition family-asleep 0.9 0.78 occupancy)
++  (AssumeContextFeature smart-habitat sleep-transition house-quiet 0.88 0.85 acoustic)
++  (AssumeContextFeature smart-habitat sleep-transition lights-on 0.74 0.8 light-state)
++  (AssumeContextFeature smart-habitat sleep-transition door-locked 0.82 0.8 lock-state)
++  (AssumeContextFeature smart-habitat sleep-transition hvac-running 0.6 0.7 hvac-state)
++  (AssumeContextFeature smart-habitat sleep-transition child-asleep 0.78 0.65 occupancy)
++
++  (AssumeContextFeature smart-habitat away-security house-empty 0.94 0.9 occupancy)
++  (AssumeContextFeature smart-habitat away-security doors-locked 0.86 0.85 lock-state)
++  (AssumeContextFeature smart-habitat away-security exterior-dark 0.88 0.9 light-sensor)
++  (AssumeContextFeature smart-habitat away-security front-door-motion 0.72 0.72 motion)
++  (AssumeContextFeature smart-habitat away-security package-detected 0.64 0.68 vision)
++  (AssumeContextFeature smart-habitat away-security privacy-sensitive 0.78 0.8 policy)
++  (AssumeContextFeature smart-habitat away-security network-online 0.94 0.95 network)
++
++  (AssumeContextFeature smart-habitat guest-arrival doorbell-rang 0.96 0.95 doorbell)
++  (AssumeContextFeature smart-habitat guest-arrival known-guest-arrival 0.83 0.75 calendar)
++  (AssumeContextFeature smart-habitat guest-arrival exterior-dark 0.8 0.85 light-sensor)
++  (AssumeContextFeature smart-habitat guest-arrival hallway-occupied 0.62 0.7 occupancy)
++  (AssumeContextFeature smart-habitat guest-arrival resident-present 0.78 0.82 occupancy)
++  (AssumeContextFeature smart-habitat guest-arrival schedule-expected 0.76 0.72 calendar)
++
++  (AssumeContextFeature smart-habitat energy-peak grid-peak-price 0.96 0.9 grid)
++  (AssumeContextFeature smart-habitat energy-peak battery-low 0.72 0.78 battery)
++  (AssumeContextFeature smart-habitat energy-peak hvac-running 0.82 0.8 hvac-state)
++  (AssumeContextFeature smart-habitat energy-peak laundry-running 0.7 0.75 appliance)
++  (AssumeContextFeature smart-habitat energy-peak solar-output-dropping 0.76 0.8 solar)
++  (AssumeContextFeature smart-habitat energy-peak comfort-margin-high 0.67 0.65 thermostat)
++
++  (AssumeContextFeature smart-habitat storm-warning storm-warning 0.96 0.9 weather)
++  (AssumeContextFeature smart-habitat storm-warning wind-high 0.84 0.85 weather)
++  (AssumeContextFeature smart-habitat storm-warning solar-output-dropping 0.78 0.82 solar)
++  (AssumeContextFeature smart-habitat storm-warning exterior-dark 0.72 0.78 light-sensor)
++  (AssumeContextFeature smart-habitat storm-warning windows-open 0.6 0.62 contact-sensor)
++  (AssumeContextFeature smart-habitat storm-warning battery-storage-medium 0.7 0.8 battery)
++  (AssumeContextFeature smart-habitat storm-warning garage-door-open 0.52 0.55 contact-sensor)
++
++  (AssumeContextFeature smart-habitat elder-comfort elder-present 0.94 0.86 occupancy)
++  (AssumeContextFeature smart-habitat elder-comfort cold-room 0.74 0.72 thermostat)
++  (AssumeContextFeature smart-habitat elder-comfort low-mobility 0.68 0.6 profile)
++  (AssumeContextFeature smart-habitat elder-comfort room-stale-air 0.7 0.68 air-quality)
++  (AssumeContextFeature smart-habitat elder-comfort recent-user-message 0.64 0.75 inbox)
++  (AssumeContextFeature smart-habitat elder-comfort night 0.58 0.8 clock)
++
++  (AssumeContextFeature smart-habitat pet-home-alone pet-home-alone 0.95 0.85 pet-sensor)
++  (AssumeContextFeature smart-habitat pet-home-alone house-empty 0.9 0.9 occupancy)
++  (AssumeContextFeature smart-habitat pet-home-alone temperature-rising 0.7 0.75 thermostat)
++  (AssumeContextFeature smart-habitat pet-home-alone noise-detected 0.56 0.62 acoustic)
++  (AssumeContextFeature smart-habitat pet-home-alone robot-vacuum-active 0.52 0.7 appliance)
++  (AssumeContextFeature smart-habitat pet-home-alone feeder-due 0.74 0.72 schedule)
++  (AssumeContextFeature smart-habitat pet-home-alone camera-available 0.82 0.82 device)
++
++  (AssumeContextFeature smart-habitat maintenance-anomaly water-leak-sensor 0.78 0.86 sensor)
++  (AssumeContextFeature smart-habitat maintenance-anomaly hvac-fault 0.72 0.8 hvac)
++  (AssumeContextFeature smart-habitat maintenance-anomaly power-spike 0.66 0.72 energy)
++  (AssumeContextFeature smart-habitat maintenance-anomaly device-offline 0.6 0.7 network)
++  (AssumeContextFeature smart-habitat maintenance-anomaly unusual-energy-draw 0.76 0.74 energy)
++  (AssumeContextFeature smart-habitat maintenance-anomaly resident-away 0.82 0.85 occupancy)
++  (AssumeContextFeature smart-habitat maintenance-anomaly network-online 0.9 0.92 network)
++
++  (AssumeAction smart-habitat warm-wakeup-scene comfort)
++  (AssumeAction smart-habitat dim-cinema-scene comfort)
++  (AssumeAction smart-habitat sleep-house-check safety)
++  (AssumeAction smart-habitat arm-perimeter security)
++  (AssumeAction smart-habitat welcome-guest-mode hospitality)
++  (AssumeAction smart-habitat shed-load-gently energy)
++  (AssumeAction smart-habitat pre-storm-prep resilience)
++  (AssumeAction smart-habitat elder-comfort-check care)
++  (AssumeAction smart-habitat pet-calm-mode care)
++  (AssumeAction smart-habitat maintenance-inspection safety)
++  (AssumeAction smart-habitat notify-resident communication)
++  (AssumeAction smart-habitat ask-before-action communication)
++  (AssumeAction smart-habitat hold-silence attention)
++  (AssumeAction smart-habitat open-blinds comfort)
++  (AssumeAction smart-habitat route-cleaner-later housekeeping)
++  (AssumeAction smart-habitat increase-ventilation comfort)
++
++  (AssumeFeatureEdge smart-habitat resident-asleep warm-wakeup-scene 0.72 0.78 5)
++  (AssumeFeatureEdge smart-habitat alarm-soon warm-wakeup-scene 0.82 0.84 7)
++  (AssumeFeatureEdge smart-habitat sunrise-near open-blinds 0.76 0.72 4)
++  (AssumeFeatureEdge smart-habitat bedroom-occupied warm-wakeup-scene 0.68 0.75 5)
++  (AssumeFeatureEdge smart-habitat cold-room warm-wakeup-scene 0.58 0.66 3)
++  (AssumeFeatureEdge smart-habitat weekday warm-wakeup-scene 0.55 0.62 3)
++  (AssumeFeatureEdge smart-habitat previous-wakeup-liked warm-wakeup-scene 0.86 0.82 8)
++  (AssumeFeatureEdge smart-habitat child-asleep hold-silence 0.78 0.7 5)
++  (AssumeFeatureEdge smart-habitat child-asleep warm-wakeup-scene 0.22 0.65 2)
++  (AssumeFeatureEdge smart-habitat alarm-soon ask-before-action 0.38 0.58 2)
++
++  (AssumeFeatureEdge smart-habitat resident-present dim-cinema-scene 0.62 0.76 4)
++  (AssumeFeatureEdge smart-habitat evening dim-cinema-scene 0.7 0.8 6)
++  (AssumeFeatureEdge smart-habitat tv-active dim-cinema-scene 0.82 0.86 8)
++  (AssumeFeatureEdge smart-habitat movie-context dim-cinema-scene 0.9 0.88 9)
++  (AssumeFeatureEdge smart-habitat low-ambient-light dim-cinema-scene 0.76 0.82 6)
++  (AssumeFeatureEdge smart-habitat living-room-occupied dim-cinema-scene 0.66 0.78 5)
++  (AssumeFeatureEdge smart-habitat movie-context hold-silence 0.54 0.7 4)
++  (AssumeFeatureEdge smart-habitat tv-active increase-ventilation 0.26 0.52 1)
++  (AssumeFeatureEdge smart-habitat low-ambient-light open-blinds 0.18 0.55 1)
++
++  (AssumeFeatureEdge smart-habitat night sleep-house-check 0.82 0.86 8)
++  (AssumeFeatureEdge smart-habitat family-asleep sleep-house-check 0.88 0.84 8)
++  (AssumeFeatureEdge smart-habitat house-quiet hold-silence 0.84 0.8 7)
++  (AssumeFeatureEdge smart-habitat house-quiet sleep-house-check 0.64 0.72 4)
++  (AssumeFeatureEdge smart-habitat lights-on sleep-house-check 0.72 0.78 6)
++  (AssumeFeatureEdge smart-habitat door-locked sleep-house-check 0.58 0.7 4)
++  (AssumeFeatureEdge smart-habitat hvac-running sleep-house-check 0.44 0.64 3)
++  (AssumeFeatureEdge smart-habitat family-asleep notify-resident 0.16 0.7 4)
++  (AssumeFeatureEdge smart-habitat night hold-silence 0.62 0.74 5)
++  (AssumeFeatureEdge smart-habitat lights-on hold-silence 0.2 0.55 1)
++
++  (AssumeFeatureEdge smart-habitat house-empty arm-perimeter 0.86 0.86 9)
++  (AssumeFeatureEdge smart-habitat doors-locked arm-perimeter 0.68 0.78 5)
++  (AssumeFeatureEdge smart-habitat exterior-dark arm-perimeter 0.58 0.72 4)
++  (AssumeFeatureEdge smart-habitat front-door-motion notify-resident 0.72 0.78 6)
++  (AssumeFeatureEdge smart-habitat front-door-motion arm-perimeter 0.64 0.76 5)
++  (AssumeFeatureEdge smart-habitat package-detected notify-resident 0.58 0.68 3)
++  (AssumeFeatureEdge smart-habitat network-online arm-perimeter 0.54 0.74 4)
++  (AssumeFeatureEdge smart-habitat privacy-sensitive notify-resident 0.44 0.65 3)
++  (AssumeFeatureEdge smart-habitat house-empty hold-silence 0.42 0.6 2)
++  (AssumeFeatureEdge smart-habitat package-detected arm-perimeter 0.34 0.58 2)
++
++  (AssumeFeatureEdge smart-habitat doorbell-rang welcome-guest-mode 0.72 0.78 5)
++  (AssumeFeatureEdge smart-habitat known-guest-arrival welcome-guest-mode 0.86 0.82 7)
++  (AssumeFeatureEdge smart-habitat exterior-dark welcome-guest-mode 0.52 0.68 3)
++  (AssumeFeatureEdge smart-habitat hallway-occupied welcome-guest-mode 0.58 0.68 3)
++  (AssumeFeatureEdge smart-habitat resident-present welcome-guest-mode 0.64 0.72 4)
++  (AssumeFeatureEdge smart-habitat schedule-expected welcome-guest-mode 0.78 0.78 5)
++  (AssumeFeatureEdge smart-habitat doorbell-rang notify-resident 0.68 0.76 5)
++  (AssumeFeatureEdge smart-habitat known-guest-arrival ask-before-action 0.42 0.62 2)
++  (AssumeAction smart-habitat turn-on-path-lights safety)
++
++  (AssumeFeatureEdge smart-habitat grid-peak-price shed-load-gently 0.9 0.86 9)
++  (AssumeFeatureEdge smart-habitat battery-low shed-load-gently 0.74 0.78 6)
++  (AssumeFeatureEdge smart-habitat hvac-running shed-load-gently 0.56 0.68 3)
++  (AssumeFeatureEdge smart-habitat laundry-running route-cleaner-later 0.62 0.7 4)
++  (AssumeFeatureEdge smart-habitat laundry-running shed-load-gently 0.48 0.66 3)
++  (AssumeFeatureEdge smart-habitat solar-output-dropping shed-load-gently 0.66 0.74 5)
++  (AssumeFeatureEdge smart-habitat comfort-margin-high shed-load-gently 0.8 0.76 6)
++  (AssumeFeatureEdge smart-habitat comfort-margin-high ask-before-action 0.24 0.6 2)
++
++  (AssumeFeatureEdge smart-habitat storm-warning pre-storm-prep 0.9 0.86 8)
++  (AssumeFeatureEdge smart-habitat wind-high pre-storm-prep 0.78 0.8 6)
++  (AssumeFeatureEdge smart-habitat solar-output-dropping pre-storm-prep 0.58 0.68 4)
++  (AssumeFeatureEdge smart-habitat exterior-dark pre-storm-prep 0.42 0.62 2)
++  (AssumeFeatureEdge smart-habitat windows-open pre-storm-prep 0.74 0.74 5)
++  (AssumeFeatureEdge smart-habitat battery-storage-medium pre-storm-prep 0.62 0.7 4)
++  (AssumeFeatureEdge smart-habitat garage-door-open pre-storm-prep 0.76 0.76 5)
++  (AssumeFeatureEdge smart-habitat storm-warning notify-resident 0.56 0.7 4)
++  (AssumeFeatureEdge smart-habitat windows-open notify-resident 0.46 0.64 2)
++
++  (AssumeFeatureEdge smart-habitat elder-present elder-comfort-check 0.88 0.84 8)
++  (AssumeFeatureEdge smart-habitat cold-room elder-comfort-check 0.68 0.76 5)
++  (AssumeFeatureEdge smart-habitat low-mobility elder-comfort-check 0.72 0.72 5)
++  (AssumeFeatureEdge smart-habitat room-stale-air increase-ventilation 0.76 0.74 5)
++  (AssumeFeatureEdge smart-habitat recent-user-message elder-comfort-check 0.58 0.68 3)
++  (AssumeFeatureEdge smart-habitat night elder-comfort-check 0.44 0.62 2)
++  (AssumeFeatureEdge smart-habitat elder-present ask-before-action 0.66 0.74 4)
++  (AssumeFeatureEdge smart-habitat room-stale-air elder-comfort-check 0.52 0.66 3)
++  (AssumeFeatureEdge smart-habitat low-mobility notify-resident 0.36 0.6 2)
++
++  (AssumeFeatureEdge smart-habitat pet-home-alone pet-calm-mode 0.86 0.82 8)
++  (AssumeFeatureEdge smart-habitat house-empty pet-calm-mode 0.52 0.68 3)
++  (AssumeFeatureEdge smart-habitat temperature-rising increase-ventilation 0.72 0.74 5)
++  (AssumeFeatureEdge smart-habitat noise-detected pet-calm-mode 0.56 0.64 3)
++  (AssumeFeatureEdge smart-habitat robot-vacuum-active route-cleaner-later 0.74 0.76 5)
++  (AssumeFeatureEdge smart-habitat feeder-due pet-calm-mode 0.62 0.7 4)
++  (AssumeFeatureEdge smart-habitat camera-available ask-before-action 0.52 0.66 3)
++  (AssumeFeatureEdge smart-habitat pet-home-alone hold-silence 0.44 0.6 2)
++  (AssumeFeatureEdge smart-habitat temperature-rising notify-resident 0.38 0.62 2)
++
++  (AssumeFeatureEdge smart-habitat water-leak-sensor maintenance-inspection 0.92 0.88 9)
++  (AssumeFeatureEdge smart-habitat hvac-fault maintenance-inspection 0.84 0.82 7)
++  (AssumeFeatureEdge smart-habitat power-spike maintenance-inspection 0.74 0.76 5)
++  (AssumeFeatureEdge smart-habitat device-offline maintenance-inspection 0.62 0.7 4)
++  (AssumeFeatureEdge smart-habitat unusual-energy-draw maintenance-inspection 0.8 0.78 6)
++  (AssumeFeatureEdge smart-habitat resident-away maintenance-inspection 0.46 0.62 2)
++  (AssumeFeatureEdge smart-habitat network-online maintenance-inspection 0.52 0.66 3)
++  (AssumeFeatureEdge smart-habitat water-leak-sensor notify-resident 0.72 0.76 5)
++  (AssumeFeatureEdge smart-habitat hvac-fault ask-before-action 0.42 0.6 2)
++  (AssumeFeatureEdge smart-habitat power-spike shed-load-gently 0.58 0.68 3)
++
++  (AssumeFeatureEdge smart-habitat privacy-sensitive ask-before-action 0.82 0.84 8)
++  (AssumeFeatureEdge smart-habitat privacy-sensitive hold-silence 0.52 0.7 4)
++  (AssumeFeatureEdge smart-habitat recent-user-message notify-resident 0.48 0.66 3)
++  (AssumeFeatureEdge smart-habitat recent-user-message ask-before-action 0.58 0.68 4)
++  (AssumeFeatureEdge smart-habitat resident-away notify-resident 0.54 0.68 3)
++  (AssumeFeatureEdge smart-habitat resident-away hold-silence 0.36 0.6 2)
++  (AssumeFeatureEdge smart-habitat network-online notify-resident 0.42 0.64 3)
++  (AssumeFeatureEdge smart-habitat network-online hold-silence 0.28 0.58 1)
++  (AssumeFeatureEdge smart-habitat exterior-dark turn-on-path-lights 0.82 0.8 7)
++  (AssumeFeatureEdge smart-habitat exterior-dark notify-resident 0.38 0.62 2)
++  (AssumeFeatureEdge smart-habitat night ask-before-action 0.5 0.66 3)
++  (AssumeFeatureEdge smart-habitat night notify-resident 0.18 0.62 2)
++  (AssumeFeatureEdge smart-habitat house-empty notify-resident 0.46 0.66 3)
++  (AssumeFeatureEdge smart-habitat house-empty ask-before-action 0.34 0.58 2)
++  (AssumeFeatureEdge smart-habitat resident-present ask-before-action 0.44 0.62 3)
++  (AssumeFeatureEdge smart-habitat resident-present notify-resident 0.32 0.58 2)
++  (AssumeFeatureEdge smart-habitat hvac-running increase-ventilation 0.48 0.64 3)
++  (AssumeFeatureEdge smart-habitat hvac-running maintenance-inspection 0.34 0.58 2)
++  (AssumeFeatureEdge smart-habitat solar-output-dropping notify-resident 0.3 0.58 2)
++  (AssumeFeatureEdge smart-habitat battery-low notify-resident 0.5 0.68 3)
++  (AssumeFeatureEdge smart-habitat temperature-rising pet-calm-mode 0.46 0.62 2)
++  (AssumeFeatureEdge smart-habitat temperature-rising maintenance-inspection 0.4 0.62 2)
++  (AssumeFeatureEdge smart-habitat room-stale-air notify-resident 0.34 0.58 2)
++  (AssumeFeatureEdge smart-habitat water-leak-sensor arm-perimeter 0.36 0.6 2)
++  (AssumeFeatureEdge smart-habitat unusual-energy-draw shed-load-gently 0.46 0.64 3)
++
++  (AssumeOutcome smart-habitat morning-wakeup warm-wakeup-scene approved smooth-wakeup 0.8)
++  (AssumeOutcome smart-habitat morning-wakeup open-blinds approved sunrise-helped 0.42)
++  (AssumeError smart-habitat morning-wakeup warm-wakeup-scene rejected child-still-asleep 0.18)
++  (AssumeError smart-habitat morning-wakeup notify-resident rejected too-early 0.24)
++
++  (AssumeOutcome smart-habitat movie-evening dim-cinema-scene approved resident-liked-immersive-lighting 0.86)
++  (AssumeOutcome smart-habitat movie-evening hold-silence approved no-interruption 0.4)
++  (AssumeError smart-habitat movie-evening open-blinds rejected ruined-movie-lighting 0.55)
++  (AssumeError smart-habitat movie-evening notify-resident rejected unnecessary-interruption 0.36)
++
++  (AssumeOutcome smart-habitat sleep-transition sleep-house-check approved quiet-house-secured 0.78)
++  (AssumeOutcome smart-habitat sleep-transition hold-silence approved family-not-disturbed 0.62)
++  (AssumeError smart-habitat sleep-transition notify-resident rejected woke-resident 0.64)
++  (AssumeError smart-habitat sleep-transition warm-wakeup-scene rejected wrong-time 0.5)
++
++  (AssumeOutcome smart-habitat away-security arm-perimeter approved perimeter-secured 0.74)
++  (AssumeOutcome smart-habitat away-security notify-resident approved package-awareness 0.44)
++  (AssumeError smart-habitat away-security welcome-guest-mode rejected no-one-home 0.5)
++  (AssumeError smart-habitat away-security open-blinds rejected privacy-risk 0.42)
++
++  (AssumeOutcome smart-habitat guest-arrival welcome-guest-mode approved guest-felt-welcomed 0.76)
++  (AssumeOutcome smart-habitat guest-arrival turn-on-path-lights approved safe-entry 0.68)
++  (AssumeError smart-habitat guest-arrival arm-perimeter rejected known-guest-not-threat 0.46)
++  (AssumeError smart-habitat guest-arrival hold-silence rejected resident-missed-doorbell 0.34)
++
++  (AssumeOutcome smart-habitat energy-peak shed-load-gently approved bill-reduced-no-discomfort 0.82)
++  (AssumeOutcome smart-habitat energy-peak route-cleaner-later approved nonessential-load-shifted 0.5)
++  (AssumeError smart-habitat energy-peak shed-load-gently rejected comfort-dropped-too-fast 0.28)
++  (AssumeError smart-habitat energy-peak hold-silence rejected missed-savings 0.22)
++
++  (AssumeOutcome smart-habitat storm-warning pre-storm-prep approved avoided-open-window-risk 0.86)
++  (AssumeOutcome smart-habitat storm-warning notify-resident approved storm-awareness 0.42)
++  (AssumeError smart-habitat storm-warning hold-silence rejected storm-prep-missed 0.54)
++  (AssumeError smart-habitat storm-warning open-blinds rejected glare-before-storm 0.28)
++
++  (AssumeOutcome smart-habitat elder-comfort elder-comfort-check approved resident-comfort-improved 0.78)
++  (AssumeOutcome smart-habitat elder-comfort increase-ventilation approved air-felt-better 0.54)
++  (AssumeError smart-habitat elder-comfort hold-silence rejected comfort-signal-ignored 0.4)
++  (AssumeError smart-habitat elder-comfort shed-load-gently rejected comfort-not-energy-priority 0.32)
++
++  (AssumeOutcome smart-habitat pet-home-alone pet-calm-mode approved pet-settled 0.76)
++  (AssumeOutcome smart-habitat pet-home-alone route-cleaner-later approved avoided-pet-stress 0.58)
++  (AssumeError smart-habitat pet-home-alone arm-perimeter rejected irrelevant-to-pet-comfort 0.26)
++  (AssumeError smart-habitat pet-home-alone route-cleaner-later rejected delayed-needed-cleanup 0.24)
++
++  (AssumeOutcome smart-habitat maintenance-anomaly maintenance-inspection approved leak-found-early 0.9)
++  (AssumeOutcome smart-habitat maintenance-anomaly notify-resident approved timely-awareness 0.55)
++  (AssumeError smart-habitat maintenance-anomaly hold-silence rejected anomaly-got-worse 0.62)
++  (AssumeError smart-habitat maintenance-anomaly welcome-guest-mode rejected irrelevant-action 0.44)
++)
+diff --git a/docs/review/assume-fabric-demo-review.md b/docs/review/assume-fabric-demo-review.md
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/docs/review/assume-fabric-demo-review.md
+@@ -0,0 +1,135 @@
++# Assume / FabricPC Demo Review Notes
++
++This note defines the review boundary for the public `SmartHabitatDemoSpace`
++demo. It is written for reviewers who care about the neural-symbolic contract,
++not just whether a command returns plausible text.
++
++## Architecture Claim
++
++`&assume` owns the canonical symbolic graph. The graph is represented as
++MeTTa-shaped atoms: situations, active context features, possible actions,
++sparse feature/action edges, explicit outcomes, and explicit errors.
++
++FabricPC is a warm executable view of that symbolic graph. It predicts from the
++loaded topology and can learn from explicit targets, but it does not own
++identity, memory, policy, or world action. Writeback returns symbolic mutation
++deltas for review and persistence.
++
++## Demonstrated Round Trip
++
++The demo and tests exercise this loop:
++
++1. Load sanitized MeTTa atoms from `SmartHabitatDemoSpace.metta`.
++2. Reconstruct a sparse FabricPC predictive graph from those atoms.
++3. Predict a likely action and return score, support, confidence, evidence,
++   error pressure, verdict, reason, and NAL-style truth.
++4. Audit a risky action and expose negative evidence as error pressure.
++5. Learn from explicit target/outcome evidence.
++6. Emit only changed edges as `AssumeUpdatedFeatureEdge` atoms.
++7. Pair every changed edge with `AssumeWeightMutation`, including old weight,
++   new weight, delta, confidence/evidence movement, direction, target, cause,
++   and topology hash.
++8. Pair each mutation with primitive facts: `AssumeWeightDelta`,
++   `AssumeMutationTarget`, `AssumeMutationSignedError`,
++   `AssumeMutationEvidence`, `AssumeMutationPressurePrimitive`,
++   `AssumeMutationConflictPrimitive`, `AssumeMutationTopology`, and
++   `AssumeAdjustmentPressure`.
++9. Pair each mutation with Fabric-local judgement atoms:
++   `AssumeFabricMutationTruth`, `AssumeFabricMutationVerdict`, and
++   `AssumeFabricMutationReason`.
++10. Allow MeTTa to derive its own native adjustment judgement from the same
++   primitive atoms and compare it with Fabric's local judgement.
++11. Persist the delta into canonical atoms before mutating the live `&assume`
++   view.
++12. Reload and verify the prediction changed.
++
++## What Is Intentionally Not Hidden
++
++The mutation is not a black-box side effect. Reviewers can inspect:
++
++- `AssumePredictionReport`
++- `AssumeSupport`
++- `AssumeConfidence`
++- `AssumeEvidence`
++- `AssumeErrorPressure`
++- `NALTruth`
++- `AssumeUpdatedFeatureEdge`
++- `AssumeWeightMutation`
++- `AssumeWeightDelta`
++- `AssumeMutationTarget`
++- `AssumeMutationSignedError`
++- `AssumeMutationEvidence`
++- `AssumeMutationPressurePrimitive`
++- `AssumeMutationConflictPrimitive`
++- `AssumeMutationTopology`
++- `AssumeAdjustmentPressure`
++- `AssumeMutationTruth`
++- `AssumeMutationPressure`
++- `AssumeMutationConflict`
++- `AssumeMutationVerdict`
++- `AssumeMutationReason`
++- `AssumeFabricMutationTruth`
++- `AssumeFabricMutationVerdict`
++- `AssumeFabricMutationReason`
++- `AssumeSymbolicMutationTruth`
++- `AssumeSymbolicMutationVerdict`
++- `AssumeSymbolicMutationReason`
++- `AssumeMutationVerdictComparison`
++- `AssumeMutationTrace`
++- `AssumeMutation`
++
++The trace atoms are kept as trace/history, not inserted back into the live
++prediction graph as feature edges. This keeps the graph clean while preserving
++auditability.
++
++Fabric judgement atoms are not the final word. They are the Fabric organ's
++self-report. `assume-observe-writeback` atomizes the same mutation facts into
++`&assume_work`; `assume-review-mutation` then derives a MeTTa-side verdict and
++returns an explicit agreement or mismatch atom. That gives the agent both a numeric
++organ report and a native symbolic cross-check.
++
++The native MeTTa review path is intentionally named and inspectable:
++`assume-adjustment-direction-ok` checks whether the update direction matches
++the signed prediction error, and `assume-symbolic-mutation-truth` derives the
++MeTTa-side truth value from signed error, delta, pressure, and conflict.
++
++Writeback is canonical-first. MeTTa skills persist the delta before adding the
++updated edge atoms to live `&assume`; if persistence fails, the live space is
++left unchanged and the error is returned as an explicit `AssumeWritebackCommitError`.
++The same rule applies to structural/evidence/demo import helpers: the canonical
++file succeeds first, then the live space is warmed.
++
++## Acceptance Tests
++
++FabricPC is an executable organ dependency. The tests discover it through:
++
++- `FABRICPC_REPO`, defaulting to `../FabricPC`
++- `FABRICPC_PYTHON`, defaulting to `../FabricPC/.venv/bin/python`
++
++If that interpreter is absent, Fabric-specific unit tests skip rather than
++silently pretending the neural organ was exercised.
++
++The intended reviewer suite is:
++
++```bash
++python -B tests/assume_demo_story.py
++python -B tests/assume_demo_benchmark.py
++python -B -m unittest tests.test_assume_demo_space tests.test_assume_fabricd tests.test_assume
++```
++
++The full test suite should also remain green:
++
++```bash
++python -B -m unittest discover -s tests
++```
++
++## Non-Claims
++
++This demo does not claim to be a completed AGI architecture, a finished cortex,
++or a general replacement for PLN/NAL/MeTTa reasoning. It demonstrates a narrow
++but real neural-symbolic membrane: symbolic graph in, predictive execution,
++inspectable error/learning, symbolic mutation out, and reloadable persistence.
++
++The next research step would be deeper causal-coding dynamics and richer
++hierarchical prediction. That belongs on top of this membrane, not as a reason
++to collapse the architecture into an opaque neural module.
+diff --git a/tests/assume_demo_benchmark.py b/tests/assume_demo_benchmark.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/tests/assume_demo_benchmark.py
+@@ -0,0 +1,155 @@
++#!/usr/bin/env python3
++"""Small local benchmark for the public SmartHabitat Assume/Fabric demo.
++
++This is intentionally not a unit test. It gives reviewers a quick feel for the
++cost of the full symbolic-neural round trip on the current machine.
++"""
++
++from __future__ import annotations
++
++import json
++import os
++import pathlib
++import subprocess
++import sys
++import tempfile
++import time
++
++
++ROOT = pathlib.Path(__file__).resolve().parents[1]
++SRC = ROOT / "src"
++DEMO = ROOT / "demos" / "assume" / "SmartHabitatDemoSpace.metta"
++FABRIC_REPO = pathlib.Path(os.environ.get("FABRICPC_REPO", str(ROOT.parent / "FabricPC")))
++FABRIC_PYTHON = pathlib.Path(
++    os.environ.get("FABRICPC_PYTHON", str(FABRIC_REPO / ".venv" / "bin" / "python"))
++)
++
++sys.path.insert(0, str(SRC))
++
++import assume_client  # noqa: E402
++
++
++def timed(label, fn):
++    started = time.perf_counter()
++    result = fn()
++    elapsed_ms = (time.perf_counter() - started) * 1000
++    return label, elapsed_ms, result
++
++
++def main() -> int:
++    if not FABRIC_PYTHON.exists():
++        print(f"SKIP FabricPC python not found: {FABRIC_PYTHON}")
++        return 77
++
++    atoms = DEMO.read_text(encoding="utf-8")
++    env = dict(os.environ)
++    env["PYTHONPATH"] = os.pathsep.join([str(SRC), str(FABRIC_REPO)])
++    proc = subprocess.Popen(
++        [str(FABRIC_PYTHON), "-u", str(SRC / "assume_fabricd.py")],
++        stdin=subprocess.PIPE,
++        stdout=subprocess.PIPE,
++        stderr=subprocess.PIPE,
++        text=True,
++        env=env,
++    )
++
++    def call(payload):
++        assert proc.stdin is not None
++        assert proc.stdout is not None
++        proc.stdin.write(json.dumps(payload) + "\n")
++        proc.stdin.flush()
++        return json.loads(proc.stdout.readline())
++
++    def show(label, elapsed_ms, result):
++        status = "ok" if result.get("ok", True) else "error"
++        print(f"{label:18s} {elapsed_ms:8.2f} ms {status}")
++        return result
++
++    try:
++        ready = json.loads(proc.stdout.readline())
++        if not ready.get("ready"):
++            print(f"ERROR daemon not ready: {ready}")
++            return 1
++
++        load = show(*timed("load", lambda: call({
++            "cmd": "load",
++            "id": "bench::movie",
++            "domain": "smart-habitat",
++            "situation": "movie-evening",
++            "atoms": atoms,
++        })))
++        predict = show(*timed("predict", lambda: call({
++            "cmd": "predict",
++            "id": "bench::movie",
++            "atoms": atoms,
++        })))
++        audit = show(*timed("audit", lambda: call({
++            "cmd": "audit",
++            "id": "bench::movie",
++            "action": "open-blinds",
++            "atoms": atoms,
++        })))
++        learn = show(*timed("learn", lambda: call({
++            "cmd": "learn",
++            "id": "bench::movie",
++            "atoms": atoms,
++            "targets": {
++                "dim-cinema-scene": 0.2,
++                "welcome-guest-mode": 0.05,
++                "ask-before-action": 0.85,
++                "hold-silence": 0.7,
++                "open-blinds": 0.05,
++            },
++        })))
++        writeback = show(*timed("writeback", lambda: call({
++            "cmd": "writeback",
++            "id": "bench::movie",
++        })))
++
++        with tempfile.NamedTemporaryFile("w+", suffix=".metta", encoding="utf-8") as handle:
++            handle.write(atoms)
++            handle.flush()
++            persist_started = time.perf_counter()
++            persisted = assume_client.persist_writeback_delta(
++                "smart-habitat",
++                "movie-evening",
++                writeback["atoms"],
++                path=handle.name,
++            )
++            persist_ms = (time.perf_counter() - persist_started) * 1000
++            handle.seek(0)
++            committed_atoms = handle.read()
++        print(f"{'persist-delta':18s} {persist_ms:8.2f} ms {persisted.split()[0]}")
++
++        reload_result = show(*timed("reload", lambda: call({
++            "cmd": "load",
++            "id": "bench::movie",
++            "domain": "smart-habitat",
++            "situation": "movie-evening",
++            "atoms": committed_atoms,
++        })))
++
++        print(
++            "SUMMARY "
++            f"features={load.get('features')} actions={load.get('actions')} edges={load.get('edges')} "
++            f"prediction={predict.get('action')} confidence={predict.get('confidence'):.4f} "
++            f"audit_verdict={'error-pressure' if 'error-pressure' in audit.get('report_atoms', '') else 'other'} "
++            f"learn_targets={learn.get('target_count')} changed_edges={writeback.get('changed_edges')} "
++            f"reload_edges={reload_result.get('edges')}"
++        )
++        return 0
++    finally:
++        if proc.poll() is None:
++            try:
++                call({"cmd": "stop"})
++                proc.wait(timeout=10)
++            except Exception:
++                proc.kill()
++                proc.wait(timeout=10)
++        for stream in (proc.stdin, proc.stdout, proc.stderr):
++            if stream and not stream.closed:
++                stream.close()
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tests/assume_demo_story.py b/tests/assume_demo_story.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/tests/assume_demo_story.py
+@@ -0,0 +1,214 @@
++#!/usr/bin/env python3
++"""Print a reviewer-readable SmartHabitat Assume/Fabric story.
++
++This is not a unit test. It is a compact demonstration trace for reviewers who
++want to see the symbolic-neural loop in action:
++
++1. load sanitized MeTTa atoms;
++2. predict and audit;
++3. learn from explicit targets;
++4. inspect symbolic writeback;
++5. reload the committed graph and show changed prediction scores.
++"""
++
++from __future__ import annotations
++
++import json
++import os
++import pathlib
++import re
++import subprocess
++import sys
++import tempfile
++
++
++ROOT = pathlib.Path(__file__).resolve().parents[1]
++SRC = ROOT / "src"
++DEMO = ROOT / "demos" / "assume" / "SmartHabitatDemoSpace.metta"
++FABRIC_REPO = pathlib.Path(os.environ.get("FABRICPC_REPO", str(ROOT.parent / "FabricPC")))
++FABRIC_PYTHON = pathlib.Path(
++    os.environ.get("FABRICPC_PYTHON", str(FABRIC_REPO / ".venv" / "bin" / "python"))
++)
++
++sys.path.insert(0, str(SRC))
++
++import assume_client  # noqa: E402
++
++
++def _verdict(text: str) -> str:
++    match = re.search(r"\(Verdict ([^()\s]+)\)", text)
++    return match.group(1) if match else "missing"
++
++
++def _reason(text: str) -> str:
++    match = re.search(r"\(Reason ([^()\s]+)\)", text)
++    return match.group(1) if match else "missing"
++
++
++def _top(scores: dict[str, float], count: int = 5) -> dict[str, float]:
++    return {
++        key: round(value, 4)
++        for key, value in sorted(scores.items(), key=lambda item: -item[1])[:count]
++    }
++
++
++def _first_atom(atoms: str, atom_name: str) -> str:
++    prefix = f"({atom_name} "
++    start = atoms.find(prefix)
++    if start < 0:
++        return f"({atom_name} missing)"
++    depth = 0
++    for index in range(start, len(atoms)):
++        char = atoms[index]
++        if char == "(":
++            depth += 1
++        elif char == ")":
++            depth -= 1
++            if depth == 0:
++                return atoms[start:index + 1]
++    return f"({atom_name} missing)"
++
++
++def main() -> int:
++    if not FABRIC_PYTHON.exists():
++        print(f"SKIP FabricPC python not found: {FABRIC_PYTHON}")
++        return 77
++
++    atoms = DEMO.read_text(encoding="utf-8")
++    env = dict(os.environ)
++    env["PYTHONPATH"] = os.pathsep.join([str(SRC), str(FABRIC_REPO)])
++    proc = subprocess.Popen(
++        [str(FABRIC_PYTHON), "-u", str(SRC / "assume_fabricd.py")],
++        stdin=subprocess.PIPE,
++        stdout=subprocess.PIPE,
++        stderr=subprocess.PIPE,
++        text=True,
++        env=env,
++    )
++
++    def call(payload):
++        assert proc.stdin is not None
++        assert proc.stdout is not None
++        proc.stdin.write(json.dumps(payload) + "\n")
++        proc.stdin.flush()
++        return json.loads(proc.stdout.readline())
++
++    try:
++        ready = json.loads(proc.stdout.readline())
++        print("READY", ready)
++
++        load = call({
++            "cmd": "load",
++            "id": "demo::movie",
++            "domain": "smart-habitat",
++            "situation": "movie-evening",
++            "atoms": atoms,
++        })
++        print("LOAD", {name: load.get(name) for name in ("ok", "features", "actions", "edges", "feedback")})
++        if not load.get("ok"):
++            print("LOAD_ERROR", load.get("error"))
++            return 1
++
++        before = call({"cmd": "predict", "id": "demo::movie", "atoms": atoms})
++        print(
++            "PREDICT_BEFORE",
++            before["action"],
++            "score",
++            round(before["score"], 4),
++            "confidence",
++            round(before.get("confidence", 0), 4),
++        )
++        print("BEFORE_SCORES", _top(before["scores"]))
++
++        audit_good = call({
++            "cmd": "audit",
++            "id": "demo::movie",
++            "action": "dim-cinema-scene",
++            "atoms": atoms,
++        })
++        audit_bad = call({
++            "cmd": "audit",
++            "id": "demo::movie",
++            "action": "open-blinds",
++            "atoms": atoms,
++        })
++        print("AUDIT_DIM", _verdict(audit_good["report_atoms"]), _reason(audit_good["report_atoms"]))
++        print("AUDIT_OPEN_BLINDS", _verdict(audit_bad["report_atoms"]), _reason(audit_bad["report_atoms"]))
++
++        targets = {
++            "dim-cinema-scene": 0.2,
++            "welcome-guest-mode": 0.05,
++            "ask-before-action": 0.85,
++            "hold-silence": 0.7,
++            "open-blinds": 0.05,
++        }
++        learned = call({
++            "cmd": "learn",
++            "id": "demo::movie",
++            "atoms": atoms,
++            "targets": targets,
++        })
++        print("LEARN", {name: learned.get(name) for name in ("ok", "dirty", "target_count")}, "targets", targets)
++
++        writeback = call({"cmd": "writeback", "id": "demo::movie"})
++        updated_edges = writeback.get("changed_edges", writeback["atoms"].count("AssumeUpdatedFeatureEdge"))
++        print("WRITEBACK", {name: writeback.get(name) for name in ("ok", "dirty")}, "updated_edges", updated_edges)
++        print("WRITEBACK_EDGE_SAMPLE", _first_atom(writeback["atoms"], "AssumeUpdatedFeatureEdge"))
++        print("MUTATION_TRACE_SAMPLE", _first_atom(writeback["atoms"], "AssumeWeightMutation"))
++        print("MUTATION_PRIMITIVE_SAMPLE", _first_atom(writeback["atoms"], "AssumeWeightDelta"))
++        print("MUTATION_TRUTH_SAMPLE", _first_atom(writeback["atoms"], "AssumeMutationTruth"))
++        print("FABRIC_MUTATION_VERDICT_SAMPLE", _first_atom(writeback["atoms"], "AssumeFabricMutationVerdict"))
++
++        with tempfile.NamedTemporaryFile("w+", suffix=".metta", encoding="utf-8") as handle:
++            handle.write(atoms)
++            handle.flush()
++            persisted = assume_client.persist_writeback_delta(
++                "smart-habitat",
++                "movie-evening",
++                writeback["atoms"],
++                path=handle.name,
++            )
++            handle.seek(0)
++            committed = handle.read()
++        print("PERSIST", persisted)
++
++        reload = call({
++            "cmd": "load",
++            "id": "demo::movie",
++            "domain": "smart-habitat",
++            "situation": "movie-evening",
++            "atoms": committed,
++        })
++        after = call({"cmd": "predict", "id": "demo::movie", "atoms": committed})
++        print("RELOAD", {name: reload.get(name) for name in ("ok", "features", "actions", "edges", "feedback")})
++        print(
++            "PREDICT_AFTER",
++            after["action"],
++            "score",
++            round(after["score"], 4),
++            "confidence",
++            round(after.get("confidence", 0), 4),
++        )
++        print("AFTER_SCORES", _top(after["scores"]))
++        print("DELTA dim-cinema-scene", round(after["scores"]["dim-cinema-scene"] - before["scores"]["dim-cinema-scene"], 4))
++        print("DELTA ask-before-action", round(after["scores"]["ask-before-action"] - before["scores"]["ask-before-action"], 4))
++    finally:
++        if proc.poll() is None:
++            try:
++                call({"cmd": "stop"})
++                proc.wait(timeout=10)
++            except Exception:
++                proc.kill()
++                proc.wait(timeout=10)
++        stderr = proc.stderr.read() if proc.stderr else ""
++        for stream in (proc.stdin, proc.stdout, proc.stderr):
++            if stream and not stream.closed:
++                stream.close()
++        if stderr.strip():
++            print("STDERR", stderr[-1000:])
++            return 1
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tests/test_assume_demo_space.py b/tests/test_assume_demo_space.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/tests/test_assume_demo_space.py
+@@ -0,0 +1,444 @@
++#!/usr/bin/env python3
++"""Regression checks for the public SmartHabitat Assume demo space."""
++
++from __future__ import annotations
++
++import json
++import os
++import pathlib
++import subprocess
++import sys
++import tempfile
++import unittest
++
++
++ROOT = pathlib.Path(__file__).resolve().parents[1]
++SRC = ROOT / "src"
++DEMO_PATH = ROOT / "demos" / "assume" / "SmartHabitatDemoSpace.metta"
++FABRIC_REPO = pathlib.Path(os.environ.get("FABRICPC_REPO", str(ROOT.parent / "FabricPC")))
++FABRIC_PYTHON = pathlib.Path(os.environ.get("FABRICPC_PYTHON", FABRIC_REPO / ".venv/bin/python"))
++
++sys.path.insert(0, str(SRC))
++
++import assume  # noqa: E402
++import assume_client  # noqa: E402
++
++
++class SmartHabitatDemoSpaceTests(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        cls.atoms = DEMO_PATH.read_text(encoding="utf-8")
++
++    def start_fabric(self):
++        env = dict(os.environ)
++        env["PYTHONPATH"] = os.pathsep.join([str(SRC), str(FABRIC_REPO)])
++        proc = subprocess.Popen(
++            [str(FABRIC_PYTHON), "-u", str(SRC / "assume_fabricd.py")],
++            stdin=subprocess.PIPE,
++            stdout=subprocess.PIPE,
++            stderr=subprocess.PIPE,
++            text=True,
++            env=env,
++        )
++
++        def call(request):
++            assert proc.stdin is not None
++            assert proc.stdout is not None
++            proc.stdin.write(json.dumps(request) + "\n")
++            proc.stdin.flush()
++            return json.loads(proc.stdout.readline())
++
++        ready = json.loads(proc.stdout.readline())
++        self.assertTrue(ready["ready"])
++        return proc, call
++
++    def stop_fabric(self, proc, call):
++        if proc.poll() is None:
++            try:
++                call({"cmd": "stop"})
++                proc.wait(timeout=10)
++            except Exception:
++                proc.kill()
++                proc.wait(timeout=10)
++        stderr = proc.stderr.read() if proc.stderr else ""
++        for stream in (proc.stdin, proc.stdout, proc.stderr):
++            if stream and not stream.closed:
++                stream.close()
++        self.assertEqual("", stderr.strip())
++
++    def test_demo_space_is_substantial_but_below_caps(self):
++        situations = assume._atom_rows(self.atoms, "AssumeSituation")
++        contexts = assume._atom_rows(self.atoms, "AssumeContextFeature")
++        actions = assume._atom_rows(self.atoms, "AssumeAction")
++        edges = assume._atom_rows(self.atoms, "AssumeFeatureEdge")
++        outcomes = assume._atom_rows(self.atoms, "AssumeOutcome")
++        errors = assume._atom_rows(self.atoms, "AssumeError")
++
++        feature_names = {row[2] for row in contexts}
++        edge_pairs = {(row[1], row[2]) for row in edges}
++        self.assertGreaterEqual(len(situations), 10)
++        self.assertGreaterEqual(len(feature_names), 55)
++        self.assertGreaterEqual(len(actions), 16)
++        self.assertGreaterEqual(len(edges), 110)
++        self.assertEqual(len(edges), len(edge_pairs))
++        self.assertGreaterEqual(len(outcomes) + len(errors), 35)
++        self.assertLess(len(self.atoms), assume.MAX_ATOM_TEXT_CHARS)
++
++        context, parsed_actions, parsed_edges, _feedback = assume.atomspace_feature_graph(
++            self.atoms,
++            "smart-habitat",
++            "movie-evening",
++        )
++        assume.validate_feature_graph(self.atoms, context, parsed_actions, parsed_edges)
++        self.assertLessEqual(len(context), assume.MAX_ACTIVE_FEATURES)
++        self.assertLessEqual(len(parsed_actions), assume.MAX_ACTIONS)
++        self.assertLessEqual(len(parsed_edges), assume.MAX_FEATURE_EDGES)
++
++    def test_movie_evening_prediction_is_inspectable(self):
++        report = assume.assume_audit(
++            "smart-habitat",
++            "movie-evening",
++            "dim-cinema-scene",
++            self.atoms,
++        )
++
++        self.assertIn("(AssumeGuardReport smart-habitat movie-evening dim-cinema-scene", report)
++        self.assertIn("(Verdict usable-assumption)", report)
++        self.assertIn("(Reason supported-by-active-features)", report)
++        self.assertIn("(NALTruth", report)
++
++    def test_bad_movie_action_has_visible_error_pressure(self):
++        report = assume.assume_audit(
++            "smart-habitat",
++            "movie-evening",
++            "open-blinds",
++            self.atoms,
++        )
++
++        self.assertIn("(Verdict error-pressure)", report)
++        self.assertIn("(Reason recent-negative-evidence)", report)
++
++    def test_demo_space_is_available_through_client_index(self):
++        index = assume_client.demo_index()
++
++        self.assertIn("AssumeDemoIndex", index)
++        self.assertIn("SmartHabitatDemoSpace", index)
++        self.assertIn("smart-habitat", index)
++        self.assertIn("movie-evening", index)
++        self.assertEqual(self.atoms, assume_client.demo_atoms("SmartHabitatDemoSpace"))
++
++    def test_demo_space_can_import_as_normal_canonical_assume_atoms(self):
++        with tempfile.TemporaryDirectory() as tmpdir:
++            path = pathlib.Path(tmpdir) / "assume.metta"
++            trace = pathlib.Path(tmpdir) / "assume_trace.metta"
++            old_trace = assume_client.TRACE_PATH
++            try:
++                assume_client.TRACE_PATH = trace
++                result = assume_client.persist_demo("SmartHabitatDemoSpace", path=str(path))
++            finally:
++                assume_client.TRACE_PATH = old_trace
++
++            self.assertIn("ASSUME-DEMO-IMPORTED", result)
++            self.assertIn("added=252", result)
++            imported_atoms = path.read_text(encoding="utf-8")
++            context, actions, edges, _feedback = assume.atomspace_feature_graph(
++                imported_atoms,
++                "smart-habitat",
++                "movie-evening",
++            )
++            assume.validate_feature_graph(imported_atoms, context, actions, edges)
++            self.assertGreaterEqual(len(edges), 110)
++            self.assertIn("AssumeMutationTrace", trace.read_text(encoding="utf-8"))
++
++    @unittest.skipUnless(FABRIC_PYTHON.exists(), "FabricPC venv is not available")
++    def test_demo_space_predicts_learns_and_writes_back(self):
++        proc, call = self.start_fabric()
++        try:
++            load = call({
++                "cmd": "load",
++                "id": "smart-habitat::movie-evening",
++                "domain": "smart-habitat",
++                "situation": "movie-evening",
++                "atoms": self.atoms,
++            })
++            self.assertTrue(load["ok"], load)
++            self.assertGreaterEqual(load["edges"], 110)
++
++            prediction = call({
++                "cmd": "predict",
++                "id": "smart-habitat::movie-evening",
++                "atoms": self.atoms,
++            })
++            self.assertTrue(prediction["ok"], prediction)
++            self.assertEqual("dim-cinema-scene", prediction["action"])
++            self.assertIn("usable-assumption", prediction["report_atoms"])
++
++            audit = call({
++                "cmd": "audit",
++                "id": "smart-habitat::movie-evening",
++                "action": "open-blinds",
++                "atoms": self.atoms,
++            })
++            self.assertTrue(audit["ok"], audit)
++            self.assertIn("error-pressure", audit["report_atoms"])
++
++            learned = call({
++                "cmd": "learn",
++                "id": "smart-habitat::movie-evening",
++                "atoms": self.atoms,
++                "targets": {
++                    "dim-cinema-scene": 0.2,
++                    "ask-before-action": 0.85,
++                    "hold-silence": 0.7,
++                    "open-blinds": 0.05,
++                },
++            })
++            self.assertTrue(learned["ok"], learned)
++            self.assertTrue(learned["dirty"])
++
++            writeback = call({"cmd": "writeback", "id": "smart-habitat::movie-evening"})
++            self.assertTrue(writeback["ok"], writeback)
++            self.assertIn("AssumeUpdatedFeatureEdge", writeback["atoms"])
++            self.assertIn("AssumeWeightMutation", writeback["atoms"])
++            self.assertIn("AssumeWeightDelta", writeback["atoms"])
++            self.assertIn("AssumeAdjustmentPressure", writeback["atoms"])
++            self.assertIn("AssumeMutationSignedError", writeback["atoms"])
++            self.assertIn("AssumeMutationTruth", writeback["atoms"])
++            self.assertIn("AssumeMutationVerdict", writeback["atoms"])
++            self.assertIn("AssumeFabricMutationVerdict", writeback["atoms"])
++            self.assertEqual(
++                writeback["changed_edges"],
++                writeback["atoms"].count("AssumeUpdatedFeatureEdge"),
++            )
++            self.assertNotIn("send-channel", writeback["atoms"])
++            self.assertNotIn("use-house-affordance", writeback["atoms"])
++
++            with tempfile.TemporaryDirectory() as tmpdir:
++                temp_demo = pathlib.Path(tmpdir) / "SmartHabitatDemoSpace.metta"
++                temp_demo.write_text(self.atoms, encoding="utf-8")
++                persisted = assume_client.persist_writeback_delta(
++                    "smart-habitat",
++                    "movie-evening",
++                    writeback["atoms"],
++                    path=str(temp_demo),
++                )
++                self.assertTrue(persisted.startswith("ASSUME-DELTA-PERSISTED"), persisted)
++                committed_atoms = temp_demo.read_text(encoding="utf-8")
++                self.assertNotIn("AssumeUpdatedFeatureEdge", committed_atoms)
++                self.assertNotIn("AssumeWeightMutation", committed_atoms)
++                self.assertNotEqual(committed_atoms, self.atoms)
++
++                reloaded = call({
++                    "cmd": "load",
++                    "id": "smart-habitat::movie-evening",
++                    "domain": "smart-habitat",
++                    "situation": "movie-evening",
++                    "atoms": committed_atoms,
++                })
++                self.assertTrue(reloaded["ok"], reloaded)
++                self.assertEqual(load["edges"], reloaded["edges"])
++
++                after = call({
++                    "cmd": "predict",
++                    "id": "smart-habitat::movie-evening",
++                    "atoms": committed_atoms,
++                })
++                self.assertTrue(after["ok"], after)
++                self.assertLess(
++                    after["scores"]["dim-cinema-scene"],
++                    prediction["scores"]["dim-cinema-scene"],
++                )
++                self.assertGreater(
++                    after["scores"]["ask-before-action"],
++                    prediction["scores"]["ask-before-action"],
++                )
++        finally:
++            self.stop_fabric(proc, call)
++
++    @unittest.skipUnless(FABRIC_PYTHON.exists(), "FabricPC venv is not available")
++    def test_demo_space_survives_multi_episode_learning(self):
++        proc, call = self.start_fabric()
++        try:
++            with tempfile.TemporaryDirectory() as tmpdir:
++                temp_demo = pathlib.Path(tmpdir) / "SmartHabitatDemoSpace.metta"
++                temp_demo.write_text(self.atoms, encoding="utf-8")
++                atoms = self.atoms
++                load = call({
++                    "cmd": "load",
++                    "id": "smart-habitat::movie-evening",
++                    "domain": "smart-habitat",
++                    "situation": "movie-evening",
++                    "atoms": atoms,
++                })
++                self.assertTrue(load["ok"], load)
++                before = call({"cmd": "predict", "id": "smart-habitat::movie-evening", "atoms": atoms})
++                self.assertTrue(before["ok"], before)
++
++                target_series = [
++                    {"dim-cinema-scene": 0.25, "welcome-guest-mode": 0.05, "ask-before-action": 0.82, "hold-silence": 0.68},
++                    {"dim-cinema-scene": 0.20, "welcome-guest-mode": 0.05, "ask-before-action": 0.86, "hold-silence": 0.70},
++                    {"dim-cinema-scene": 0.15, "welcome-guest-mode": 0.05, "ask-before-action": 0.90, "hold-silence": 0.74},
++                    {"dim-cinema-scene": 0.20, "welcome-guest-mode": 0.08, "ask-before-action": 0.88, "hold-silence": 0.72},
++                    {"dim-cinema-scene": 0.18, "welcome-guest-mode": 0.05, "ask-before-action": 0.92, "hold-silence": 0.75},
++                ]
++
++                for targets in target_series:
++                    learned = call({
++                        "cmd": "learn",
++                        "id": "smart-habitat::movie-evening",
++                        "atoms": atoms,
++                        "targets": targets,
++                    })
++                    self.assertTrue(learned["ok"], learned)
++                    writeback = call({"cmd": "writeback", "id": "smart-habitat::movie-evening"})
++                    self.assertTrue(writeback["ok"], writeback)
++                    self.assertGreater(writeback["changed_edges"], 0)
++                    self.assertLess(writeback["changed_edges"], load["edges"])
++                    self.assertIn("AssumeWeightMutation", writeback["atoms"])
++                    persisted = assume_client.persist_writeback_delta(
++                        "smart-habitat",
++                        "movie-evening",
++                        writeback["atoms"],
++                        path=str(temp_demo),
++                    )
++                    self.assertTrue(persisted.startswith("ASSUME-DELTA-PERSISTED"), persisted)
++                    atoms = temp_demo.read_text(encoding="utf-8")
++                    reloaded = call({
++                        "cmd": "load",
++                        "id": "smart-habitat::movie-evening",
++                        "domain": "smart-habitat",
++                        "situation": "movie-evening",
++                        "atoms": atoms,
++                    })
++                    self.assertTrue(reloaded["ok"], reloaded)
++                    self.assertEqual(load["edges"], reloaded["edges"])
++
++                after = call({"cmd": "predict", "id": "smart-habitat::movie-evening", "atoms": atoms})
++                self.assertTrue(after["ok"], after)
++                self.assertGreater(after["scores"]["ask-before-action"], before["scores"]["ask-before-action"])
++                self.assertLess(after["scores"]["dim-cinema-scene"], before["scores"]["dim-cinema-scene"])
++                context, actions, edges, _feedback = assume.atomspace_feature_graph(
++                    atoms,
++                    "smart-habitat",
++                    "movie-evening",
++                )
++                assume.validate_feature_graph(atoms, context, actions, edges)
++                self.assertEqual(load["edges"], len(edges))
++        finally:
++            self.stop_fabric(proc, call)
++
++    @unittest.skipUnless(FABRIC_PYTHON.exists(), "FabricPC venv is not available")
++    def test_demo_space_proposes_growth_from_new_evidence_without_auto_committing(self):
++        proc, call = self.start_fabric()
++        try:
++            load = call({
++                "cmd": "load",
++                "id": "smart-habitat::movie-evening",
++                "domain": "smart-habitat",
++                "situation": "movie-evening",
++                "atoms": self.atoms,
++            })
++            self.assertTrue(load["ok"], load)
++            learned = call({
++                "cmd": "learn",
++                "id": "smart-habitat::movie-evening",
++                "atoms": self.atoms,
++                "targets": {
++                    "notify-resident": 0.95,
++                    "ask-before-action": 0.85,
++                },
++            })
++            self.assertTrue(learned["ok"], learned)
++            pressure = call({
++                "cmd": "growth_pressure",
++                "id": "smart-habitat::movie-evening",
++                "atoms": self.atoms,
++            })
++            self.assertTrue(pressure["ok"], pressure)
++            self.assertIn("AssumeGrowthPressure", pressure["atoms"])
++            self.assertIn("missing-edge", pressure["atoms"])
++
++            proposals = call({
++                "cmd": "growth_proposals",
++                "id": "smart-habitat::movie-evening",
++                "atoms": self.atoms,
++            })
++            self.assertTrue(proposals["ok"], proposals)
++            self.assertGreater(proposals["proposal_count"], 0)
++            self.assertIn("AssumeProposedFeatureEdge", proposals["atoms"])
++
++            writeback = call({"cmd": "writeback", "id": "smart-habitat::movie-evening"})
++            self.assertNotIn("AssumeProposedFeatureEdge", writeback["atoms"])
++        finally:
++            self.stop_fabric(proc, call)
++
++    @unittest.skipUnless(FABRIC_PYTHON.exists(), "FabricPC venv is not available")
++    def test_weight_mutation_atoms_are_reasonable_symbolic_evidence(self):
++        proc, call = self.start_fabric()
++        try:
++            load = call({
++                "cmd": "load",
++                "id": "smart-habitat::movie-evening",
++                "domain": "smart-habitat",
++                "situation": "movie-evening",
++                "atoms": self.atoms,
++            })
++            self.assertTrue(load["ok"], load)
++            learned = call({
++                "cmd": "learn",
++                "id": "smart-habitat::movie-evening",
++                "atoms": self.atoms,
++                "targets": {
++                    "dim-cinema-scene": 0.2,
++                    "ask-before-action": 0.85,
++                    "open-blinds": 0.05,
++                },
++            })
++            self.assertTrue(learned["ok"], learned)
++            writeback = call({"cmd": "writeback", "id": "smart-habitat::movie-evening"})
++            rows = assume._atom_rows(writeback["atoms"], "AssumeWeightMutation")
++            self.assertEqual(writeback["changed_edges"], len(rows))
++            self.assertGreater(len(rows), 0)
++            self.assertEqual(writeback["changed_edges"], writeback["atoms"].count("AssumeMutationTruth"))
++            self.assertEqual(writeback["changed_edges"], writeback["atoms"].count("AssumeFabricMutationTruth"))
++            self.assertEqual(writeback["changed_edges"], writeback["atoms"].count("AssumeWeightDelta"))
++            self.assertIn("AssumeMutationPressure", writeback["atoms"])
++            self.assertIn("AssumeMutationConflict", writeback["atoms"])
++            self.assertIn("AssumeMutationReason", writeback["atoms"])
++            self.assertIn("AssumeMutationTarget", writeback["atoms"])
++            self.assertIn("AssumeMutationEvidence", writeback["atoms"])
++
++            largest = max(rows, key=lambda row: abs(assume._to_float(row[6])))
++            old_weight = assume._to_float(largest[4])
++            new_weight = assume._to_float(largest[5])
++            delta = assume._to_float(largest[6])
++            direction = largest[11]
++            cause = largest[13]
++            self.assertAlmostEqual(new_weight - old_weight, delta, places=6)
++            self.assertIn(direction, {"increase", "decrease", "metadata-only"})
++            self.assertEqual("explicit-target", cause)
++            if delta < 0:
++                self.assertEqual("decrease", direction)
++            elif delta > 0:
++                self.assertEqual("increase", direction)
++
++            with tempfile.TemporaryDirectory() as tmpdir:
++                trace_path = pathlib.Path(tmpdir) / "assume_trace.metta"
++                old_trace = assume_client.TRACE_PATH
++                try:
++                    assume_client.TRACE_PATH = trace_path
++                    trace = assume_client.record_trace("smart-habitat", "movie-evening", writeback["atoms"])
++                finally:
++                    assume_client.TRACE_PATH = old_trace
++                self.assertTrue(trace.startswith("ASSUME-TRACE-RECORDED"), trace)
++                trace_text = trace_path.read_text(encoding="utf-8")
++                self.assertIn("AssumeWeightMutation", trace_text)
++                self.assertIn("AssumeMutationVerdict", trace_text)
++                self.assertIn("AssumeFabricMutationVerdict", trace_text)
++                self.assertIn("AssumeMutation", trace_text)
++        finally:
++            self.stop_fabric(proc, call)
++
++
++if __name__ == "__main__":
++    unittest.main()

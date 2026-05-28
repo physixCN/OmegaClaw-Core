@@ -23,7 +23,6 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_BASELINE_REF = "origin/main"
 
 COMMAND_CASES = [
     "send dinner is ready: plates are out",
@@ -134,16 +133,10 @@ def run(args: list[str], *, cwd: Path | None = None, timeout: int = 120, check: 
     )
 
 
-def make_baseline_worktree(ref: str = DEFAULT_BASELINE_REF) -> Path:
+def make_baseline_worktree() -> Path:
     parent = Path(tempfile.mkdtemp(prefix="omegaclaw-bench-"))
-    safe_ref = str(ref or "HEAD")
-    worktree = parent / safe_ref.replace("/", "-").replace(":", "-")
-    verify = run(["git", "rev-parse", "--verify", safe_ref], cwd=ROOT)
-    if verify.returncode != 0:
-        raise SystemExit(
-            f"baseline ref {safe_ref!r} is not available; run `git fetch origin` or pass --baseline/--baseline-ref"
-        )
-    run(["git", "worktree", "add", "--detach", str(worktree), safe_ref], cwd=ROOT, check=True)
+    worktree = parent / "core-head"
+    run(["git", "worktree", "add", "--detach", str(worktree), "HEAD"], cwd=ROOT, check=True)
     return worktree
 
 
@@ -151,11 +144,6 @@ def cleanup_baseline(worktree: Path) -> None:
     parent = worktree.parent
     run(["git", "worktree", "remove", str(worktree), "--force"], cwd=ROOT)
     shutil.rmtree(parent, ignore_errors=True)
-
-
-def git_commit(target: Path) -> str:
-    result = run(["git", "rev-parse", "--short=12", "HEAD"], cwd=target, timeout=10)
-    return result.stdout.strip() if result.returncode == 0 else "unknown"
 
 
 def python_for(target: Path) -> str:
@@ -511,13 +499,7 @@ def assume_benchmark(target: Target) -> dict:
     if not bench.exists():
         return {"status": "missing"}
     result = run([python_for(target.path), str(bench)], cwd=target.path, timeout=60)
-    if result.returncode == 77:
-        status = "skipped"
-    elif result.returncode == 0:
-        status = "ok"
-    else:
-        status = f"exit-{result.returncode}"
-    return {"status": status, "output": result.stdout.strip()}
+    return {"status": "ok" if result.returncode == 0 else f"exit-{result.returncode}", "output": result.stdout.strip()}
 
 
 def unittest_smoke(target: Target) -> dict:
@@ -561,11 +543,7 @@ def yesno(value: bool) -> str:
 
 
 def ok_status(value: str | None) -> str:
-    if value == "ok":
-        return "PASS"
-    if value == "skipped":
-        return "SKIP"
-    return str(value or "n/a")
+    return "PASS" if value == "ok" else str(value or "n/a")
 
 
 def workload_pass_count(workloads: dict) -> tuple[int, int]:
@@ -600,9 +578,8 @@ def markdown(results: dict) -> str:
     lines = [
         "# Core Benchmark Comparison",
         "",
-        f"- Baseline: `{baseline['path']}` (`{baseline.get('commit', 'unknown')}`)",
-        f"- Candidate: `{candidate['path']}` (`{candidate.get('commit', 'unknown')}`)",
-        f"- Baseline ref: `{results.get('baseline_ref', 'explicit path')}`",
+        f"- Baseline: `{baseline['path']}`",
+        f"- Candidate: `{candidate['path']}`",
         "",
         "## Executive Comparison",
         "",
@@ -842,21 +819,19 @@ def markdown(results: dict) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--baseline", type=Path, help="baseline repo path; overrides --baseline-ref")
-    parser.add_argument("--baseline-ref", default=DEFAULT_BASELINE_REF, help="git ref used for default baseline worktree")
+    parser.add_argument("--baseline", type=Path, help="baseline repo path; defaults to a HEAD worktree")
     parser.add_argument("--candidate", type=Path, default=ROOT, help="candidate repo path")
     parser.add_argument("--loops", type=int, default=5000)
     parser.add_argument("--runtime-hours", type=float, default=24.0)
     parser.add_argument("--run-unit-smoke", action="store_true")
     parser.add_argument("--run-patch-audit", action="store_true")
     parser.add_argument("--json", action="store_true", help="emit JSON instead of Markdown")
-    parser.add_argument("--output", type=Path, help="optional path to write the rendered report")
     args = parser.parse_args()
 
     made_worktree = False
     baseline_path = args.baseline
     if baseline_path is None:
-        baseline_path = make_baseline_worktree(args.baseline_ref)
+        baseline_path = make_baseline_worktree()
         made_worktree = True
 
     try:
@@ -865,12 +840,8 @@ def main() -> int:
             "candidate": Target("candidate", args.candidate.resolve()),
         }
         results = {
-            "baseline_ref": args.baseline_ref if args.baseline is None else "explicit path",
-        }
-        results.update({
             name: {
                 "path": str(target.path),
-                "commit": git_commit(target.path),
                 "parser": parser_benchmark(target, args.loops),
                 "workloads": parser_workload_probe(target),
                 "context_fixture": context_fixture_benchmark(target),
@@ -879,7 +850,7 @@ def main() -> int:
                 "assume": assume_benchmark(target),
             }
             for name, target in targets.items()
-        })
+        }
         results["candidate"]["runtime"] = runtime_cost_context(targets["candidate"], hours=args.runtime_hours)
         if args.run_unit_smoke:
             for name, target in targets.items():
@@ -887,11 +858,7 @@ def main() -> int:
         if args.run_patch_audit:
             results["candidate"]["patch_audit"] = patch_audit(targets["candidate"])
 
-        rendered = json.dumps(results, indent=2, sort_keys=True) if args.json else markdown(results)
-        if args.output:
-            args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.output.write_text(rendered, encoding="utf-8")
-        print(rendered)
+        print(json.dumps(results, indent=2, sort_keys=True) if args.json else markdown(results))
         return 0
     finally:
         if made_worktree:

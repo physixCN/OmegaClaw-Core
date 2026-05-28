@@ -24,8 +24,10 @@ These organs are intentionally optional body/app surfaces:
 - `modules/assume/src/assume_fabricd.py` requires FabricPC plus `jax` and `optax`. It should be
   reviewed as the Assume/FabricPC predictive organ, not as a mandatory chatbot
   dependency.
-- Module-owned audio can use `imageio_ffmpeg` and `whisper` when audio inspection is enabled.
-- Module-owned home, glucose, vision, webcam, image, and video bridges use HTTP/API credentials supplied by
+- `src/audio.py` can use `imageio_ffmpeg` and `whisper` when audio inspection is
+  enabled.
+- `src/home.py`, `src/glucose.py`, `src/vision.py`, `src/webcam.py`,
+  `src/imagegen.py`, and `src/videogen.py` use HTTP/API credentials supplied by
   local runtime configuration.
 - Transport-specific channel bridges may depend on Node runtimes and local
   `node_modules`.
@@ -59,7 +61,7 @@ Implementations live in the organ files:
 - `src/skills_memory.metta`
 - `src/skills_energy.metta`
 - `modules/assume/skills.metta`
-- module-owned `skills.metta` files
+- `src/skills_body.metta`
 - `src/skills_reasoning_spaces.metta`
 - `src/skills_attention.metta`
 - `src/skills_space_mutation.metta`
