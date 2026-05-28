@@ -1,9 +1,9 @@
-# Body Container (POC)
+# Body Container
 
-body_container is the grounded symbolic handle for the runtime body that the
-agent is running inside. It is not a second agent and it does not call an LLM. A
-deployment launcher may write a small host descriptor, and then the agent can
-observe that descriptor from inside the runtime.
+body_container is the grounded symbolic handle for the VM body that the agent
+is running inside. It is not a second agent and it does not call an LLM. A
+platform launcher starts the VM, writes a tiny host descriptor, and then the
+agent observes that descriptor from inside the VM.
 
 The intent is recursive embodiment without doubled cognition cost:
 
@@ -18,7 +18,3 @@ Skills:
 - body-container-self
 - body-container-launcher
 - body-container-last-trace
-
-Status: POC / optional. Deployment-specific identifiers, launcher names, and
-process patterns must be supplied through `OMEGACLAW_BODY_CONTAINER_CONFIG` or
-ignored runtime state; they are not part of the shareable repository.

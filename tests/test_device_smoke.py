@@ -17,11 +17,12 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 OMEGACLAW_ROOT = ROOT.parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "channels"))
 
 import energy  # noqa: E402
-from modules.home_assistant.bridge import home_assistant as home  # noqa: E402
-from modules.channel_router.src import router  # noqa: E402
-from modules.channel_whatsapp.src import whatsapp  # noqa: E402
+import home  # noqa: E402
+import router  # noqa: E402
+import whatsapp  # noqa: E402
 
 
 def configured_whatsapp_port(default=3055):
@@ -59,8 +60,8 @@ class WhatsAppBridgeDryTests(unittest.TestCase):
         )
 
     def test_whatsapp_reusable_defaults_are_deployment_neutral(self):
-        wrapper = (ROOT / "modules" / "channel_whatsapp" / "src" / "whatsapp.py").read_text(encoding="utf-8")
-        bridge = (ROOT / "modules" / "channel_whatsapp" / "src" / "whatsapp_bridge" / "bridge.mjs").read_text(encoding="utf-8")
+        wrapper = (ROOT / "channels" / "whatsapp.py").read_text(encoding="utf-8")
+        bridge = (ROOT / "channels" / "whatsapp_bridge" / "bridge.mjs").read_text(encoding="utf-8")
         self.assertIn('_prefix = ""', wrapper)
         self.assertIn('def start_whatsapp(target_jid="", port=3055, prefix="", primary_jid="")', wrapper)
         self.assertNotIn("auth_" + "omega", wrapper)
@@ -68,7 +69,7 @@ class WhatsAppBridgeDryTests(unittest.TestCase):
         self.assertNotIn(": 'the agent" + "- '", bridge)
 
     def test_whatsapp_bridge_normalizes_message_ids_to_chat_jids(self):
-        bridge = (ROOT / "modules" / "channel_whatsapp" / "src" / "whatsapp_bridge" / "bridge.mjs").read_text(encoding="utf-8")
+        bridge = (ROOT / "channels" / "whatsapp_bridge" / "bridge.mjs").read_text(encoding="utf-8")
         self.assertIn("function normalizeJid(value)", bridge)
         self.assertIn("@(lid|g\\.us|s\\.whatsapp\\.net|broadcast|newsletter)", bridge)
         self.assertIn("messageKeyMatch[1]", bridge)
@@ -176,7 +177,7 @@ class WhatsAppBridgeDryTests(unittest.TestCase):
         self.assertNotIn(("POST", "/chat-state", {"jid": "123@lid", "state": "read", "scope": "all"}), calls)
 
     def test_non_primary_media_notices_include_saved_path(self):
-        bridge = ROOT / "modules" / "channel_whatsapp" / "src" / "whatsapp_bridge" / "bridge.mjs"
+        bridge = ROOT / "channels" / "whatsapp_bridge" / "bridge.mjs"
         text = bridge.read_text(encoding="utf-8")
         self.assertIn(
             "WHATSAPP_INBOX_NOTICE${noticeMeta(item)}: new ${kind.replace('Message', '')}",
@@ -185,7 +186,7 @@ class WhatsAppBridgeDryTests(unittest.TestCase):
         self.assertIn("unread=${unread} saved at ${saved}${caption}", text)
 
     def test_whatsapp_read_state_separates_seen_from_handled(self):
-        bridge = ROOT / "modules" / "channel_whatsapp" / "src" / "whatsapp_bridge" / "bridge.mjs"
+        bridge = ROOT / "channels" / "whatsapp_bridge" / "bridge.mjs"
         text = bridge.read_text(encoding="utf-8")
         chat_messages_handler = re.search(
             r"if \(req\.method === 'GET' && url\.pathname === '/chat-messages'\) \{(?P<body>.*?)\n    \}",
@@ -205,7 +206,7 @@ class WhatsAppBridgeDryTests(unittest.TestCase):
         self.assertIn("readReceipts", text)
 
     def test_whatsapp_delivered_messages_remain_pending_until_read(self):
-        bridge = ROOT / "modules" / "channel_whatsapp" / "src" / "whatsapp_bridge" / "bridge.mjs"
+        bridge = ROOT / "channels" / "whatsapp_bridge" / "bridge.mjs"
         text = bridge.read_text(encoding="utf-8")
         self.assertIn("item.unread + item.delivered", text)
         self.assertIn("item.state === 'unread' || item.state === 'delivered'", text)
@@ -213,7 +214,7 @@ class WhatsAppBridgeDryTests(unittest.TestCase):
         self.assertNotIn("const summaries = inboxSummary().filter(item => item.unread > 0)", text)
 
     def test_whatsapp_primary_messages_mark_read_when_injected(self):
-        bridge = ROOT / "modules" / "channel_whatsapp" / "src" / "whatsapp_bridge" / "bridge.mjs"
+        bridge = ROOT / "channels" / "whatsapp_bridge" / "bridge.mjs"
         text = bridge.read_text(encoding="utf-8")
         self.assertIn("async function applyDeliveryState(delivery)", text)
         self.assertIn("if (delivery.state === 'read') await sendReadReceiptsFor", text)

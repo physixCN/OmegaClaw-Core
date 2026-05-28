@@ -21,21 +21,3 @@
 (SkillTrigger "observe-image" "mentions-word:photo" 0.78 "photo wording may need basic visual observation")
 (SkillTrigger "observe-image" "mentions-word:picture" 0.78 "picture wording may need basic visual observation")
 (Effect "generate-image" "media-created")
-
-; Skill-card hygiene: every callable signature has a visible card and argument shape.
-(Skill "generate-image")
-(Skill "inspect-image")
-(Skill "inspect-webcam")
-(Skill "observe-image")
-(SkillArg "observe-image" 1 "text" "image_id")
-(SkillArg "inspect-image" 1 "text" "image_id")
-(SkillArg "inspect-image" 2 "rest-text" "question")
-(Skill "media-observation-log")
-(SkillTopic "media-observation-log" "vision")
-(SkillArg "media-observation-log" 1 "number" "count")
-(SkillCardLine "media-observation-log" "media-observation-log count - vision skill; inspect this card before use when syntax or purpose is uncertain")
-
-; Skill-card hygiene follow-up for cross-module aliases and triggers.
-(SkillArg "generate-image" 1 "rest-text" "prompt")
-(SkillArg "inspect-webcam" 1 "rest-text" "question")
-(SkillCardLine "inspect-webcam" "inspect-webcam question - webcam vision route; if it returns HA state, report wiring issue instead of treating it as visual observation")

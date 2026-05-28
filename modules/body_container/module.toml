@@ -5,7 +5,7 @@ entrypoint = "entry.metta"
 catalog = "catalog.metta"
 signatures = "signatures.metta"
 optional = true
-default_enabled = false
+default_enabled = true
 
 provides = [
   "runtime-organ:body-container",
@@ -17,15 +17,11 @@ provides = [
 
 requires = [
   "python>=3.10",
-  "host-launcher:configured-runtime-launcher",
+  "host-launcher:platform-runner.app",
 ]
 
 [env]
 OMEGACLAW_BODY_CONTAINER_CONFIG = { runtime_state = true, default = "memory/runtime/body_container/host.json" }
-
-[status]
-readiness = "poc"
-reason = "Runtime-body grounding is useful but must be supplied by deployment config."
 
 [trace]
 writes = [

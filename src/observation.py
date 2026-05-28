@@ -48,26 +48,26 @@ def observe(target):
         return gameboy.gb_observe()
 
     if normalized in {"house", "home", "home assistant", "ha"}:
-        import home_assistant
-        return home_assistant.observe_house()
+        import home
+        return home.observe_house()
 
     if normalized in {"house full", "full house", "home full", "full home", "devices", "all devices"}:
-        import home_assistant
-        return home_assistant.observe_house_full()
+        import home
+        return home.observe_house_full()
 
     if normalized in {"house affordances", "home affordances", "affordances", "house skills", "home skills"}:
-        import home_assistant
-        return home_assistant.observe_house_affordances()
+        import home
+        return home.observe_house_affordances()
 
     if normalized.startswith("room ") or normalized.startswith("area "):
-        import home_assistant
+        import home
         room = _drop_prefix(raw, "room", "area")
-        return home_assistant.observe_room(room)
+        return home.observe_room(room)
 
     if normalized.startswith("device ") or normalized.startswith("entity "):
-        import home_assistant
+        import home
         device = _drop_prefix(raw, "device", "entity")
-        return home_assistant.observe_device(device)
+        return home.observe_device(device)
 
 
     if normalized.startswith("glucose ") or normalized.startswith("blood sugar ") or normalized.startswith("libre "):

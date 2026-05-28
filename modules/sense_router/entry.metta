@@ -26,6 +26,5 @@
 !(import! &self (car-atom (collapse (library OmegaClaw-Core ./modules/sense_router/src/observation.py))))
 !(import! &self (library OmegaClaw-Core ./modules/sense_router/catalog.metta))
 !(import! &self (library OmegaClaw-Core ./modules/sense_router/affordance.metta))
-!(import! &self (library OmegaClaw-Core ./modules/sense_router/routes.metta))
 !(import! &self (library OmegaClaw-Core ./modules/sense_router/signatures.metta))
 !(import! &self (library OmegaClaw-Core ./modules/sense_router/skills.metta))

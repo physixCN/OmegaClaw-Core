@@ -69,14 +69,3 @@
 !(add-atom &skills (SkillTrigger "use-house-affordance" "mentions-word:lights" 0.57 "light requests may need house action after sensing"))
 !(add-atom &skills (SkillTrigger "observe-house" "mentions-word:house" 0.62 "house requests may need current state"))
 !(add-atom &skills (SkillTrigger "observe-house-affordances" "mentions-word:affordance" 0.75 "affordance requests need the available action list"))
-
-; Skill-card hygiene: every callable signature has a visible card and argument shape.
-!(add-atom &skills (Skill "observe-house-affordances"))
-!(add-atom &skills (SkillArg "observe-house" 0 "none" "none"))
-!(add-atom &skills (Skill "observe-house-full"))
-!(add-atom &skills (SkillTopic "observe-house-full" "home-assistant"))
-!(add-atom &skills (SkillArg "observe-house-full" 0 "none" "none"))
-!(add-atom &skills (SkillCardLine "observe-house-full" "observe-house-full - home-assistant skill; inspect this card before use when syntax or purpose is uncertain"))
-!(add-atom &skills (SkillTopic "observe-house-affordances" "home-assistant"))
-!(add-atom &skills (SkillArg "observe-house-affordances" 0 "none" "none"))
-!(add-atom &skills (SkillCardLine "observe-house-affordances" "observe-house-affordances - home-assistant skill; inspect this card before use when syntax or purpose is uncertain"))

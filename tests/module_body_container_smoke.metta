@@ -7,4 +7,4 @@
 !(println! (eval (body-container-status)))
 !(println! (eval (body-container-self)))
 !(println! (match &self (Provides omegaclaw.body.container $thing) $thing))
-!(println! (match &self (BodyContainerCapability omega-runtime-body $capability) $capability))
+!(println! (match &self (BodyContainerCapability omega-body-vm $capability) $capability))

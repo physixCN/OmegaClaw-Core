@@ -1,17 +1,15 @@
-; POC agent-owned tiny Linux VM module.
+; the agent-owned tiny Linux VM module.
 ;
 ; The MeTTa atoms are the cognitive contract. The VM itself is an external
-; workspace-device membrane, not the agent's mind. This module is optional and
-; not default-enabled until portability, dependency, and safety review are done.
+; workspace-device membrane, not the agent's mind.
 
 (Module omegaclaw.device.omega-vm)
 (ModuleKind omegaclaw.device.omega-vm workspace-device)
 (ModuleVersion omegaclaw.device.omega-vm "0.1.0")
 (ModuleEntrypoint omegaclaw.device.omega-vm "entry.metta")
 (ModuleOptional omegaclaw.device.omega-vm True)
-(ModuleDefaultEnabled omegaclaw.device.omega-vm False)
+(ModuleDefaultEnabled omegaclaw.device.omega-vm True)
 (ModuleImplementation omegaclaw.device.omega-vm qemu-membrane)
-(ModuleStatus omegaclaw.device.omega-vm poc)
 
 (WorkspaceDevice omega-vm)
 (Simulation omega-vm)

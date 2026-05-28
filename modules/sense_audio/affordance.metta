@@ -1,16 +1,2 @@
 (SkillTopic "observe-audio" "media")
 (SkillTopic "observe-audio" "audio")
-
-; Skill-card hygiene: every callable signature has a visible card and argument shape.
-(Skill "observe-audio")
-(SkillArg "observe-audio" 1 "text" "audio_id")
-(SkillCardLine "observe-audio" "observe-audio audio_id - audio skill; inspect this card before use when syntax or purpose is uncertain")
-(Skill "inspect-audio")
-(SkillTopic "inspect-audio" "audio")
-(SkillArg "inspect-audio" 1 "text" "audio_id")
-(SkillArg "inspect-audio" 2 "rest-text" "question")
-(SkillCardLine "inspect-audio" "inspect-audio audio_id question - audio skill; inspect this card before use when syntax or purpose is uncertain")
-(Skill "audio-observation-log")
-(SkillTopic "audio-observation-log" "audio")
-(SkillArg "audio-observation-log" 1 "number" "count")
-(SkillCardLine "audio-observation-log" "audio-observation-log count - audio skill; inspect this card before use when syntax or purpose is uncertain")

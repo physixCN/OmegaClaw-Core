@@ -1,12 +1,12 @@
-; POC tiny VM workspace-device affordance cards.
+; Tiny VM workspace-device affordance cards.
 
 (SkillTopic "vm-status" "vm")
 (SkillTopic "vm-boot" "vm")
 (SkillTopic "vm-shell" "vm")
 (SkillTopic "vm-last-trace" "vm")
 
-(SkillCardLine "vm-status" "vm-status - inspect the POC tiny VM workspace-device")
-(SkillCardLine "vm-shell" "vm-shell command - run a bounded command inside the POC tiny VM device")
+(SkillCardLine "vm-status" "vm-status - inspect the tiny VM workspace-device")
+(SkillCardLine "vm-shell" "vm-shell command - run a command inside the tiny VM device")
 
 (SkillTrigger "vm-status" "mentions-word:vm" 0.74 "VM wording may need VM status")
 (SkillTrigger "vm-status" "mentions-word:linux" 0.62 "Linux wording may need VM status")
@@ -14,15 +14,3 @@
 
 (Risk "vm-shell" "nested-vm-command")
 (Effect "vm-shell" "vm-device-action")
-
-; Skill-card hygiene: every callable signature has a visible card and argument shape.
-(Skill "vm-boot")
-(Skill "vm-last-trace")
-(Skill "vm-shell")
-(Skill "vm-status")
-(SkillArg "vm-status" 0 "none" "none")
-(SkillArg "vm-boot" 0 "none" "none")
-(SkillCardLine "vm-boot" "vm-boot - vm skill; inspect this card before use when syntax or purpose is uncertain")
-(SkillArg "vm-shell" 1 "rest-text" "command")
-(SkillArg "vm-last-trace" 0 "none" "none")
-(SkillCardLine "vm-last-trace" "vm-last-trace - vm skill; inspect this card before use when syntax or purpose is uncertain")

@@ -20,16 +20,17 @@ MAX_TRACE_LINES = 5
 sys.modules.setdefault("body_container", sys.modules[__name__])
 
 SELF_ATOMS = [
-    "(BodyContainer omega-runtime-body)",
-    "(Embodies omega-runtime-body agent-self)",
-    "(ContainerType omega-runtime-body runtime-host-container)",
-    "(GroundingConfiguredBy omega-runtime-body \"OMEGACLAW_BODY_CONTAINER_CONFIG\")",
-    "(Contains omega-runtime-body omega-loop)",
+    "(BodyContainer omega-body-vm)",
+    "(Embodies omega-body-vm agent-self)",
+    "(ContainerType omega-body-vm utm-qemu-linux-vm)",
+    "(GroundedBy omega-body-vm \"utm:A3147D34-14D8-49EB-990E-8A50FAF75A3D\")",
+    "(LaunchedBy omega-body-vm \"platform-runner.app\")",
+    "(Contains omega-body-vm omega-loop)",
+    "(Contains omega-body-vm whatsapp-bridge)",
+    "(Contains omega-body-vm webhost)",
+    "(Contains omega-body-vm assume-daemon)",
+    "(Contains omega-body-vm home-assistant)",
 ]
-
-DEFAULT_PROCESS_PATTERNS = {
-    "omega_loop": r"swipl --stack_limit=8g.*run.metta",
-}
 
 
 def _ensure_state_dir() -> None:
@@ -84,15 +85,6 @@ def _process_count(pattern: str) -> int:
         return 0
 
 
-def _configured_process_patterns(config: dict) -> dict:
-    patterns = config.get("process_patterns") if isinstance(config, dict) else None
-    if isinstance(patterns, dict):
-        clean = {str(name): str(pattern) for name, pattern in patterns.items() if str(name).strip() and str(pattern).strip()}
-        if clean:
-            return clean
-    return dict(DEFAULT_PROCESS_PATTERNS)
-
-
 def _resource_snapshot() -> dict:
     total, used, free = shutil.disk_usage(str(CORE_ROOT))
     meminfo = pathlib.Path("/proc/meminfo").read_text(encoding="utf-8", errors="replace") if pathlib.Path("/proc/meminfo").exists() else ""
@@ -116,8 +108,12 @@ def body_container_status():
     hostname = platform.node() or _first_line("/etc/hostname")
     machine_id = _first_line("/etc/machine-id")
     resources = _resource_snapshot()
-    process_patterns = _configured_process_patterns(launcher)
-    processes = {name: _process_count(pattern) for name, pattern in process_patterns.items()}
+    processes = {
+        "omega_loop": _process_count(r"swipl --stack_limit=8g.*run.metta"),
+        "whatsapp_bridge": _process_count(r"node bridge.mjs"),
+        "webhost": _process_count(r"webhost.py serve"),
+        "terminal_mirror": _process_count(r"terminal_mirror.py"),
+    }
     _append_trace(
         "BodyContainerObserved",
         hostname=hostname,
@@ -128,9 +124,10 @@ def body_container_status():
         resources=resources,
     )
     return (
-        f"BODY-CONTAINER-STATUS body=omega-runtime-body virt={virt} hostname={hostname} machine_id={machine_id} "
-        f"launcher={launcher.get('launcher', launcher.get('status', 'unconfigured'))} "
-        f"configured_processes={json.dumps(processes, sort_keys=True)} "
+        f"BODY-CONTAINER-STATUS body=omega-body-vm virt={virt} hostname={hostname} machine_id={machine_id} "
+        f"launcher={launcher.get('launcher', launcher.get('status', 'present'))} "
+        f"vm_uuid={launcher.get('vm_uuid', 'A3147D34-14D8-49EB-990E-8A50FAF75A3D')} "
+        f"omega_loop={processes['omega_loop']} whatsapp={processes['whatsapp_bridge']} webhost={processes['webhost']} "
         f"mem_available_mb={resources['mem_available_mb']} disk_free_gb={resources['disk_free_gb']}"
     )
 
