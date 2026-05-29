@@ -26,6 +26,15 @@ def load_router_module():
     return module
 
 
+def load_router_module_without_stubs():
+    for name in ("telegram", "whatsapp", "glucose", "web_control"):
+        sys.modules.pop(name, None)
+    spec = importlib.util.spec_from_file_location("channel_router_import_under_test", ROUTER)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 class ChannelEventNormalizationTest(unittest.TestCase):
     def setUp(self):
         self.router = load_router_module()
@@ -49,6 +58,12 @@ class ChannelEventNormalizationTest(unittest.TestCase):
         self.assertIn("text=hello from the primary route", view)
         self.assertIn("reply_affordance=send message", view)
         self.assertNotIn("sampleuser@lid", view)
+
+    def test_router_loads_local_adapters_without_ambient_python_path(self):
+        router = load_router_module_without_stubs()
+        telegram = router._adapter("telegram")
+
+        self.assertIn("modules/channel_telegram/src/telegram.py", str(pathlib.Path(telegram.__file__)))
 
     def test_structured_secondary_event_exposes_conversation_id(self):
         view = self.router.normalize_channel_event(

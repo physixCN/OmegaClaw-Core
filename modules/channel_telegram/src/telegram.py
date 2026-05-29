@@ -12,7 +12,7 @@ import uuid
 _running = False
 _last_message = ""
 _msg_lock = threading.Lock()
-_state_lock = threading.Lock()
+_state_lock = threading.RLock()
 _poll_thread = None
 
 _bot_token = ""
@@ -29,6 +29,7 @@ _last_update_id = None
 _last_update_kind = "none"
 _last_message_state = "none"
 _ignored_counts = {}
+_last_idle_log_at = 0.0
 
 _LEADING_TELEGRAM_TARGET_RE = re.compile(
     r"^\s*(?:TELEGRAM:|telegram:|chat[_-]?id\s*[:=]\s*|-?\d{6,})\S*\s+",
@@ -43,6 +44,7 @@ def _set_last(msg):
             _last_message = msg
         else:
             _last_message = _last_message + " | " + msg
+    _log(f"Queued inbound message for loop chars={len(str(msg or ''))}")
 
 
 def getLastMessage():
@@ -50,7 +52,32 @@ def getLastMessage():
     with _msg_lock:
         tmp = _last_message
         _last_message = ""
+    if tmp:
+        _log(f"Delivered inbound message to loop chars={len(str(tmp))}")
         return tmp
+    return tmp
+
+
+def _debug_enabled():
+    return str(os.environ.get("OMEGACLAW_CHANNEL_DEBUG", "1")).strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _log(message):
+    if _debug_enabled():
+        print(f"[TELEGRAM] {message}", flush=True)
+
+
+def _maybe_log_idle():
+    global _last_idle_log_at
+    now = time.time()
+    if now - _last_idle_log_at >= 60:
+        _last_idle_log_at = now
+        with _state_lock:
+            chat = _chat_id or "auto-bind"
+            auth = bool(_auth_secret)
+            authed = _authenticated_chat_id or "none"
+            offset = _offset if _offset is not None else "none"
+        _log(f"Polling idle chat={chat} auth_required={auth} authenticated_chat={authed} offset={offset}")
 
 
 def _set_auth_secret(secret=None):
@@ -89,6 +116,7 @@ def _guard_configured_chat_body(text, command="send-telegram"):
 def _bump_ignored(reason):
     with _state_lock:
         _ignored_counts[reason] = _ignored_counts.get(reason, 0) + 1
+    return reason
 
 
 def _display_name(user, chat):
@@ -261,7 +289,7 @@ def _initialize_offset():
     try:
         updates = _api_call("getUpdates", {"timeout": 0}, timeout=10) or []
     except Exception as exc:
-        print(f"[TELEGRAM] Could not read initial offset: {exc}")
+        _log(f"Could not read initial offset: {exc}")
         return
 
     max_update = -1
@@ -273,6 +301,9 @@ def _initialize_offset():
     if max_update >= 0:
         with _state_lock:
             _offset = max_update + 1
+        _log(f"Initial offset advanced past stale updates last_update={max_update}")
+    else:
+        _log("Initial offset ready; no stale updates")
 
 
 def _is_allowed_message(chat_id, user_id, msg, is_channel_post=False):
@@ -281,8 +312,7 @@ def _is_allowed_message(chat_id, user_id, msg, is_channel_post=False):
 
     with _state_lock:
         if _chat_id and chat_id != _chat_id:
-            _ignored_counts["wrong-chat"] = _ignored_counts.get("wrong-chat", 0) + 1
-            return "ignore"
+            return f"ignore:{_bump_ignored('wrong-chat')}"
 
         if not _auth_secret:
             if not _chat_id:
@@ -291,28 +321,25 @@ def _is_allowed_message(chat_id, user_id, msg, is_channel_post=False):
 
         if _authenticated_user_id is None:
             if candidate == _auth_secret:
-                _authenticated_user_id = user_id or chat_id if is_channel_post else user_id
+                _authenticated_user_id = (user_id or chat_id) if is_channel_post else user_id
                 _authenticated_chat_id = chat_id
                 _chat_id = chat_id
                 return "auth_bound"
-            _ignored_counts["auth-required"] = _ignored_counts.get("auth-required", 0) + 1
-            return "ignore"
+            return f"ignore:{_bump_ignored('auth-required')}"
 
         if chat_id != _authenticated_chat_id:
-            _ignored_counts["wrong-auth-chat"] = _ignored_counts.get("wrong-auth-chat", 0) + 1
-            return "ignore"
+            return f"ignore:{_bump_ignored('wrong-auth-chat')}"
         if is_channel_post:
             return "allow"
         if user_id == _authenticated_user_id:
             return "allow"
-        _ignored_counts["wrong-user"] = _ignored_counts.get("wrong-user", 0) + 1
-        return "ignore"
+        return f"ignore:{_bump_ignored('wrong-user')}"
 
 
 def _poll_loop():
     global _connected, _offset, _poll_thread, _last_update_id, _last_update_kind, _last_message_state
     current = threading.current_thread()
-    print("[TELEGRAM] Polling started")
+    _log(f"Polling started timeout={_poll_timeout}s")
 
     while _running:
         try:
@@ -323,6 +350,10 @@ def _poll_loop():
 
             updates = _api_call("getUpdates", params=params, timeout=int(_poll_timeout) + 10) or []
             _connected = True
+            if updates:
+                _log(f"Received updates count={len(updates)}")
+            else:
+                _maybe_log_idle()
 
             for update in updates:
                 update_id = update.get("update_id")
@@ -334,7 +365,8 @@ def _poll_loop():
 
                 kind, message = _message_from_update(update)
                 if not isinstance(message, dict):
-                    _bump_ignored("unsupported-update")
+                    reason = _bump_ignored("unsupported-update")
+                    _log(f"Ignored update id={update_id} reason={reason}")
                     continue
                 with _state_lock:
                     _last_update_kind = kind
@@ -348,7 +380,8 @@ def _poll_loop():
                 is_channel_post = kind in {"channel_post", "edited_channel_post"}
                 user_id = str(user.get("id", "") or (chat_id if is_channel_post else "")).strip()
                 if not chat_id:
-                    _bump_ignored("missing-chat")
+                    reason = _bump_ignored("missing-chat")
+                    _log(f"Ignored update id={update_id} kind={kind} reason={reason}")
                     continue
 
                 state = _is_allowed_message(chat_id, user_id, text or caption, is_channel_post=is_channel_post)
@@ -356,29 +389,36 @@ def _poll_loop():
                 if state == "allow":
                     with _state_lock:
                         _last_message_state = f"allow:{kind}"
+                    _log(f"Accepted update id={update_id} kind={kind} chat={chat_id} sender={display_name} has_text={bool(text)} has_caption={bool(caption)}")
                     if text:
                         _set_last(f"{display_name}: {text}")
                     else:
                         notice = _extract_file_notice(message, display_name)
                         if notice:
                             _set_last(notice)
+                        else:
+                            reason = _bump_ignored("no-text-or-supported-file")
+                            _log(f"Ignored update id={update_id} kind={kind} chat={chat_id} reason={reason}")
                 elif state == "auth_bound":
                     with _state_lock:
                         _last_message_state = f"auth_bound:{kind}"
+                    _log(f"Authenticated chat={chat_id} kind={kind} display={display_name}")
                     send_message(f"Authentication successful for {display_name}.")
                 else:
+                    reason = state.split(":", 1)[1] if ":" in state else "ignored"
                     with _state_lock:
-                        _last_message_state = f"ignore:{kind}"
+                        _last_message_state = f"ignore:{kind}:{reason}"
+                    _log(f"Ignored update id={update_id} kind={kind} chat={chat_id} reason={reason}")
         except Exception as exc:
             _connected = False
-            print(f"[TELEGRAM] Poll error: {exc}")
+            _log(f"Poll error: {exc}")
             time.sleep(2)
 
     with _state_lock:
         _connected = False
         if _poll_thread is current:
             _poll_thread = None
-    print("[TELEGRAM] Polling stopped")
+    _log("Polling stopped")
 
 
 def status():
@@ -398,7 +438,7 @@ def status():
 
 
 def start_telegram(bot_token, chat_id="", poll_timeout=20, auth_secret=None):
-    global _running, _bot_token, _api_base, _chat_id, _poll_timeout, _offset, _connected, _poll_thread
+    global _running, _bot_token, _api_base, _chat_id, _poll_timeout, _offset, _connected, _poll_thread, _last_idle_log_at
 
     token = str(bot_token).strip()
     target_chat = str(chat_id).strip()
@@ -415,9 +455,9 @@ def start_telegram(bot_token, chat_id="", poll_timeout=20, auth_secret=None):
         if _running and _poll_thread is not None and _poll_thread.is_alive():
             if _bot_token == token and _chat_id == target_chat:
                 _poll_timeout = timeout
-                print(f"[TELEGRAM] Adapter already running with chat target: {_chat_id or 'auto-bind'}")
+                _log(f"Adapter already running with chat target: {_chat_id or 'auto-bind'}")
                 return _poll_thread
-            print("[TELEGRAM] Restarting adapter for new configuration")
+            _log("Restarting adapter for new configuration")
             _running = False
             old_thread = _poll_thread
 
@@ -432,11 +472,12 @@ def start_telegram(bot_token, chat_id="", poll_timeout=20, auth_secret=None):
         _offset = None
         _running = True
         _connected = False
+        _last_idle_log_at = 0.0
 
     _set_auth_secret(auth_secret)
-    print(f"[TELEGRAM] Starting adapter with chat target: {_chat_id or 'auto-bind'}")
+    _log(f"Starting adapter with chat target: {_chat_id or 'auto-bind'} auth_required={bool(_auth_secret)} timeout={_poll_timeout}s")
     if _auth_secret:
-        print("[TELEGRAM] Auth required; pending updates are preserved for first auth bind")
+        _log("Auth required; pending updates are preserved for first auth bind")
     else:
         _initialize_offset()
 
@@ -489,7 +530,7 @@ def send_message(text):
             )
             sent += 1
         except Exception as exc:
-            print(f"[TELEGRAM] Send failed: {exc}")
+            _log(f"Send failed: {exc}")
             return f"TELEGRAM-SEND-FAILED {exc}"
     return f"TELEGRAM-SEND-SUCCESS chunks={sent}"
 
@@ -513,7 +554,7 @@ def send_file(path, caption=""):
         )
         return "TELEGRAM-SEND-FILE-SUCCESS"
     except Exception as exc:
-        print(f"[TELEGRAM] Send file failed: {exc}")
+        _log(f"Send file failed: {exc}")
         return f"TELEGRAM-SEND-FILE-FAILED {exc}"
 
 

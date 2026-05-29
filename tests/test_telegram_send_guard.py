@@ -95,11 +95,29 @@ class TelegramSendGuardTest(unittest.TestCase):
     def test_status_exposes_bind_and_ignored_state(self):
         telegram = load_telegram_module()
         telegram._set_auth_secret("secret")
-        telegram._is_allowed_message("chat-a", "user-a", "wrong")
+        state = telegram._is_allowed_message("chat-a", "user-a", "wrong")
+        self.assertEqual(state, "ignore:auth-required")
         status = telegram.status()
         self.assertIn("TELEGRAM-STATUS", status)
         self.assertIn("auth_required=True", status)
         self.assertIn("ignored=auth-required:1", status)
+
+    def test_terminal_log_can_be_disabled(self):
+        telegram = load_telegram_module()
+        with mock.patch.dict("os.environ", {"OMEGACLAW_CHANNEL_DEBUG": "0"}), \
+             mock.patch("builtins.print") as printer:
+            telegram._log("diagnostic")
+        printer.assert_not_called()
+
+    def test_terminal_log_does_not_require_message_body(self):
+        telegram = load_telegram_module()
+        with mock.patch.dict("os.environ", {"OMEGACLAW_CHANNEL_DEBUG": "1"}), \
+             mock.patch("builtins.print") as printer:
+            telegram._log("Accepted update id=1 kind=message chat=chat-a has_text=True")
+        args, kwargs = printer.call_args
+        self.assertIn("[TELEGRAM] Accepted update", args[0])
+        self.assertNotIn("secret text", args[0])
+        self.assertTrue(kwargs.get("flush"))
 
     def test_telegram_cards_warn_about_configured_route_and_send_results(self):
         affordance = (ROOT / "modules" / "channel_telegram" / "affordance.metta").read_text(encoding="utf-8")

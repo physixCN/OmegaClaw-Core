@@ -1,10 +1,50 @@
 import base64
+import importlib.util
+import pathlib
 import re
+import sys
 
-import telegram
-import whatsapp
-import glucose
-import web_control
+_CORE_ROOT = pathlib.Path(__file__).resolve().parents[3]
+_ADAPTER_MODULES = {
+    "telegram": "channel_telegram",
+    "whatsapp": "channel_whatsapp",
+    "glucose": "health_glucose",
+    "web_control": "channel_web_control",
+}
+_ADAPTER_CACHE = {}
+
+
+def _is_local_adapter(module, name):
+    path = getattr(module, "__file__", "")
+    if not path:
+        return True
+    try:
+        resolved = pathlib.Path(path).resolve()
+    except Exception:
+        return False
+    return resolved == (_CORE_ROOT / "modules" / _ADAPTER_MODULES[name] / "src" / f"{name}.py").resolve()
+
+
+def _adapter(name):
+    cached = _ADAPTER_CACHE.get(name)
+    if cached is not None:
+        return cached
+
+    existing = sys.modules.get(name)
+    if existing is not None and _is_local_adapter(existing, name):
+        _ADAPTER_CACHE[name] = existing
+        return existing
+
+    module_path = _CORE_ROOT / "modules" / _ADAPTER_MODULES[name] / "src" / f"{name}.py"
+    if not module_path.exists():
+        raise ModuleNotFoundError(f"OmegaClaw channel adapter not found: {module_path}")
+
+    spec = importlib.util.spec_from_file_location(name, module_path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    _ADAPTER_CACHE[name] = module
+    return module
 
 _last_inbound_channel = "control"
 
@@ -234,18 +274,18 @@ def receive():
     items = []
     channels = []
     try:
-        msg = telegram.getLastMessage()
+        msg = _adapter("telegram").getLastMessage()
         if msg:
             items.append(normalize_channel_notice("telegram", msg))
             channels.append("control")
     except Exception as exc:
         items.append(f"TELEGRAM_CONTROL_ERROR: {exc}")
     try:
-        msg = whatsapp.getLastMessage()
+        msg = _adapter("whatsapp").getLastMessage()
         if msg:
             events = []
             try:
-                events = whatsapp.getLastEvents()
+                events = _adapter("whatsapp").getLastEvents()
             except Exception:
                 events = []
             if events:
@@ -257,7 +297,7 @@ def receive():
     except Exception as exc:
         items.append(f"WHATSAPP_ERROR: {exc}")
     try:
-        msg = glucose.pending_glucose_rings()
+        msg = _adapter("glucose").pending_glucose_rings()
         if msg:
             items.append(normalize_channel_event({
                 "event": "notice",
@@ -273,7 +313,7 @@ def receive():
     except Exception as exc:
         items.append(f"GLUCOSE_APP_ERROR: {exc}")
     try:
-        msg = web_control.get_last_message()
+        msg = _adapter("web_control").get_last_message()
         if msg:
             items.append(normalize_channel_event(_control_event("web_control", msg)))
             channels.append("web_control")
@@ -286,10 +326,10 @@ def receive():
 
 def send_control(text):
     if _last_inbound_channel == "web_control":
-        return web_control.send_message(text)
+        return _adapter("web_control").send_message(text)
     if _last_inbound_channel == "whatsapp_primary":
-        return whatsapp.send_primary(text)
-    return telegram.send_message(text)
+        return _adapter("whatsapp").send_primary(text)
+    return _adapter("telegram").send_message(text)
 
 
 def send_control_base64(payload):
@@ -300,98 +340,98 @@ def send_control_base64(payload):
 
 
 def send_web_control(text):
-    return web_control.send_message(text)
+    return _adapter("web_control").send_message(text)
 
 
 def send_web_control_base64(payload):
     text, error = _decode_rich_text(payload)
     if error:
         return error
-    return _rich_result(web_control.send_message(text), text)
+    return _rich_result(_adapter("web_control").send_message(text), text)
 
 
 def send_telegram(text):
-    return telegram.send_message(text)
+    return _adapter("telegram").send_message(text)
 
 
 def send_telegram_base64(payload):
     text, error = _decode_rich_text(payload)
     if error:
         return error
-    return _rich_result(telegram.send_message(text) or "TELEGRAM-RICH-SEND-SUCCESS", text)
+    return _rich_result(_adapter("telegram").send_message(text) or "TELEGRAM-RICH-SEND-SUCCESS", text)
 
 
 def send_family(text):
-    return whatsapp.send_message(text)
+    return _adapter("whatsapp").send_message(text)
 
 
 def send_primary_operator(text):
-    return whatsapp.send_primary_operator(text)
+    return _adapter("whatsapp").send_primary_operator(text)
 
 
 def send_primary_operator_base64(payload):
     text, error = _decode_rich_text(payload)
     if error:
         return error
-    return _rich_result(whatsapp.send_primary_operator(text), text)
+    return _rich_result(_adapter("whatsapp").send_primary_operator(text), text)
 
 
 def send_family_base64(payload):
     text, error = _decode_rich_text(payload)
     if error:
         return error
-    return _rich_result(whatsapp.send_message(text), text)
+    return _rich_result(_adapter("whatsapp").send_message(text), text)
 
 
 def send_family_mention(phone, text):
-    return whatsapp.send_mention(phone, text)
+    return _adapter("whatsapp").send_mention(phone, text)
 
 
 def send_chat_base64(jid, payload):
     text, error = _decode_rich_text(payload)
     if error:
         return error
-    return _rich_result(whatsapp.send_to_chat(jid, text), text)
+    return _rich_result(_adapter("whatsapp").send_to_chat(jid, text), text)
 
 
 def reply_chat_base64(jid, payload):
     text, error = _decode_rich_text(payload)
     if error:
         return error
-    return _rich_result(whatsapp.reply_to_chat(jid, text), text)
+    return _rich_result(_adapter("whatsapp").reply_to_chat(jid, text), text)
 
 
 def reply_to_message_base64(jid, message_id, payload):
     text, error = _decode_rich_text(payload)
     if error:
         return error
-    return _rich_result(whatsapp.reply_to_message(jid, message_id, text), text)
+    return _rich_result(_adapter("whatsapp").reply_to_message(jid, message_id, text), text)
 
 
 def edit_message_base64(message_id, payload):
     text, error = _decode_rich_text(payload)
     if error:
         return error
-    return _rich_result(whatsapp.edit_message(message_id, text), text)
+    return _rich_result(_adapter("whatsapp").edit_message(message_id, text), text)
 
 
 def send_chat_mention(jid, phone, text):
-    return whatsapp.send_mention_to_chat(jid, phone, text)
+    return _adapter("whatsapp").send_mention_to_chat(jid, phone, text)
 
 
 def send_control_file(path, caption=""):
     if _last_inbound_channel == "whatsapp_primary":
-        return whatsapp.send_file(path, caption)
-    return telegram.send_file(path, caption)
+        return _adapter("whatsapp").send_file(path, caption)
+    return _adapter("telegram").send_file(path, caption)
 
 
 def send_family_file(path, caption=""):
-    return whatsapp.send_file(path, caption)
+    return _adapter("whatsapp").send_file(path, caption)
 
 
 def send_chat_file(jid, path, caption=""):
-    return whatsapp.send_file_to_chat(jid, path, caption)
+    return _adapter("whatsapp").send_file_to_chat(jid, path, caption)
 
 
 def reply_chat_file(jid, path, caption=""):
-    return whatsapp.reply_file_to_chat(jid, path, caption)
+    return _adapter("whatsapp").reply_file_to_chat(jid, path, caption)

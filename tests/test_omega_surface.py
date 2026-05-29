@@ -729,14 +729,14 @@ class ArchitectureSurfaceTests(unittest.TestCase):
 
     def test_glucose_rings_enter_router_without_auto_send(self):
         router = (ROOT / "modules" / "channel_router" / "src" / "router.py").read_text(encoding="utf-8")
-        self.assertIn("import glucose", router)
-        self.assertIn("glucose.pending_glucose_rings()", router)
+        self.assertIn('"glucose": "health_glucose"', router)
+        self.assertIn('_adapter("glucose").pending_glucose_rings()', router)
         self.assertIn("CHANNEL_EVENT", router)
         self.assertIn('"channel": "glucose"', router)
         self.assertIn('"sender": "glucose-watch"', router)
         self.assertIn('"reply_affordance": "inspect glucose skill card"', router)
-        self.assertIn("import web_control", router)
-        self.assertIn("web_control.get_last_message()", router)
+        self.assertIn('"web_control": "channel_web_control"', router)
+        self.assertIn('_adapter("web_control").get_last_message()', router)
         self.assertIn('normalize_channel_event(_control_event("web_control", msg))', router)
         self.assertIn('if _last_inbound_channel == "web_control":', router)
         self.assertNotIn("send_whatsapp", router)
