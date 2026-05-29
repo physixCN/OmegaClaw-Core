@@ -136,7 +136,7 @@
 	                                (let* (($_ (change-state! &nextWakeAt (+ (get_time) (get-state &wakeupInterval))))
 	                                       ($_ (println! $lastmessage))
 	                                       ($send $prompt)
-                                       ($_ (println! (CHARS_SENT: (string_length $send) $send)))
+                                       ($_ (println! (CHARS_SENT: (string_length $send))))
                                        ($respi (if (== (provider) OpenAI)
                                                    (useGPT (LLM) (maxOutputToken) (reasoningMode) $send)
                                                    (py-call (lib_llm_ext.callProvider (provider) $send (maxOutputToken)))))

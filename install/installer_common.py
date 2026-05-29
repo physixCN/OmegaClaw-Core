@@ -114,6 +114,18 @@ def yes_no(prompt: str, default: bool = False) -> bool:
         print("Please answer yes or no.")
 
 
+def ask_secret_required(prompt: str, env_name: str) -> str:
+    existing = os.environ.get(env_name, "")
+    while True:
+        suffix = " (leave empty to use existing env)" if existing else ""
+        value = getpass.getpass(f"{prompt}{suffix}: ").strip()
+        if value:
+            return value
+        if existing:
+            return existing
+        print(f"{env_name} is required for this selection. Choose another provider/channel if you do not want to configure it now.")
+
+
 def ask_agent_name() -> str:
     print("\nAgent identity")
     print("This names the running agent in the local prompt. The framework remains OmegaClaw.")
@@ -236,12 +248,7 @@ def choose_provider() -> dict[str, str]:
         values["LLM_SERVER_LOCAL_URL"] = ask("Ollama URL", "http://localhost:11434")
         values[env_name] = os.environ.get(env_name, "ollama-local")
     else:
-        existing = os.environ.get(env_name, "")
-        token = getpass.getpass(f"{env_name} (leave empty to keep env-only): ").strip()
-        if token:
-            values[env_name] = token
-        elif existing:
-            values[env_name] = existing
+        values[env_name] = ask_secret_required(env_name, env_name)
     return values
 
 
@@ -270,17 +277,17 @@ def choose_channel() -> tuple[str, dict[str, str], set[str]]:
     if channel == "irc":
         env["IRC_channel"] = ask("IRC channel", "##omegaclaw")
     elif channel == "telegram":
-        env["TG_BOT_TOKEN"] = getpass.getpass("Telegram bot token: ").strip()
+        env["TG_BOT_TOKEN"] = ask_secret_required("Telegram bot token", "TG_BOT_TOKEN")
         env["TG_CHAT_ID"] = ask("Telegram chat id; empty enables auto-bind", "")
         env["TG_POLL_TIMEOUT"] = ask("Telegram poll timeout", "20")
     elif channel == "slack":
-        env["SL_BOT_TOKEN"] = getpass.getpass("Slack bot token: ").strip()
+        env["SL_BOT_TOKEN"] = ask_secret_required("Slack bot token", "SL_BOT_TOKEN")
         env["SL_CHANNEL_ID"] = ask("Slack channel id; empty enables auto-bind", "")
         env["SL_POLL_INTERVAL"] = ask("Slack poll interval", "10")
     elif channel == "mattermost":
         env["MM_URL"] = ask("Mattermost URL", "https://chat.singularitynet.io")
         env["MM_CHANNEL_ID"] = ask("Mattermost channel id")
-        env["MM_BOT_TOKEN"] = getpass.getpass("Mattermost bot token: ").strip()
+        env["MM_BOT_TOKEN"] = ask_secret_required("Mattermost bot token", "MM_BOT_TOKEN")
     elif channel == "whatsapp":
         env["WA_PORT"] = ask("WhatsApp bridge port", "3055")
         env["WA_PRIMARY_JID"] = ask("Primary WhatsApp JID; can be set later", "")

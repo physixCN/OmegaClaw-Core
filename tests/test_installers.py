@@ -67,6 +67,32 @@ class InstallerTests(unittest.TestCase):
             self.assertIn("provider", text.lower())
             self.assertIn("channel", text.lower())
 
+    def test_metta_configure_reads_environment_without_exposing_secrets_as_argv(self):
+        utils = (ROOT / "src" / "utils.metta").read_text(encoding="utf-8")
+        self.assertIn("!(import_prolog_function getenv)", utils)
+        self.assertIn("(= (envk $Prefix)", utils)
+        self.assertIn("(let $env (collapse (envk $Prefix))", utils)
+
+    def test_required_secret_reprompts_unless_existing_env_is_available(self):
+        installer = load_installer_common()
+        original_getpass = installer.getpass.getpass
+        original_env = os.environ.get("OMEGA_TEST_SECRET")
+        try:
+            os.environ["OMEGA_TEST_SECRET"] = "from-env"
+            installer.getpass.getpass = lambda prompt: ""
+            self.assertEqual(installer.ask_secret_required("Secret", "OMEGA_TEST_SECRET"), "from-env")
+
+            os.environ.pop("OMEGA_TEST_SECRET", None)
+            answers = iter(["", "fresh-secret"])
+            installer.getpass.getpass = lambda prompt: next(answers)
+            self.assertEqual(installer.ask_secret_required("Secret", "OMEGA_TEST_SECRET"), "fresh-secret")
+        finally:
+            installer.getpass.getpass = original_getpass
+            if original_env is None:
+                os.environ.pop("OMEGA_TEST_SECRET", None)
+            else:
+                os.environ["OMEGA_TEST_SECRET"] = original_env
+
     def test_module_defaults_separate_core_from_device_heavy_modules(self):
         installer = load_installer_common()
         modules = installer.discover_modules(ROOT)

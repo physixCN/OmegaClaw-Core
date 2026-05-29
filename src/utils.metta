@@ -7,6 +7,7 @@
 !(import_prolog_function swrite)
 !(import_prolog_function sread)
 !(import_prolog_function string_concat)
+!(import_prolog_function getenv)
 
 (= (sleep $t)
    (progn (translatePredicate (sleep $t))
@@ -64,5 +65,12 @@
 (= (argk $Prefix $default)
    (let $res (collapse (argk $Prefix))
         (if (== $res ())
-            $default
+            (let $env (collapse (envk $Prefix))
+                 (if (== $env ())
+                     $default
+                     (car-atom $env)))
             (car-atom $res))))
+
+(= (envk $Prefix)
+   (let $Value (getenv $Prefix)
+        (atom_to_number $Value)))

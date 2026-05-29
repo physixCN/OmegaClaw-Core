@@ -181,6 +181,11 @@ class PatchBoundaryContractTests(unittest.TestCase):
             with self.subTest(pattern=pattern):
                 self.assertIn(pattern, ignore)
 
+    def test_runtime_loop_does_not_dump_full_prompt_to_terminal(self):
+        loop = read("src/loop.metta")
+        self.assertIn("(CHARS_SENT: (string_length $send))", loop)
+        self.assertNotIn("(CHARS_SENT: (string_length $send) $send)", loop)
+
     def test_ignored_runtime_memory_files_are_loaded_by_runtime_not_source_imports(self):
         libs = "\n".join(
             read(path)
