@@ -77,9 +77,10 @@ remains the framework name. On later runs the generated launcher reads
 `~/OmegaClaw/.env`; re-run the installer only when changing modules, channel,
 provider, or agent name.
 
-The generated root `run.metta` imports from the local `repos/OmegaClaw-Core`
-clone. It does not `git-import!` the public URL at runtime, so `git pull` and
-the generated module loader are the source of truth for that install.
+The generated root `run.metta` uses PeTTa's `git-import!` to register the local
+`repos/OmegaClaw-Core` clone as the `OmegaClaw-Core` library. The installer
+pulls that clone during setup; later `git pull` inside the clone and the
+generated module loader are the source of truth for that install.
 
 For Telegram, leaving `TG_CHAT_ID` empty enables first-chat binding. If the
 local auth secret is enabled, the installer writes `telegram-auth-command.txt`

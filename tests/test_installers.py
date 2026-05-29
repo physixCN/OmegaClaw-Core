@@ -27,11 +27,11 @@ def load_installer_common():
 
 
 class InstallerTests(unittest.TestCase):
-    def test_public_run_file_uses_local_clone(self):
+    def test_public_run_file_registers_public_local_clone(self):
         run_metta = (ROOT / "run.metta").read_text(encoding="utf-8")
+        self.assertIn("https://github.com/physixCN/OmegaClaw-Core.git", run_metta)
+        self.assertIn("git-import!", run_metta)
         self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", run_metta)
-        self.assertNotIn("git-import!", run_metta)
-        self.assertNotIn("https://github.com/physixCN/OmegaClaw-Core.git", run_metta)
         self.assertNotIn("https://github.com/asi-alliance/OmegaClaw-Core.git", run_metta)
 
     def test_installer_discovers_modules_and_writes_loader(self):
@@ -284,21 +284,21 @@ class InstallerTests(unittest.TestCase):
             self.assertIn(launcher, launchers)
             self.assertIn("start-omegaclaw.sh", launcher.read_text(encoding="utf-8"))
 
-    def test_installed_run_uses_local_clone_not_git_import_cache(self):
+    def test_installed_run_registers_local_clone_with_git_import(self):
         installer = load_installer_common()
         with tempfile.TemporaryDirectory() as tmp:
             workspace = pathlib.Path(tmp)
             installer.write_root_run(workspace)
             text = (workspace / "run.metta").read_text(encoding="utf-8")
+            self.assertIn("git-import!", text)
+            self.assertIn(installer.PUBLIC_CORE_URL, text)
             self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", text)
-            self.assertNotIn("git-import!", text)
-            self.assertNotIn(installer.PUBLIC_CORE_URL, text)
 
-    def test_repo_run_uses_local_clone_not_git_import_cache(self):
+    def test_repo_run_registers_public_local_clone(self):
         text = (ROOT / "run.metta").read_text(encoding="utf-8")
+        self.assertIn("git-import!", text)
+        self.assertIn("https://github.com/physixCN/OmegaClaw-Core.git", text)
         self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", text)
-        self.assertNotIn("git-import!", text)
-        self.assertNotIn("https://github.com/physixCN/OmegaClaw-Core.git", text)
 
     def test_macos_installer_writes_desktop_launcher_when_desktop_exists(self):
         installer = load_installer_common()

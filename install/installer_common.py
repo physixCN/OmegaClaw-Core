@@ -381,6 +381,7 @@ def write_root_run(workspace: pathlib.Path) -> None:
         textwrap.dedent(
             f"""
             !(import! &self (library lib_import))
+            !(git-import! "{PUBLIC_CORE_URL}")
             !(import! &self (car-atom (collapse (library OmegaClaw-Core lib_omegaclaw_no_agentverse))))
             !(import! &self (car-atom (collapse (library OmegaClaw-Core lib_omegaclaw_attention))))
             !(import! &self (car-atom (collapse (library OmegaClaw-Core lib_omegaclaw_body))))
