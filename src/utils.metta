@@ -73,4 +73,6 @@
 
 (= (envk $Prefix)
    (let $Value (getenv $Prefix)
-        (atom_to_number $Value)))
+        (progn
+           (translatePredicate (atom_string $Res $Value))
+           (atom_to_number $Res))))

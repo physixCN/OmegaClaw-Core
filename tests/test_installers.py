@@ -2,7 +2,7 @@
 """Installer sanity checks.
 
 These tests avoid running package managers or cloning repositories. They protect
-the public install contract: public repo URL, module loader generation, and
+the public install contract: local clone startup, module loader generation, and
 launcher files that do not embed private deployment state.
 """
 
@@ -27,9 +27,11 @@ def load_installer_common():
 
 
 class InstallerTests(unittest.TestCase):
-    def test_public_run_file_uses_public_repo(self):
+    def test_public_run_file_uses_local_clone(self):
         run_metta = (ROOT / "run.metta").read_text(encoding="utf-8")
-        self.assertIn("https://github.com/physixCN/OmegaClaw-Core.git", run_metta)
+        self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", run_metta)
+        self.assertNotIn("git-import!", run_metta)
+        self.assertNotIn("https://github.com/physixCN/OmegaClaw-Core.git", run_metta)
         self.assertNotIn("https://github.com/asi-alliance/OmegaClaw-Core.git", run_metta)
 
     def test_installer_discovers_modules_and_writes_loader(self):
@@ -72,6 +74,8 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("!(import_prolog_function getenv)", utils)
         self.assertIn("(= (envk $Prefix)", utils)
         self.assertIn("(let $env (collapse (envk $Prefix))", utils)
+        self.assertIn("(translatePredicate (atom_string $Res $Value))", utils)
+        self.assertNotIn("(atom_to_number $Value)", utils)
 
     def test_required_secret_reprompts_unless_existing_env_is_available(self):
         installer = load_installer_common()
@@ -279,6 +283,22 @@ class InstallerTests(unittest.TestCase):
             self.assertIn("PYTHONPATH", start)
             self.assertIn(launcher, launchers)
             self.assertIn("start-omegaclaw.sh", launcher.read_text(encoding="utf-8"))
+
+    def test_installed_run_uses_local_clone_not_git_import_cache(self):
+        installer = load_installer_common()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp)
+            installer.write_root_run(workspace)
+            text = (workspace / "run.metta").read_text(encoding="utf-8")
+            self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", text)
+            self.assertNotIn("git-import!", text)
+            self.assertNotIn(installer.PUBLIC_CORE_URL, text)
+
+    def test_repo_run_uses_local_clone_not_git_import_cache(self):
+        text = (ROOT / "run.metta").read_text(encoding="utf-8")
+        self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", text)
+        self.assertNotIn("git-import!", text)
+        self.assertNotIn("https://github.com/physixCN/OmegaClaw-Core.git", text)
 
     def test_macos_installer_writes_desktop_launcher_when_desktop_exists(self):
         installer = load_installer_common()
