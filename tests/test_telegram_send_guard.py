@@ -51,6 +51,25 @@ class TelegramSendGuardTest(unittest.TestCase):
             result = telegram.send_message("hello")
         self.assertEqual(result, "TELEGRAM-SEND-SUCCESS chunks=1")
 
+    def test_start_preserves_pending_updates_when_auth_required(self):
+        telegram = load_telegram_module()
+        fake_thread = mock.Mock()
+        with mock.patch.object(telegram, "_initialize_offset") as initialize_offset, \
+             mock.patch.object(telegram.threading, "Thread", return_value=fake_thread):
+            telegram.start_telegram("token", "", 1, auth_secret="secret")
+        initialize_offset.assert_not_called()
+        fake_thread.start.assert_called_once()
+        self.assertEqual(telegram._auth_secret, "secret")
+
+    def test_start_skips_stale_updates_when_auth_not_required(self):
+        telegram = load_telegram_module()
+        fake_thread = mock.Mock()
+        with mock.patch.object(telegram, "_initialize_offset") as initialize_offset, \
+             mock.patch.object(telegram.threading, "Thread", return_value=fake_thread):
+            telegram.start_telegram("token", "", 1, auth_secret="")
+        initialize_offset.assert_called_once()
+        fake_thread.start.assert_called_once()
+
     def test_telegram_cards_warn_about_configured_route_and_send_results(self):
         affordance = (ROOT / "modules" / "channel_telegram" / "affordance.metta").read_text(encoding="utf-8")
         catalog = (ROOT / "modules" / "channel_telegram" / "catalog.metta").read_text(encoding="utf-8")

@@ -381,7 +381,10 @@ def start_telegram(bot_token, chat_id="", poll_timeout=20, auth_secret=None):
 
     _set_auth_secret(auth_secret)
     print(f"[TELEGRAM] Starting adapter with chat target: {_chat_id or 'auto-bind'}")
-    _initialize_offset()
+    if _auth_secret:
+        print("[TELEGRAM] Auth required; pending updates are preserved for first auth bind")
+    else:
+        _initialize_offset()
 
     t = threading.Thread(target=_poll_loop, daemon=True)
     with _state_lock:

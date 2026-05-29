@@ -93,6 +93,29 @@ class InstallerTests(unittest.TestCase):
             else:
                 os.environ["OMEGA_TEST_SECRET"] = original_env
 
+    def test_telegram_install_writes_local_auth_command_file(self):
+        installer = load_installer_common()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp)
+            values = {"OMEGACLAW_AUTH_SECRET": "secret-token"}
+            paths = installer.write_channel_instructions(workspace, "telegram", values)
+            self.assertEqual(paths, [workspace / "telegram-auth-command.txt"])
+            text = paths[0].read_text(encoding="utf-8")
+            self.assertIn("/auth secret-token", text)
+            self.assertIn("Telegram bot", text)
+
+    def test_non_telegram_install_does_not_write_auth_command_file(self):
+        installer = load_installer_common()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp)
+            paths = installer.write_channel_instructions(
+                workspace,
+                "web_control",
+                {"OMEGACLAW_AUTH_SECRET": "secret-token"},
+            )
+            self.assertEqual(paths, [])
+            self.assertFalse((workspace / "telegram-auth-command.txt").exists())
+
     def test_module_defaults_separate_core_from_device_heavy_modules(self):
         installer = load_installer_common()
         modules = installer.discover_modules(ROOT)

@@ -43,7 +43,7 @@ This reads a command-line override via `argk` (`name=value` on the MeTTa command
 | `IRC_port` | 6667 | IRC port. |
 | `IRC_user` | `omegaclaw` | IRC nickname. |
 | `TG_BOT_TOKEN` | *(empty — set at runtime)* | Telegram bot token (from BotFather). |
-| `TG_CHAT_ID` | *(empty — auto-bind supported)* | Optional fixed Telegram chat ID. Leave empty to auto-bind on first valid inbound auth/message. |
+| `TG_CHAT_ID` | *(empty — auto-bind supported)* | Optional fixed Telegram chat ID. Leave empty to auto-bind on first valid inbound auth/message. When `OMEGACLAW_AUTH_SECRET` is set, send `/auth <secret>` to the bot first; the installer writes this command to `telegram-auth-command.txt`. |
 | `TG_POLL_TIMEOUT` | 20 | Telegram long-poll timeout in seconds. |
 | `SL_BOT_TOKEN` | *(empty — set at runtime)* | Slack bot token (`xoxb-...`). |
 | `SL_CHANNEL_ID` | *(empty — auto-bind supported)* | Optional Slack channel ID where OmegaClaw reads/writes messages. Leave empty to auto-bind on first valid inbound auth/message. |

@@ -342,6 +342,26 @@ def write_env(workspace: pathlib.Path, values: dict[str, str]) -> pathlib.Path:
     return env_path
 
 
+def write_channel_instructions(workspace: pathlib.Path, channel: str, values: dict[str, str]) -> list[pathlib.Path]:
+    paths: list[pathlib.Path] = []
+    if channel == "telegram":
+        auth_secret = values.get("OMEGACLAW_AUTH_SECRET", "").strip()
+        if auth_secret:
+            auth_path = workspace / "telegram-auth-command.txt"
+            auth_path.write_text(
+                "Send this one-time message to your Telegram bot to bind this chat:\n\n"
+                f"/auth {auth_secret}\n\n"
+                "After the bot confirms authentication, normal messages from that chat will reach OmegaClaw.\n",
+                encoding="utf-8",
+            )
+            try:
+                auth_path.chmod(0o600)
+            except OSError:
+                pass
+            paths.append(auth_path)
+    return paths
+
+
 def write_loader(core: pathlib.Path, modules: dict[str, ModuleInfo], enabled: set[str]) -> pathlib.Path:
     loader = core / "modules" / "loader.metta"
     lines = [
@@ -568,6 +588,7 @@ def main() -> int:
     write_loader(core, modules, enabled)
     prompt_path = write_agent_prompt(core, agent_name)
     env_path = write_env(workspace, env_values)
+    instruction_paths = write_channel_instructions(workspace, channel, env_values)
     launchers = write_start_scripts(workspace)
 
     print("\nOmegaClaw install complete.")
@@ -577,6 +598,8 @@ def main() -> int:
     print(f"Start script: {workspace / 'start-omegaclaw.sh'}")
     for launcher in launchers:
         print(f"Launcher: {launcher}")
+    for instruction_path in instruction_paths:
+        print(f"Channel setup instruction: {instruction_path}")
     print("Auth secret: generated and saved in .env; value not displayed")
     print("Run again later with the generated Start OmegaClaw launcher; it will reuse .env.")
     return 0
