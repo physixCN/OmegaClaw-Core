@@ -186,6 +186,13 @@ class PatchBoundaryContractTests(unittest.TestCase):
         self.assertIn("(CHARS_SENT: (string_length $send))", loop)
         self.assertNotIn("(CHARS_SENT: (string_length $send) $send)", loop)
 
+    def test_clean_boot_listens_without_spending_llm_turns(self):
+        loop = read("src/loop.metta")
+        init_loop = form_body(loop, "initLoop")
+        self.assertIn("(configure maxNewInputLoops 12)", init_loop)
+        self.assertIn("(change-state! &loops 0)", init_loop)
+        self.assertNotIn("(change-state! &loops (get-state &maxNewInputLoops))", init_loop)
+
     def test_ignored_runtime_memory_files_are_loaded_by_runtime_not_source_imports(self):
         libs = "\n".join(
             read(path)

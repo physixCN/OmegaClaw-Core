@@ -56,7 +56,9 @@
           (change-state! &practiceStartCycle 1)
           (change-state! &practiceLabel "none")
           (change-state! &nextWakeAt (+ (get_time) (get-state &wakeupInterval)))
-          (change-state! &loops (get-state &maxNewInputLoops))))
+          ; Clean boot should initialize memory/channels, then listen.
+          ; Human input and scheduled wakeups grant LLM turns explicitly.
+          (change-state! &loops 0)))
 
 (= (initRuntimeOrgans)
    (let $started (collapse (match &self (RuntimeOrgan $name $call)

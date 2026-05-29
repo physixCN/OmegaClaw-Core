@@ -155,7 +155,7 @@ Each iteration of `(omegaclaw $k)` in `src/loop.metta` performs:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-If no new message arrives and the `loops` counter hits zero, the agent idles until `nextWakeAt`, then runs one wake loop for background work.
+On clean boot the `loops` counter starts at zero, so an out-of-box install listens without spending provider calls. Fresh input grants bounded turns; if no new message arrives and `loops` is zero, the agent idles until `nextWakeAt`, then runs bounded wake turns for background work.
 
 The neural↔symbolic sub-cycle described in [The hybrid thesis](#the-hybrid-thesis) above kicks in **inside** step 5 whenever a skill-tuple contains `(metta (|- ...))` or `(metta (|~ ...))`.
 

@@ -24,6 +24,10 @@ Also creates shared state slots:
 - `&lastresults` — previous turn's skill results, for the next prompt.
 - `&loops` — countdown until the agent goes idle.
 
+Clean boot initializes memory and channels with `&loops` set to `0`, so an
+out-of-box install listens without spending provider calls. Fresh input grants
+`maxNewInputLoops`; scheduled wakeups grant bounded background turns.
+
 ## Every turn
 
 1. **Decrement `&loops`** (turns > 1 only).
@@ -46,7 +50,7 @@ Also creates shared state slots:
 
 ## Idle behavior
 
-When `&loops` hits zero and no new message has arrived, the loop skips the LLM call. When `now > &nextWakeAt`, it grants `maxWakeLoops + 1` extra turns so the agent can do self-initiated work (cleanup, summarization, etc.).
+When `&loops` hits zero and no new message has arrived, the loop skips the LLM call. When `now > &nextWakeAt`, it grants `maxWakeLoops + 2` extra turns so the agent can do self-initiated work (cleanup, summarization, etc.).
 
 ## Error handling
 
