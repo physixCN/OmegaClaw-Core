@@ -165,6 +165,11 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("whatsapp", installer.PRIMARY_CHANNEL_CHOICES)
         self.assertNotEqual(installer.PRIMARY_CHANNEL_CHOICES[0], "whatsapp")
 
+    def test_installer_does_not_print_generated_auth_secret(self):
+        source = (ROOT / "install" / "installer_common.py").read_text(encoding="utf-8")
+        self.assertNotIn("Auth secret: {", source)
+        self.assertIn("value not displayed", source)
+
     def test_petta_bootstrap_allows_installer_owned_toolchain_dirs(self):
         installer = load_installer_common()
         with tempfile.TemporaryDirectory() as tmp:

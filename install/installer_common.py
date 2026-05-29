@@ -535,7 +535,7 @@ def main() -> int:
     print(f"Modules: {core / 'modules' / 'loader.metta'}")
     print(f"Prompt: {prompt_path}")
     print(f"Start script: {workspace / 'start-omegaclaw.sh'}")
-    print(f"Auth secret: {env_values['OMEGACLAW_AUTH_SECRET']}")
+    print("Auth secret: generated and saved in .env; value not displayed")
     print("Run again later with the generated Start OmegaClaw launcher; it will reuse .env.")
     return 0
 
