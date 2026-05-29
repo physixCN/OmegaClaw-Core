@@ -5,5 +5,6 @@
 (SkillSignature send-file (Arg filepath path))
 (SkillSignature send-file-caption (Arg filepath path) (Arg rest-text caption))
 (SkillSignature list-inbox)
+(SkillSignature channel-status)
 (SignatureLowering send-control send-control-base64)
 (SignatureProseFallback send-control-base64)

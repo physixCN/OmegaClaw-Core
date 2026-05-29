@@ -75,23 +75,29 @@ class PatchBoundaryContractTests(unittest.TestCase):
         assume = read("modules/assume/entry.metta")
         attention = read("lib_omegaclaw_attention.metta")
 
-        body_organs = [
+        default_body_organs = [
             "./modules/media_imagegen/entry.metta",
             "./modules/media_videogen/entry.metta",
-            "./modules/home_assistant/entry.metta",
             "./modules/sense_vision/entry.metta",
             "./modules/sense_webcam/entry.metta",
             "./modules/sense_audio/entry.metta",
-            "./modules/health_glucose/entry.metta",
-            "./modules/channel_whatsapp/entry.metta",
             "./modules/channel_web_control/entry.metta",
             "./modules/channel_router/entry.metta",
         ]
+        optional_body_organs = [
+            "./modules/home_assistant/entry.metta",
+            "./modules/health_glucose/entry.metta",
+            "./modules/channel_whatsapp/entry.metta",
+        ]
         loader = read("modules/loader.metta")
-        for organ in body_organs:
+        for organ in default_body_organs:
             with self.subTest(organ=organ):
                 self.assertNotIn(organ, core)
                 self.assertIn(organ, loader)
+        for organ in optional_body_organs:
+            with self.subTest(optional_organ=organ):
+                self.assertNotIn(organ, core)
+                self.assertNotIn(organ, loader)
         self.assertIn("./modules/loader.metta", body)
 
         self.assertIn("./src/energy.py", core)
@@ -148,8 +154,8 @@ class PatchBoundaryContractTests(unittest.TestCase):
         self.assertIn("modules/sense_vision/entry.metta", loader)
         self.assertIn("modules/channel_router/entry.metta", loader)
         self.assertIn("modules/publishing/entry.metta", loader)
-        self.assertIn("modules/gameboy/entry.metta", loader)
-        self.assertIn("modules/omega_vm/entry.metta", loader)
+        self.assertNotIn("modules/gameboy/entry.metta", loader)
+        self.assertNotIn("modules/omega_vm/entry.metta", loader)
         self.assertNotIn("skill_catalog_web.metta", body)
 
     def test_skill_help_topics_are_string_canonical(self):

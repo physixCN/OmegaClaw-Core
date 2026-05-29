@@ -8,7 +8,9 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "tests"))
 import helper  # noqa: E402
+from module_loader_test_utils import enabled_module_loader  # noqa: E402
 
 
 class ModuleSyntaxSmokeTests(unittest.TestCase):
@@ -31,9 +33,10 @@ class ModuleSyntaxSmokeTests(unittest.TestCase):
             "codex-code-start add a small test and report residual risk":
                 '((codex-code-start "add a small test and report residual risk"))',
         }
-        for raw, expected in cases.items():
-            with self.subTest(raw=raw):
-                self.assert_parse(raw, expected)
+        with enabled_module_loader(helper, "codex_code"):
+            for raw, expected in cases.items():
+                with self.subTest(raw=raw):
+                    self.assert_parse(raw, expected)
 
     def test_scratch_raw_atom_signatures_accept_draft_atoms(self):
         cases = {
@@ -53,9 +56,10 @@ class ModuleSyntaxSmokeTests(unittest.TestCase):
             'scratch-promote "(ScratchDraft" "reboot-test" "ok)" verified after smoke':
                 '((scratch-promote (ScratchDraft reboot-test ok) "verified after smoke"))',
         }
-        for raw, expected in cases.items():
-            with self.subTest(raw=raw):
-                self.assert_parse(raw, expected)
+        with enabled_module_loader(helper, "scratch_space"):
+            for raw, expected in cases.items():
+                with self.subTest(raw=raw):
+                    self.assert_parse(raw, expected)
 
 
 if __name__ == "__main__":

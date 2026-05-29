@@ -14,6 +14,7 @@
 (Provides omegaclaw.channel.telegram (Channel telegram))
 (Provides omegaclaw.channel.telegram (Skill send-telegram))
 (Provides omegaclaw.channel.telegram (Skill send-telegram-base64))
+(Provides omegaclaw.channel.telegram (Skill telegram-status))
 (ChannelCapability telegram text-send)
 (ChannelCapability telegram file-send)
 (ChannelCapability telegram inbox)

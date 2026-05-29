@@ -280,7 +280,7 @@ inside WSL and places a `Start OmegaClaw.cmd` launcher on the Windows desktop.
 
 The installer asks once for:
 
-- agent name, used to personalize the local `memory/prompt.txt`;
+- agent name, used to personalize the workspace-local prompt;
 - primary channel: mock, web control, Telegram, IRC, Mattermost, Slack, or WhatsApp;
 - optional non-channel modules whose `module.toml` has `default_enabled = false`;
 - LLM provider and model: OpenRouter, OpenAI, Anthropic, ASICloud, ASIOne, or Ollama;
@@ -290,11 +290,13 @@ The selected primary channel module is enabled automatically. Other channel
 modules stay disabled unless you deliberately enable them later, so a normal
 install does not assume WhatsApp.
 
-It writes the selected module imports to `modules/loader.metta`, writes the
-chosen agent name into the local prompt, and writes local secrets to `.env`.
-Re-running the generated launcher uses the saved configuration and does not ask
-again. Re-run the installer when you want to change modules, provider, channel,
-or agent name.
+It writes selected module imports to `~/OmegaClaw/local/modules-loader.metta`,
+writes the chosen agent name to `~/OmegaClaw/local/prompt.txt`, and writes local
+secrets to `.env`. The tracked repo files remain clean so later `git pull`
+works predictably. Re-running the generated launcher uses the saved
+configuration and does not ask again. Use `python install/installer_common.py
+--workspace ~/OmegaClaw --repair` from the public clone to repair stale launch
+files without re-entering secrets.
 
 See `install/README.md` for more detail.
 

@@ -1,5 +1,6 @@
 # Extracted from helper.py to keep command membranes reviewable.
 import base64
+import os
 import pathlib
 import re
 
@@ -120,15 +121,37 @@ def _enabled_module_names(loader_path=MODULE_LOADER_PATH):
     return names
 
 
-def _module_declaration_paths(filename):
-    root = pathlib.Path(MODULE_DECLARATIONS_ROOT)
-    if not root.exists():
+def _active_module_loader_paths(declaration_root=CORE_ROOT):
+    root = pathlib.Path(declaration_root)
+    if root != CORE_ROOT:
+        local_loader = root / "modules" / "loader.metta"
+        return [local_loader] if local_loader.exists() else []
+    if pathlib.Path(MODULE_DECLARATIONS_ROOT) != CORE_ROOT / "modules":
+        local_loader = pathlib.Path(MODULE_DECLARATIONS_ROOT) / "loader.metta"
+        return [local_loader] if local_loader.exists() else []
+    env_loader = os.environ.get("OMEGACLAW_MODULE_LOADER", "").strip()
+    if env_loader:
+        path = pathlib.Path(env_loader).expanduser()
+        if path.exists():
+            return [path]
+    return [MODULE_LOADER_PATH]
+
+
+def _module_declaration_paths(filename, declaration_root=CORE_ROOT):
+    root = pathlib.Path(declaration_root)
+    modules_root = root / "modules" if root != CORE_ROOT else pathlib.Path(MODULE_DECLARATIONS_ROOT)
+    if not modules_root.exists():
         return []
     paths = []
-    for name in _enabled_module_names(root / "loader.metta"):
-        path = root / name / filename
-        if path.exists():
-            paths.append(path)
+    seen = set()
+    for loader in _active_module_loader_paths(root):
+        for name in _enabled_module_names(loader):
+            if name in seen:
+                continue
+            seen.add(name)
+            path = modules_root / name / filename
+            if path.exists():
+                paths.append(path)
     return sorted(paths, key=lambda candidate: (candidate.parent.name, candidate.name))
 
 
@@ -148,8 +171,12 @@ def _signature_declaration_paths(path=SIGNATURE_DECLARATIONS_PATH):
         paths.extend(_module_declaration_paths("signatures.metta"))
         return paths or [p]
     if p.is_dir():
-        return sorted(p.glob(SIGNATURE_DECLARATIONS_GLOB), key=lambda candidate: _declaration_sort_key(candidate, "skill_signatures"))
-    return [p]
+        paths = sorted(p.glob(SIGNATURE_DECLARATIONS_GLOB), key=lambda candidate: _declaration_sort_key(candidate, "skill_signatures"))
+        paths.extend(_module_declaration_paths("signatures.metta", p))
+        return paths
+    paths = [p]
+    paths.extend(_module_declaration_paths("signatures.metta", p.parent))
+    return paths
 
 
 def _declaration_sort_key(path, prefix):
@@ -166,8 +193,12 @@ def _skill_catalog_declaration_paths(path=SKILL_CATALOG_DECLARATIONS_PATH):
         paths.extend(_module_declaration_paths("catalog.metta"))
         return paths or [p]
     if p.is_dir():
-        return sorted(p.glob(SKILL_CATALOG_DECLARATIONS_GLOB), key=lambda candidate: _declaration_sort_key(candidate, "skill_catalog"))
-    return [p]
+        paths = sorted(p.glob(SKILL_CATALOG_DECLARATIONS_GLOB), key=lambda candidate: _declaration_sort_key(candidate, "skill_catalog"))
+        paths.extend(_module_declaration_paths("catalog.metta", p))
+        return paths
+    paths = [p]
+    paths.extend(_module_declaration_paths("catalog.metta", p.parent))
+    return paths
 
 
 def _skill_affordance_declaration_paths(path=SKILL_AFFORDANCE_DECLARATIONS_PATH):
@@ -178,8 +209,12 @@ def _skill_affordance_declaration_paths(path=SKILL_AFFORDANCE_DECLARATIONS_PATH)
         paths.extend(_module_declaration_paths("affordance.metta"))
         return paths or [p]
     if p.is_dir():
-        return sorted(p.glob(SKILL_AFFORDANCE_DECLARATIONS_GLOB), key=lambda candidate: _declaration_sort_key(candidate, "skill_affordance"))
-    return [p]
+        paths = sorted(p.glob(SKILL_AFFORDANCE_DECLARATIONS_GLOB), key=lambda candidate: _declaration_sort_key(candidate, "skill_affordance"))
+        paths.extend(_module_declaration_paths("affordance.metta", p))
+        return paths
+    paths = [p]
+    paths.extend(_module_declaration_paths("affordance.metta", p.parent))
+    return paths
 
 
 def _strip_signature_comment(line):

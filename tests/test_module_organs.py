@@ -77,6 +77,7 @@ class OmegaClawInstalledModuleTests(unittest.TestCase):
     def test_standard_run_loads_modules_from_one_composition_hook(self):
         run_text = (ROOT / "run.metta").read_text(encoding="utf-8")
         imported_libs = re.findall(r"OmegaClaw-Core\s+(lib_omegaclaw[_a-z]*)", run_text)
+        direct_loader_imports = re.findall(r"\./modules/loader\.metta", run_text)
 
         loader_imports = []
         for lib in imported_libs:
@@ -87,9 +88,10 @@ class OmegaClawInstalledModuleTests(unittest.TestCase):
             if "./modules/loader.metta" in text:
                 loader_imports.append(lib)
 
+        composition_hooks = direct_loader_imports + loader_imports
         self.assertEqual(
-            loader_imports,
-            ["lib_omegaclaw_body"],
+            len(composition_hooks),
+            1,
             "Side-effectful module skills must be loaded through exactly one standard composition hook.",
         )
 

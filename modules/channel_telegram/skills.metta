@@ -13,3 +13,6 @@
 
 (= (send-telegram-base64 $payload)
    (py-call (router.send_telegram_base64 $payload)))
+
+(= (telegram-status)
+   (py-call (telegram.status)))

@@ -10,8 +10,10 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "tests"))
 import helper_command_parser as parser  # noqa: E402
 import helper_metta_syntax as metta  # noqa: E402
+from module_loader_test_utils import enabled_module_loader  # noqa: E402
 
 
 class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
@@ -41,17 +43,18 @@ class CoreSyntaxSmokeCorpusTests(unittest.TestCase):
                 self.assert_parse(raw, expected)
 
     def test_blank_lines_survive_unquoted_multiline_rest_text_lowering(self):
-        parsed = parser.signature_balance_parentheses(
-            "reply-whatsapp-to 523@test First paragraph\n\nSecond paragraph"
-        )
+        with enabled_module_loader(parser, "channel_whatsapp"):
+            parsed = parser.signature_balance_parentheses(
+                "reply-whatsapp-to 523@test First paragraph\n\nSecond paragraph"
+            )
 
-        self.assertIn('((reply-whatsapp-to-base64 "523@test"', parsed)
-        payload = re.search(r'"([A-Za-z0-9+/=]+)"\)\)$', parsed).group(1)
-        self.assertEqual(
-            base64.b64decode(payload).decode("utf-8"),
-            "First paragraph\n\nSecond paragraph",
-        )
-        self.assert_metta_ok(parsed)
+            self.assertIn('((reply-whatsapp-to-base64 "523@test"', parsed)
+            payload = re.search(r'"([A-Za-z0-9+/=]+)"\)\)$', parsed).group(1)
+            self.assertEqual(
+                base64.b64decode(payload).decode("utf-8"),
+                "First paragraph\n\nSecond paragraph",
+            )
+            self.assert_metta_ok(parsed)
 
     def test_fail_closed_and_typed_core_cases(self):
         unknown = parser.signature_balance_parentheses("turn-off Living")

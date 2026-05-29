@@ -25,6 +25,10 @@ _connected = False
 _auth_secret = ""
 _authenticated_user_id = None
 _authenticated_chat_id = None
+_last_update_id = None
+_last_update_kind = "none"
+_last_message_state = "none"
+_ignored_counts = {}
 
 _LEADING_TELEGRAM_TARGET_RE = re.compile(
     r"^\s*(?:TELEGRAM:|telegram:|chat[_-]?id\s*[:=]\s*|-?\d{6,})\S*\s+",
@@ -82,6 +86,11 @@ def _guard_configured_chat_body(text, command="send-telegram"):
     )
 
 
+def _bump_ignored(reason):
+    with _state_lock:
+        _ignored_counts[reason] = _ignored_counts.get(reason, 0) + 1
+
+
 def _display_name(user, chat):
     username = str(user.get("username", "")).strip()
     if username:
@@ -98,6 +107,14 @@ def _display_name(user, chat):
         return title
 
     return "telegram_user"
+
+
+def _message_from_update(update):
+    for kind in ("message", "edited_message", "channel_post", "edited_channel_post"):
+        payload = update.get(kind)
+        if isinstance(payload, dict):
+            return kind, payload
+    return "", None
 
 
 def _api_call(method, params=None, timeout=30, use_post=False):
@@ -258,12 +275,13 @@ def _initialize_offset():
             _offset = max_update + 1
 
 
-def _is_allowed_message(chat_id, user_id, msg):
+def _is_allowed_message(chat_id, user_id, msg, is_channel_post=False):
     global _chat_id, _authenticated_user_id, _authenticated_chat_id
     candidate = _parse_auth_candidate(msg)
 
     with _state_lock:
         if _chat_id and chat_id != _chat_id:
+            _ignored_counts["wrong-chat"] = _ignored_counts.get("wrong-chat", 0) + 1
             return "ignore"
 
         if not _auth_secret:
@@ -273,19 +291,26 @@ def _is_allowed_message(chat_id, user_id, msg):
 
         if _authenticated_user_id is None:
             if candidate == _auth_secret:
-                _authenticated_user_id = user_id
+                _authenticated_user_id = user_id or chat_id if is_channel_post else user_id
                 _authenticated_chat_id = chat_id
                 _chat_id = chat_id
                 return "auth_bound"
+            _ignored_counts["auth-required"] = _ignored_counts.get("auth-required", 0) + 1
             return "ignore"
 
         if chat_id != _authenticated_chat_id:
+            _ignored_counts["wrong-auth-chat"] = _ignored_counts.get("wrong-auth-chat", 0) + 1
             return "ignore"
-        return "allow" if user_id == _authenticated_user_id else "ignore"
+        if is_channel_post:
+            return "allow"
+        if user_id == _authenticated_user_id:
+            return "allow"
+        _ignored_counts["wrong-user"] = _ignored_counts.get("wrong-user", 0) + 1
+        return "ignore"
 
 
 def _poll_loop():
-    global _connected, _offset, _poll_thread
+    global _connected, _offset, _poll_thread, _last_update_id, _last_update_kind, _last_message_state
     current = threading.current_thread()
     print("[TELEGRAM] Polling started")
 
@@ -305,24 +330,32 @@ def _poll_loop():
                     with _state_lock:
                         if _offset is None or (update_id + 1) > _offset:
                             _offset = update_id + 1
+                        _last_update_id = update_id
 
-                message = update.get("message") or update.get("edited_message")
+                kind, message = _message_from_update(update)
                 if not isinstance(message, dict):
+                    _bump_ignored("unsupported-update")
                     continue
+                with _state_lock:
+                    _last_update_kind = kind
 
                 text = str(message.get("text", "") or "").strip()
                 caption = str(message.get("caption", "") or "").strip()
 
                 chat = message.get("chat") or {}
-                user = message.get("from") or {}
+                user = message.get("from") or message.get("sender_chat") or {}
                 chat_id = str(chat.get("id", "")).strip()
-                user_id = str(user.get("id", "")).strip()
-                if not chat_id or not user_id:
+                is_channel_post = kind in {"channel_post", "edited_channel_post"}
+                user_id = str(user.get("id", "") or (chat_id if is_channel_post else "")).strip()
+                if not chat_id:
+                    _bump_ignored("missing-chat")
                     continue
 
-                state = _is_allowed_message(chat_id, user_id, text or caption)
+                state = _is_allowed_message(chat_id, user_id, text or caption, is_channel_post=is_channel_post)
                 display_name = _display_name(user, chat)
                 if state == "allow":
+                    with _state_lock:
+                        _last_message_state = f"allow:{kind}"
                     if text:
                         _set_last(f"{display_name}: {text}")
                     else:
@@ -330,7 +363,12 @@ def _poll_loop():
                         if notice:
                             _set_last(notice)
                 elif state == "auth_bound":
+                    with _state_lock:
+                        _last_message_state = f"auth_bound:{kind}"
                     send_message(f"Authentication successful for {display_name}.")
+                else:
+                    with _state_lock:
+                        _last_message_state = f"ignore:{kind}"
         except Exception as exc:
             _connected = False
             print(f"[TELEGRAM] Poll error: {exc}")
@@ -341,6 +379,22 @@ def _poll_loop():
         if _poll_thread is current:
             _poll_thread = None
     print("[TELEGRAM] Polling stopped")
+
+
+def status():
+    with _state_lock:
+        ignored = ",".join(f"{key}:{value}" for key, value in sorted(_ignored_counts.items())) or "none"
+        return (
+            "TELEGRAM-STATUS "
+            f"running={_running} connected={_connected} "
+            f"chat={_chat_id or 'auto-bind'} "
+            f"auth_required={bool(_auth_secret)} "
+            f"authenticated_chat={_authenticated_chat_id or 'none'} "
+            f"last_update={_last_update_id if _last_update_id is not None else 'none'} "
+            f"last_kind={_last_update_kind} "
+            f"last_state={_last_message_state} "
+            f"ignored={ignored}"
+        )
 
 
 def start_telegram(bot_token, chat_id="", poll_timeout=20, auth_secret=None):

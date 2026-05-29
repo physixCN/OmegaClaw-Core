@@ -26,6 +26,18 @@ def load_installer_common():
     return module
 
 
+def load_doctor():
+    install_dir = str(ROOT / "install")
+    if install_dir not in sys.path:
+        sys.path.insert(0, install_dir)
+    path = ROOT / "install" / "doctor.py"
+    spec = importlib.util.spec_from_file_location("doctor", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 class InstallerTests(unittest.TestCase):
     def test_public_run_file_registers_public_local_clone(self):
         run_metta = (ROOT / "run.metta").read_text(encoding="utf-8")
@@ -34,7 +46,7 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", run_metta)
         self.assertNotIn("https://github.com/asi-alliance/OmegaClaw-Core.git", run_metta)
 
-    def test_installer_discovers_modules_and_writes_loader(self):
+    def test_installer_discovers_modules_and_writes_workspace_local_loader(self):
         installer = load_installer_common()
         modules = installer.discover_modules(ROOT)
         self.assertIn("channel_router", modules)
@@ -43,26 +55,26 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(modules["channel_router"].entrypoint, "entry.metta")
 
         with tempfile.TemporaryDirectory() as tmp:
-            fake_core = pathlib.Path(tmp)
-            (fake_core / "modules").mkdir()
-            for name in ["channel_router", "scratch_space", "web_search"]:
-                (fake_core / "modules" / name).mkdir()
+            workspace = pathlib.Path(tmp)
             path = installer.write_loader(
-                fake_core,
+                workspace,
                 modules,
                 {"channel_router", "scratch_space", "web_search"},
             )
+            self.assertEqual(path, workspace / "local" / "modules-loader.metta")
             text = path.read_text(encoding="utf-8")
             self.assertIn("./modules/channel_router/entry.metta", text)
             self.assertIn("./modules/scratch_space/entry.metta", text)
             self.assertIn("./modules/web_search/entry.metta", text)
             self.assertNotIn("Jon", text)
+            self.assertFalse((workspace / "repos" / "OmegaClaw-Core" / "modules" / "loader.metta").exists())
 
     def test_install_docs_explain_saved_configuration(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         install_readme = (ROOT / "install" / "README.md").read_text(encoding="utf-8")
         for text in [readme, install_readme]:
             self.assertIn("modules/loader.metta", text)
+            self.assertIn("local/modules-loader.metta", text)
             self.assertIn(".env", text)
             self.assertIn("default_enabled", text)
             self.assertIn("agent name", text.lower())
@@ -281,6 +293,8 @@ class InstallerTests(unittest.TestCase):
             self.assertIn(".venv/lib/python3.11/site-packages", start)
             self.assertIn("repos/OmegaClaw-Core/src", start)
             self.assertIn("PYTHONPATH", start)
+            self.assertIn("install/doctor.py", start)
+            self.assertIn("--startup-check", start)
             self.assertIn(launcher, launchers)
             self.assertIn("start-omegaclaw.sh", launcher.read_text(encoding="utf-8"))
 
@@ -292,13 +306,17 @@ class InstallerTests(unittest.TestCase):
             text = (workspace / "run.metta").read_text(encoding="utf-8")
             self.assertIn("git-import!", text)
             self.assertIn(installer.PUBLIC_CORE_URL, text)
+            self.assertIn("./local/modules-loader.metta", text)
             self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", text)
+            self.assertNotIn("lib_omegaclaw_body", text)
 
     def test_repo_run_registers_public_local_clone(self):
         text = (ROOT / "run.metta").read_text(encoding="utf-8")
         self.assertIn("git-import!", text)
         self.assertIn("https://github.com/physixCN/OmegaClaw-Core.git", text)
+        self.assertIn("./modules/loader.metta", text)
         self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", text)
+        self.assertNotIn("lib_omegaclaw_body", text)
 
     def test_macos_installer_writes_desktop_launcher_when_desktop_exists(self):
         installer = load_installer_common()
@@ -337,12 +355,96 @@ class InstallerTests(unittest.TestCase):
                 "You are Omega, an OmegaClaw agent. Omega remembers.\n",
                 encoding="utf-8",
             )
-            installer.write_agent_prompt(fake_core, "Ada")
-            text = (fake_core / "memory" / "prompt.txt").read_text(encoding="utf-8")
+            prompt_path = installer.write_agent_prompt(workspace=pathlib.Path(tmp), core=fake_core, agent_name="Ada")
+            text = prompt_path.read_text(encoding="utf-8")
             self.assertIn("You are Ada", text)
             self.assertIn("OmegaClaw agent", text)
             self.assertIn("Ada remembers", text)
             self.assertNotIn("AdaClaw", text)
+            self.assertEqual(prompt_path, pathlib.Path(tmp) / "local" / "prompt.txt")
+            self.assertIn("You are Omega", (fake_core / "memory" / "prompt.txt").read_text(encoding="utf-8"))
+
+    def test_repair_preserves_saved_config_and_rewrites_generated_runtime_files(self):
+        installer = load_installer_common()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp) / "OmegaClaw"
+            core = workspace / "repos" / "OmegaClaw-Core"
+            core.mkdir(parents=True)
+            (core / ".git").mkdir()
+            (core / "memory").mkdir()
+            (core / "memory" / "prompt.txt").write_text("You are Omega.\n", encoding="utf-8")
+            (core / "modules").mkdir()
+            for name in ["channel_router", "scratch_space", "web_search", "channel_telegram"]:
+                module = core / "modules" / name
+                module.mkdir()
+                (module / "module.toml").write_text(
+                    f'id = "{name}"\nkind = "module"\nentrypoint = "entry.metta"\ndefault_enabled = {"true" if name in {"channel_router", "scratch_space", "web_search"} else "false"}\n',
+                    encoding="utf-8",
+                )
+            (core / "modules" / "loader.metta").write_text(
+                "; Generated by install/installer_common.py. Re-run the installer to change this list.\n"
+                "!(import! &self (library OmegaClaw-Core ./modules/channel_telegram/entry.metta))\n",
+                encoding="utf-8",
+            )
+            (workspace / ".env").write_text(
+                "commchannel='telegram'\nOMEGACLAW_PRIMARY_CHANNEL='telegram'\nTG_BOT_TOKEN='token'\nOMEGACLAW_AGENT_NAME='Ada'\n",
+                encoding="utf-8",
+            )
+
+            calls = []
+            original_prepare = installer.prepare_workspace
+            original_write_start = installer.write_start_scripts
+            try:
+                installer.prepare_workspace = lambda ws, repo_url: core
+                installer.write_start_scripts = lambda ws: calls.append(("start", ws)) or []
+                result = installer.repair_install(workspace, installer.PUBLIC_CORE_URL)
+            finally:
+                installer.prepare_workspace = original_prepare
+                installer.write_start_scripts = original_write_start
+
+            self.assertEqual(result, 0)
+            env = installer.parse_env_file(workspace / ".env")
+            self.assertEqual(env["commchannel"], "telegram")
+            self.assertEqual(pathlib.Path(env["OMEGACLAW_PROMPT_FILE"]).resolve(), (workspace / "local" / "prompt.txt").resolve())
+            self.assertIn("channel_telegram", env["OMEGACLAW_ENABLED_MODULES"])
+            resolved_workspace = workspace.resolve()
+            self.assertIn("./local/modules-loader.metta", (resolved_workspace / "run.metta").read_text(encoding="utf-8"))
+            self.assertIn("channel_telegram", (resolved_workspace / "local" / "modules-loader.metta").read_text(encoding="utf-8"))
+            self.assertIn("You are Ada", (resolved_workspace / "local" / "prompt.txt").read_text(encoding="utf-8"))
+
+    def test_doctor_accepts_repaired_workspace_contract(self):
+        doctor = load_doctor()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp) / "OmegaClaw"
+            core = workspace / "repos" / "OmegaClaw-Core"
+            (core / ".git").mkdir(parents=True)
+            (core / "src").mkdir()
+            (core / "src" / "loop.metta").write_text(
+                "(change-state! &loops 0)\n(println! (CHARS_SENT: (string_length $send)))\n",
+                encoding="utf-8",
+            )
+            (workspace / "local").mkdir()
+            (workspace / "local" / "modules-loader.metta").write_text(
+                "!(import! &self (library OmegaClaw-Core ./modules/channel_router/entry.metta))\n"
+                "!(import! &self (library OmegaClaw-Core ./modules/channel_telegram/entry.metta))\n",
+                encoding="utf-8",
+            )
+            (workspace / "local" / "prompt.txt").write_text("You are Ada.\n", encoding="utf-8")
+            (workspace / "run.metta").write_text(
+                '!(git-import! "https://github.com/physixCN/OmegaClaw-Core.git")\n'
+                "!(import! &self ./local/modules-loader.metta)\n"
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_no_agentverse))\n",
+                encoding="utf-8",
+            )
+            (workspace / "start-omegaclaw.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+            (workspace / "Start OmegaClaw.command").write_text("#!/bin/sh\n", encoding="utf-8")
+            prompt_path = workspace / "local" / "prompt.txt"
+            (workspace / ".env").write_text(
+                f"commchannel='telegram'\nOMEGACLAW_PRIMARY_CHANNEL='telegram'\nTG_BOT_TOKEN='token'\nOMEGACLAW_PROMPT_FILE='{prompt_path}'\n",
+                encoding="utf-8",
+            )
+            ok, rows = doctor.diagnose(workspace)
+            self.assertTrue(ok, rows)
 
     def test_public_prompt_has_no_private_operator_names(self):
         prompt = (ROOT / "memory" / "prompt.txt").read_text(encoding="utf-8")

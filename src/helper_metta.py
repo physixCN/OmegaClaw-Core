@@ -14,6 +14,7 @@ except Exception:  # pragma: no cover - direct script import fallback
 CORE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 OMEGACLAW_ROOT = CORE_ROOT.parents[1]
 MEMORY_DIR = pathlib.Path(os.environ.get("OMEGACLAW_MEMORY_DIR", CORE_ROOT / "memory"))
+PROMPT_FILE = pathlib.Path(os.environ.get("OMEGACLAW_PROMPT_FILE", MEMORY_DIR / "prompt.txt"))
 CONTEXT_VIEW_POLICY_RE = re.compile(
     r'\(SkillContextView\s+"?([^"\s()]+)"?\s+"?([^"\s()]+)"?\s*\)'
 )
@@ -188,7 +189,7 @@ def _read_text_tail_bytes(path, max_bytes):
 
 def context_prompt(max_chars=20000):
     """Read the persona prompt as text for the loop context membrane."""
-    path = MEMORY_DIR / "prompt.txt"
+    path = PROMPT_FILE
     if not path.exists():
         return ""
     return _read_text_tail(path, max_chars)

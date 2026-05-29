@@ -46,8 +46,8 @@ The installer creates or updates:
 - `~/OmegaClaw/repos/petta_lib_chromadb`.
 - `~/OmegaClaw/.venv` for Python packages.
 - `~/OmegaClaw/.env` for local provider/channel secrets.
-- `~/OmegaClaw/repos/OmegaClaw-Core/memory/prompt.txt` with the chosen agent name.
-- `~/OmegaClaw/repos/OmegaClaw-Core/modules/loader.metta` for selected modules.
+- `~/OmegaClaw/local/prompt.txt` with the chosen agent name.
+- `~/OmegaClaw/local/modules-loader.metta` for selected modules.
 - `~/OmegaClaw/start-omegaclaw.sh` and a platform launcher.
 
 Secrets are local runtime configuration. Do not commit `.env`.
@@ -66,7 +66,9 @@ Module defaults come from each `modules/*/module.toml`:
 
 The result is a normal MeTTa module loader file, not hidden Python routing.
 Selected module dependencies are installed during setup where the platform has
-a supported package manager.
+a supported package manager. The tracked `modules/loader.metta` remains the
+safe source-checkout default; installed deployments use
+`~/OmegaClaw/local/modules-loader.metta`.
 
 ## Provider And Channel Choices
 
@@ -75,12 +77,18 @@ asks for one primary channel and then only that channel's auth material. The
 agent-name step rewrites only the standalone default name `Omega`; `OmegaClaw`
 remains the framework name. On later runs the generated launcher reads
 `~/OmegaClaw/.env`; re-run the installer only when changing modules, channel,
-provider, or agent name.
+provider, or agent name. To repair stale generated launch files without
+re-entering secrets, run:
+
+```text
+python ~/OmegaClaw/repos/OmegaClaw-Core/install/installer_common.py --workspace ~/OmegaClaw --repair
+```
 
 The generated root `run.metta` uses PeTTa's `git-import!` to register the local
 `repos/OmegaClaw-Core` clone as the `OmegaClaw-Core` library. The installer
-pulls that clone during setup; later `git pull` inside the clone and the
-generated module loader are the source of truth for that install.
+pulls that clone during setup. The generated root `run.metta` imports
+`~/OmegaClaw/local/modules-loader.metta` before the loop starts, so the selected
+channel and module surface are visible to MeTTa without dirtying the Git clone.
 
 For Telegram, leaving `TG_CHAT_ID` empty enables first-chat binding. If the
 local auth secret is enabled, the installer writes `telegram-auth-command.txt`

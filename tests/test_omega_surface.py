@@ -7,9 +7,12 @@ framework or generic agent wrapper.
 """
 
 import base64
+from contextlib import contextmanager
 import importlib
+import os
 import pathlib
 import sys
+import tempfile
 import unittest
 
 
@@ -19,6 +22,31 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "channels"))
 
 import helper  # noqa: E402
+
+
+@contextmanager
+def enabled_module_loader(*module_names):
+    previous = os.environ.get("OMEGACLAW_MODULE_LOADER")
+    with tempfile.TemporaryDirectory() as tmp:
+        path = pathlib.Path(tmp) / "modules-loader.metta"
+        path.write_text(
+            "\n".join(
+                f"!(import! &self (library OmegaClaw-Core ./modules/{name}/entry.metta))"
+                for name in module_names
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        os.environ["OMEGACLAW_MODULE_LOADER"] = str(path)
+        helper.reload_signature_commands()
+        try:
+            yield
+        finally:
+            if previous is None:
+                os.environ.pop("OMEGACLAW_MODULE_LOADER", None)
+            else:
+                os.environ["OMEGACLAW_MODULE_LOADER"] = previous
+            helper.reload_signature_commands()
 
 
 def skill_implementation_source():
@@ -206,14 +234,16 @@ class HelperSurfaceTests(unittest.TestCase):
         self.assertEqual(ts.strftime("%Y-%m-%d %H:%M:%S"), "2026-05-22 12:34:56")
 
     def test_command_normalizer_preserves_rich_send_arguments(self):
-        payload = base64.b64encode(b"Line one: ok\nLine two: still ok").decode("ascii")
-        output = helper.balance_parentheses(f"send-whatsapp-base64 {payload}")
-        self.assertEqual(output, f'((send-whatsapp-base64 "{payload}"))')
+        with enabled_module_loader("channel_router", "channel_whatsapp"):
+            payload = base64.b64encode(b"Line one: ok\nLine two: still ok").decode("ascii")
+            output = helper.balance_parentheses(f"send-whatsapp-base64 {payload}")
+            self.assertEqual(output, f'((send-whatsapp-base64 "{payload}"))')
 
     def test_command_normalizer_recovers_valid_command_from_preamble(self):
-        output = helper.balance_parentheses('Thinking first\nsend-telegram "hello: there"')
-        self.assertIn('(send-telegram "hello: there")', output)
-        self.assertTrue(output.startswith("("))
+        with enabled_module_loader("channel_router", "channel_telegram"):
+            output = helper.balance_parentheses('Thinking first\nsend-telegram "hello: there"')
+            self.assertIn('(send-telegram "hello: there")', output)
+            self.assertTrue(output.startswith("("))
 
     def test_command_normalizer_accepts_cycle_body_affordances(self):
         self.assertEqual(helper.balance_parentheses("cycle-status"), "((cycle-status))")
@@ -359,39 +389,40 @@ class HelperSurfaceTests(unittest.TestCase):
         self.assertIn('(syntax-error "nal-step"', malformed_nal)
 
     def test_command_normalizer_known_live_syntax_problem_examples(self):
-        cases = {
-            "send-whatsapp Great - send-file works! And here is how I will use &persistent and promote/demote:":
-                '((send-whatsapp "Great - send-file works! And here is how I will use &persistent and promote/demote:"))',
-            "pin Cycle 44: I will avoid newline in pin\nand keep this as one line":
-                '((pin "Cycle 44: I will avoid newline in pin and keep this as one line"))',
-            'write-file notes/test.txt "Heading: ok\n- item: ok"':
-                '((write-file-base64 "notes/test.txt" "SGVhZGluZzogb2sKLSBpdGVtOiBvaw=="))',
-            "episodes-at 2026-05-18 08:00":
-                '((episodes-at "2026-05-18 08:00"))',
-            "send-whatsapp-to 12345@lid Dinner is ready: please tell Resident\nSecond line":
-                '((send-whatsapp-to-base64 "12345@lid" "RGlubmVyIGlzIHJlYWR5OiBwbGVhc2UgdGVsbCBSZXNpZGVudApTZWNvbmQgbGluZQ=="))',
-            "reply-whatsapp-to 12345@lid Dinner is ready: please tell Resident\nSecond line":
-                '((reply-whatsapp-to-base64 "12345@lid" "RGlubmVyIGlzIHJlYWR5OiBwbGVhc2UgdGVsbCBSZXNpZGVudApTZWNvbmQgbGluZQ=="))',
-            "send-whatsapp-mention-to 111@g.us 440000000000 Dinner ready: @Resident":
-                '((send-whatsapp-mention-to "111@g.us" "440000000000" "Dinner ready: @Resident"))',
-            "assimilate-persistent whatsapp | msg:abc:123 | family-update | Resident said: dinner is ready; tell another-resident | 0.95":
-                '((assimilate-persistent "whatsapp | msg:abc:123 | family-update | Resident said: dinner is ready; tell another-resident | 0.95"))',
-            "assume-demo-load SmartHabitatDemoSpace smart-habitat movie-evening":
-                '((assume-demo-load "SmartHabitatDemoSpace" "smart-habitat" "movie-evening"))',
-            "assume-demo-predict SmartHabitatDemoSpace smart-habitat movie-evening":
-                '((assume-demo-predict "SmartHabitatDemoSpace" "smart-habitat" "movie-evening"))',
-            "assume-demo-audit SmartHabitatDemoSpace smart-habitat movie-evening dim-cinema-scene":
-                '((assume-demo-audit "SmartHabitatDemoSpace" "smart-habitat" "movie-evening" "dim-cinema-scene"))',
-            'assume-demo-learn SmartHabitatDemoSpace smart-habitat movie-evening {"dim-cinema-scene": 0.2}':
-                '((assume-demo-learn "SmartHabitatDemoSpace" "smart-habitat" "movie-evening" "{\\"dim-cinema-scene\\": 0.2}"))',
-            "assume-import-demo SmartHabitatDemoSpace":
-                '((assume-import-demo "SmartHabitatDemoSpace"))',
-        }
-        for raw, expected in cases.items():
-            with self.subTest(raw=raw):
-                normalized = helper.balance_parentheses(raw)
-                self.assertEqual(normalized, expected)
-                self.assert_metta_ok(normalized)
+        with enabled_module_loader("assume", "channel_router", "channel_whatsapp"):
+            cases = {
+                "send-whatsapp Great - send-file works! And here is how I will use &persistent and promote/demote:":
+                    '((send-whatsapp "Great - send-file works! And here is how I will use &persistent and promote/demote:"))',
+                "pin Cycle 44: I will avoid newline in pin\nand keep this as one line":
+                    '((pin "Cycle 44: I will avoid newline in pin and keep this as one line"))',
+                'write-file notes/test.txt "Heading: ok\n- item: ok"':
+                    '((write-file-base64 "notes/test.txt" "SGVhZGluZzogb2sKLSBpdGVtOiBvaw=="))',
+                "episodes-at 2026-05-18 08:00":
+                    '((episodes-at "2026-05-18 08:00"))',
+                "send-whatsapp-to 12345@lid Dinner is ready: please tell Resident\nSecond line":
+                    '((send-whatsapp-to-base64 "12345@lid" "RGlubmVyIGlzIHJlYWR5OiBwbGVhc2UgdGVsbCBSZXNpZGVudApTZWNvbmQgbGluZQ=="))',
+                "reply-whatsapp-to 12345@lid Dinner is ready: please tell Resident\nSecond line":
+                    '((reply-whatsapp-to-base64 "12345@lid" "RGlubmVyIGlzIHJlYWR5OiBwbGVhc2UgdGVsbCBSZXNpZGVudApTZWNvbmQgbGluZQ=="))',
+                "send-whatsapp-mention-to 111@g.us 440000000000 Dinner ready: @Resident":
+                    '((send-whatsapp-mention-to "111@g.us" "440000000000" "Dinner ready: @Resident"))',
+                "assimilate-persistent whatsapp | msg:abc:123 | family-update | Resident said: dinner is ready; tell another-resident | 0.95":
+                    '((assimilate-persistent "whatsapp | msg:abc:123 | family-update | Resident said: dinner is ready; tell another-resident | 0.95"))',
+                "assume-demo-load SmartHabitatDemoSpace smart-habitat movie-evening":
+                    '((assume-demo-load "SmartHabitatDemoSpace" "smart-habitat" "movie-evening"))',
+                "assume-demo-predict SmartHabitatDemoSpace smart-habitat movie-evening":
+                    '((assume-demo-predict "SmartHabitatDemoSpace" "smart-habitat" "movie-evening"))',
+                "assume-demo-audit SmartHabitatDemoSpace smart-habitat movie-evening dim-cinema-scene":
+                    '((assume-demo-audit "SmartHabitatDemoSpace" "smart-habitat" "movie-evening" "dim-cinema-scene"))',
+                'assume-demo-learn SmartHabitatDemoSpace smart-habitat movie-evening {"dim-cinema-scene": 0.2}':
+                    '((assume-demo-learn "SmartHabitatDemoSpace" "smart-habitat" "movie-evening" "{\\"dim-cinema-scene\\": 0.2}"))',
+                "assume-import-demo SmartHabitatDemoSpace":
+                    '((assume-import-demo "SmartHabitatDemoSpace"))',
+            }
+            for raw, expected in cases.items():
+                with self.subTest(raw=raw):
+                    normalized = helper.balance_parentheses(raw)
+                    self.assertEqual(normalized, expected)
+                    self.assert_metta_ok(normalized)
 
 
 class ArchitectureSurfaceTests(unittest.TestCase):
@@ -589,20 +620,21 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         skill_catalog = skill_catalog_source()
         self.assertNotIn("./src/glucose.py", lib)
         self.assertIn("./modules/loader.metta", body)
-        self.assertIn("./modules/health_glucose/entry.metta", (ROOT / "modules" / "loader.metta").read_text(encoding="utf-8"))
+        self.assertNotIn("./modules/health_glucose/entry.metta", (ROOT / "modules" / "loader.metta").read_text(encoding="utf-8"))
         self.assertIn("glucose-app-status", skills)
         self.assertIn("observe target", skill_catalog)
         self.assertIn("observe-glucose person", skill_catalog)
         self.assertIn("glucose-history person count", skill_catalog)
         self.assertIn("glucose-rings person", skill_catalog)
         self.assertNotIn("insulin", skills.lower())
-        self.assertEqual(helper.balance_parentheses("observe-glucose Patient"), '((observe-glucose "Patient"))')
-        self.assertEqual(helper.balance_parentheses("observe gameboy"), '((observe "gameboy"))')
-        self.assertEqual(helper.balance_parentheses("glucose-history Patient 12"), '((glucose-history "Patient" 12))')
-        self.assertEqual(
-            helper.balance_parentheses("set-glucose-watch Patient 4 15 20 whatsapp visible ring only"),
-            '((set-glucose-watch "Patient" 4 15 20 "whatsapp" "visible ring only"))',
-        )
+        with enabled_module_loader("health_glucose", "sense_router"):
+            self.assertEqual(helper.balance_parentheses("observe-glucose Patient"), '((observe-glucose "Patient"))')
+            self.assertEqual(helper.balance_parentheses("observe gameboy"), '((observe "gameboy"))')
+            self.assertEqual(helper.balance_parentheses("glucose-history Patient 12"), '((glucose-history "Patient" 12))')
+            self.assertEqual(
+                helper.balance_parentheses("set-glucose-watch Patient 4 15 20 whatsapp visible ring only"),
+                '((set-glucose-watch "Patient" 4 15 20 "whatsapp" "visible ring only"))',
+            )
         self.assertIn("body-status", skills)
         self.assertIn("restart-self", skills)
         self.assertIn("reboot-self", skills)

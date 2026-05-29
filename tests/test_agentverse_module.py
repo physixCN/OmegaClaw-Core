@@ -32,7 +32,7 @@ class AgentverseModuleTests(unittest.TestCase):
 
         self.assertTrue((ROOT / "src" / "agentverse.py").exists())
         self.assertIn("./modules/loader.metta", core)
-        self.assertIn("./modules/agentverse/entry.metta", loader)
+        self.assertNotIn("./modules/agentverse/entry.metta", loader)
         self.assertNotIn("./src/agentverse.py", core)
         self.assertIn("(Module omegaclaw.remote.agentverse)", module_entry)
         self.assertIn("(Space agentverse)", module_entry)

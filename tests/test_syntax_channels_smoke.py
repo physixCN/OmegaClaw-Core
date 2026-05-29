@@ -6,7 +6,9 @@ import base64
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "tests"))
 import helper  # noqa: E402
+from module_loader_test_utils import enabled_module_loader  # noqa: E402
 
 
 class ChannelSyntaxSmokeTests(unittest.TestCase):
@@ -46,23 +48,32 @@ class ChannelSyntaxSmokeTests(unittest.TestCase):
             '(send-whatsapp "hello: there")': '((send-whatsapp "hello: there"))',
             'send-whatsapp """\nDinner is ready:\n- plates out\n- glucose checked\n"""': '((send-whatsapp-base64 "RGlubmVyIGlzIHJlYWR5OgotIHBsYXRlcyBvdXQKLSBnbHVjb3NlIGNoZWNrZWQ="))',
         }
-        for raw, expected in cases.items():
-            with self.subTest(raw=raw[:80]):
-                self.assert_parse(raw, expected)
+        with enabled_module_loader(
+            helper,
+            "channel_router",
+            "channel_web_control",
+            "channel_whatsapp",
+            "web_search",
+        ):
+            for raw, expected in cases.items():
+                with self.subTest(raw=raw[:80]):
+                    self.assert_parse(raw, expected)
 
     def test_split_base64_channel_payload_rejoins_and_invalid_utf8_fails_closed(self):
         raw_payload = "Thank you, Jon. 🛉\n\nSecond paragraph."
         payload = base64.b64encode(raw_payload.encode("utf-8")).decode("ascii")
         split_payload = payload[:20] + "\n" + payload[20:]
 
-        parsed = helper.signature_balance_parentheses(f"reply-whatsapp-to-base64 12345@lid {split_payload}")
+        with enabled_module_loader(helper, "channel_whatsapp"):
+            parsed = helper.signature_balance_parentheses(f"reply-whatsapp-to-base64 12345@lid {split_payload}")
 
-        self.assertEqual(parsed, f'((reply-whatsapp-to-base64 "12345@lid" "{payload}"))')
-        bad = helper.signature_balance_parentheses("reply-whatsapp-to-base64 12345@lid ////")
-        self.assertIn("base64 payload must decode as utf-8", bad)
+            self.assertEqual(parsed, f'((reply-whatsapp-to-base64 "12345@lid" "{payload}"))')
+            bad = helper.signature_balance_parentheses("reply-whatsapp-to-base64 12345@lid ////")
+            self.assertIn("base64 payload must decode as utf-8", bad)
 
     def test_channel_catalog_help(self):
-        self.assertIn("send-whatsapp", helper.skill_help("channels"))
+        with enabled_module_loader(helper, "channel_whatsapp"):
+            self.assertIn("send-whatsapp", helper.skill_help("channels"))
 
 
 if __name__ == "__main__":
