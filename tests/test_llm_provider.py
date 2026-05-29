@@ -139,6 +139,22 @@ class LlmProviderTests(unittest.TestCase):
 
         self.assertEqual(extra_body, {})
 
+    @mock.patch.dict("os.environ", {}, clear=True)
+    def test_unavailable_provider_returns_parseable_wait_instead_of_throwing(self):
+        module = self.load_module()
+
+        result = module.callProvider("OpenRouter", "hello", 123)
+
+        self.assertIn('wait "LLM-PROVIDER-NOT-AVAILABLE provider=OpenRouter', result)
+        self.assertIn("missing=OPENROUTER_API_KEY", result)
+
+    def test_unknown_provider_returns_parseable_wait_instead_of_throwing(self):
+        module = self.load_module()
+
+        result = module.callProvider("NoSuchProvider", "hello", 123)
+
+        self.assertIn('wait "LLM-PROVIDER-UNKNOWN provider=NoSuchProvider', result)
+
 
 if __name__ == "__main__":
     unittest.main()

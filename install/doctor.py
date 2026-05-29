@@ -80,6 +80,18 @@ def _janus_smoke() -> tuple[bool, str]:
     return True, f"Python {version.split()[0]}"
 
 
+def _provider_required_env(provider: str) -> str:
+    return {
+        "OpenRouter": "OPENROUTER_API_KEY",
+        "OpenAI": "OPENAI_API_KEY",
+        "Anthropic": "ANTHROPIC_API_KEY",
+        "ASICloud": "ASI_API_KEY",
+        "ASIOne": "ASIONE_API_KEY",
+        "Ollama-local": "OLLAMA_API_KEY",
+        "Test": "TEST_SERVER_IP",
+    }.get(provider, "")
+
+
 def diagnose(workspace: pathlib.Path, include_remote: bool = False, check_runtime: bool = False) -> tuple[bool, list[tuple[str, str, str]]]:
     workspace = workspace.expanduser().resolve()
     core = workspace / "repos" / "OmegaClaw-Core"
@@ -97,6 +109,7 @@ def diagnose(workspace: pathlib.Path, include_remote: bool = False, check_runtim
     commchannel = env.get("commchannel", "")
     primary_channel = env.get("OMEGACLAW_PRIMARY_CHANNEL", "")
     channel = commchannel or primary_channel or ""
+    provider = env.get("provider", "")
     expected_channel_module = installer_common.CHANNEL_MODULES.get(channel, "")
 
     ok &= _check(core.exists() and (core / ".git").exists(), "core clone", str(core), "missing Git clone", rows)
@@ -108,6 +121,19 @@ def diagnose(workspace: pathlib.Path, include_remote: bool = False, check_runtim
             rows.append(("INFO" if rc == 0 else "WARN", "public HEAD", remote.split()[0][:12] if remote else "unavailable"))
 
     ok &= _check(env_path.exists(), ".env", str(env_path), "missing install config", rows)
+    ok &= _check(bool(provider), "LLM provider", provider or "<none>", "provider unset", rows)
+    required_env = _provider_required_env(provider)
+    if provider:
+        if required_env:
+            ok &= _check(
+                bool(env.get(required_env)),
+                "LLM provider credential",
+                f"{required_env}=configured",
+                f"{provider} requires {required_env}; rerun installer repair or edit .env",
+                rows,
+            )
+        else:
+            ok &= _check(False, "LLM provider credential", "", f"unknown provider {provider}", rows)
     ok &= _check(bool(channel), "primary channel", channel or "<none>", "commchannel/OMEGACLAW_PRIMARY_CHANNEL unset", rows)
     ok &= _check(
         not (commchannel and primary_channel and commchannel != primary_channel),

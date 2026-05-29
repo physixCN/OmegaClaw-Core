@@ -74,12 +74,15 @@ safe source-checkout default; installed deployments use
 ## Provider And Channel Choices
 
 Provider setup asks for provider, model, and API key where needed. Channel setup
-asks for one primary channel and then only that channel's auth material. The
-agent-name step rewrites only the standalone default name `Omega`; `OmegaClaw`
-remains the framework name. On later runs the generated launcher reads
-`~/OmegaClaw/.env`; re-run the installer only when changing modules, channel,
-provider, or agent name. To repair stale generated launch files without
-re-entering secrets, run:
+asks for one primary channel and then only that channel's auth material. A
+healthy channel is not enough for replies: the first real inbound message still
+needs the selected LLM provider credential in `~/OmegaClaw/.env`. The startup
+doctor checks this so a missing provider key is reported directly instead of
+letting the first cognition turn fail mysteriously. The agent-name step rewrites
+only the standalone default name `Omega`; `OmegaClaw` remains the framework
+name. On later runs the generated launcher reads `~/OmegaClaw/.env`; re-run the
+installer only when changing modules, channel, provider, or agent name. To
+repair stale generated launch files without re-entering secrets, run:
 
 ```text
 python ~/OmegaClaw/repos/OmegaClaw-Core/install/installer_common.py --workspace ~/OmegaClaw --repair

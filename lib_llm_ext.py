@@ -65,6 +65,10 @@ class AbstractAIProvider:
     def is_available(self) -> bool:
         raise NotImplementedError
 
+    @property
+    def required_env(self) -> str:
+        return ""
+
 class AIProvider(AbstractAIProvider):
     """Lazy AI provider with on-demand initialization."""
 
@@ -104,6 +108,10 @@ class AIProvider(AbstractAIProvider):
     def is_available(self) -> bool:
         """Check if provider is configured (without initializing)."""
         return bool(os.environ.get(self._var_name))
+
+    @property
+    def required_env(self) -> str:
+        return self._var_name
 
     def _openrouter_extra_body(self, request_kwargs):
         """Return OpenRouter routing hints supplied by runtime configuration."""
@@ -229,6 +237,10 @@ class TestProvider(AbstractAIProvider):
     def is_available(self) -> bool:
         return self._controller_ip is not None
 
+    @property
+    def required_env(self) -> str:
+        return "TEST_SERVER_IP"
+
     def chat(self, content: str, max_tokens: int = 6000, **kwargs) -> str:
         return self._llm_mock().chat(content)
 
@@ -263,8 +275,15 @@ _register_provider(name="OpenAI", var_name="OPENAI_API_KEY", model_name="gpt-5.4
 def callProvider(provider_name: str, content: str, max_tokens: int = 6000) -> str:
     """Generic dispatcher for MeTTa."""
     provider = _get_provider(provider_name)
-    if not provider or not provider.is_available:
-        raise RuntimeError(f"Provider '{provider_name}' not available")
+    if not provider:
+        return 'wait "LLM-PROVIDER-UNKNOWN provider=%s; choose a configured provider and restart"' % provider_name
+    if not provider.is_available:
+        env_name = provider.required_env or "provider API key"
+        return (
+            'wait "LLM-PROVIDER-NOT-AVAILABLE provider=%s missing=%s; '
+            'configure the key in .env or rerun installer repair, then restart"'
+            % (provider_name, env_name)
+        )
     return provider.chat(content=content, max_tokens=max_tokens)
 
 

@@ -272,6 +272,49 @@ class InstallerTests(unittest.TestCase):
         self.assertNotIn("Auth secret: {", source)
         self.assertIn("value not displayed", source)
 
+    def test_doctor_requires_selected_provider_credential(self):
+        doctor = load_doctor()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp)
+            core = workspace / "repos" / "OmegaClaw-Core"
+            core.mkdir(parents=True)
+            (core / ".git").mkdir()
+            (core / "src").mkdir()
+            (core / "src" / "loop.metta").write_text(
+                "(change-state! &loops 0)\n(println! (CHARS_SENT: (string_length $send)))\n",
+                encoding="utf-8",
+            )
+            (workspace / ".env").write_text(
+                "provider='OpenRouter'\ncommchannel='telegram'\nOMEGACLAW_PRIMARY_CHANNEL='telegram'\n"
+                "TG_BOT_TOKEN='telegram-token'\nOMEGACLAW_PROMPT_FILE='{}'\n".format(workspace / "local" / "prompt.txt"),
+                encoding="utf-8",
+            )
+            (workspace / "run.metta").write_text(
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_core))\n"
+                "!(import! &self ./local/modules-loader.metta)\n"
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_attention))\n"
+                "!(import! &self (library OmegaClaw-Core ./src/loop))\n"
+                "!(omegaclaw)\n",
+                encoding="utf-8",
+            )
+            (workspace / "local").mkdir()
+            (workspace / "local" / "modules-loader.metta").write_text(
+                "!(import! &self (library OmegaClaw-Core ./modules/channel_router/entry.metta))\n"
+                "!(import! &self (library OmegaClaw-Core ./modules/channel_telegram/entry.metta))\n",
+                encoding="utf-8",
+            )
+            (workspace / "local" / "prompt.txt").write_text("You are Omega.\n", encoding="utf-8")
+            (workspace / "start-omegaclaw.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+            (workspace / "Start OmegaClaw.command").write_text("#!/bin/sh\n", encoding="utf-8")
+
+            ok, rows = doctor.diagnose(workspace)
+
+        self.assertFalse(ok)
+        self.assertTrue(
+            any(label == "LLM provider credential" and status == "FAIL" for status, label, _ in rows),
+            rows,
+        )
+
     def test_petta_bootstrap_allows_installer_owned_toolchain_dirs(self):
         installer = load_installer_common()
         with tempfile.TemporaryDirectory() as tmp:
@@ -527,6 +570,7 @@ class InstallerTests(unittest.TestCase):
             (workspace / "Start OmegaClaw.command").write_text("#!/bin/sh\n", encoding="utf-8")
             prompt_path = workspace / "local" / "prompt.txt"
             (workspace / ".env").write_text(
+                f"provider='OpenRouter'\nOPENROUTER_API_KEY='key'\n"
                 f"commchannel='telegram'\nOMEGACLAW_PRIMARY_CHANNEL='telegram'\nTG_BOT_TOKEN='token'\nOMEGACLAW_PROMPT_FILE='{prompt_path}'\n",
                 encoding="utf-8",
             )
