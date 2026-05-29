@@ -128,6 +128,9 @@ def require_tool(name: str) -> None:
         raise SystemExit(f"Missing required command: {name}")
 
 
+INSTALLER_BOOTSTRAP_DIRS = {".bootstrap", ".local", ".micromamba"}
+
+
 def clone_or_update(url: str, path: pathlib.Path) -> None:
     if path.exists():
         if (path / ".git").exists():
@@ -138,6 +141,38 @@ def clone_or_update(url: str, path: pathlib.Path) -> None:
         path.rmdir()
     path.parent.mkdir(parents=True, exist_ok=True)
     run(["git", "clone", url, str(path)])
+
+
+def clone_or_bootstrap_workspace(url: str, path: pathlib.Path) -> None:
+    """Clone PeTTa into a workspace that may already hold installer dirs."""
+
+    if path.exists() and (path / ".git").exists():
+        run(["git", "pull", "--ff-only"], cwd=path)
+        return
+
+    if not path.exists():
+        clone_or_update(url, path)
+        return
+
+    existing = {item.name for item in path.iterdir()}
+    unexpected = sorted(existing - INSTALLER_BOOTSTRAP_DIRS)
+    if unexpected:
+        names = ", ".join(unexpected)
+        raise SystemExit(f"Refusing to overwrite non-git directory: {path} contains {names}")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.parent / f".{path.name}.petta-bootstrap"
+    if temp.exists():
+        shutil.rmtree(temp)
+    run(["git", "clone", url, str(temp)])
+    try:
+        for item in temp.iterdir():
+            target = path / item.name
+            if target.exists():
+                raise SystemExit(f"Refusing to overwrite existing bootstrap path: {target}")
+            shutil.move(str(item), str(target))
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
 
 
 def restore_generated_repo_files(core: pathlib.Path) -> None:
@@ -454,7 +489,7 @@ def install_fabricpc(workspace: pathlib.Path, enabled: set[str], env_values: dic
 
 def prepare_workspace(workspace: pathlib.Path, repo_url: str) -> pathlib.Path:
     require_tool("git")
-    clone_or_update(PETTA_URL, workspace)
+    clone_or_bootstrap_workspace(PETTA_URL, workspace)
     repos = workspace / "repos"
     restore_generated_repo_files(repos / "OmegaClaw-Core")
     clone_or_update(repo_url, repos / "OmegaClaw-Core")

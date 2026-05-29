@@ -165,6 +165,45 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("whatsapp", installer.PRIMARY_CHANNEL_CHOICES)
         self.assertNotEqual(installer.PRIMARY_CHANNEL_CHOICES[0], "whatsapp")
 
+    def test_petta_bootstrap_allows_installer_owned_toolchain_dirs(self):
+        installer = load_installer_common()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp) / "OmegaClaw"
+            (workspace / ".micromamba").mkdir(parents=True)
+            (workspace / ".bootstrap").mkdir()
+            (workspace / ".local").mkdir()
+
+            original_run = installer.run
+            try:
+                def fake_run(cmd, cwd=None, check=True):
+                    self.assertEqual(cmd[:3], ["git", "clone", installer.PETTA_URL])
+                    clone_path = pathlib.Path(cmd[3])
+                    (clone_path / ".git").mkdir(parents=True)
+                    (clone_path / "run.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+                    (clone_path / "src").mkdir()
+
+                installer.run = fake_run
+                installer.clone_or_bootstrap_workspace(installer.PETTA_URL, workspace)
+            finally:
+                installer.run = original_run
+
+            self.assertTrue((workspace / ".git").exists())
+            self.assertTrue((workspace / "run.sh").exists())
+            self.assertTrue((workspace / ".micromamba").exists())
+            self.assertTrue((workspace / ".bootstrap").exists())
+            self.assertTrue((workspace / ".local").exists())
+
+    def test_petta_bootstrap_rejects_unknown_non_git_workspace_content(self):
+        installer = load_installer_common()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp) / "OmegaClaw"
+            workspace.mkdir()
+            (workspace / "notes.txt").write_text("not installer-owned\n", encoding="utf-8")
+            with self.assertRaises(SystemExit) as raised:
+                installer.clone_or_bootstrap_workspace(installer.PETTA_URL, workspace)
+            self.assertIn("notes.txt", str(raised.exception))
+
+
     def test_start_script_loads_user_local_macos_toolchain(self):
         installer = load_installer_common()
         with tempfile.TemporaryDirectory() as tmp:
