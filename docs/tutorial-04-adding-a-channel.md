@@ -65,7 +65,8 @@ Make sure the file can be found. The existing adapters are imported by virtue of
 
 ## 4. Select the channel
 
-Set `commchannel` to your new name — either by editing `initChannels` or through an `argk` override on startup.
+Set `commchannel` to your new name — either by editing `initChannels` or through
+a `commchannel=name` startup/environment override handled by `configure`.
 
 ## Verification
 

@@ -32,8 +32,8 @@
         (sub_string $String (max 0 (- $Len $N)) $_ 0)))
 
 (= (configure $name $default)
-   (let $value (argk $name $default)
-        (add-atom &self (= ($name) $value))))
+   (let $atom (sread (py-call (helper.config_assignment_atom $name $default)))
+        (add-atom &self $atom)))
    
 
 (= (take $k ()) ())

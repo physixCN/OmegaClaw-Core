@@ -5,6 +5,7 @@ import os
 import pathlib
 import re
 import subprocess
+import sys
 
 try:
     from .helper_history import _iter_history_entries, _compact_long_history_tokens
@@ -735,6 +736,60 @@ def _numeric_text(value):
     except Exception:
         return None
     return text
+
+
+_METTA_SYMBOL_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
+
+
+def _config_override(name):
+    key = str(name or "").strip()
+    if not key:
+        return None
+    prefix = key + "="
+    for arg in sys.argv[1:]:
+        text = str(arg)
+        if text.startswith(prefix):
+            return text[len(prefix):]
+    return os.environ.get(key)
+
+
+def _config_value_expr(value):
+    if isinstance(value, bool):
+        return "True" if value else "False"
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    if isinstance(value, float):
+        return str(value)
+
+    text = str(value or "").strip()
+    if not text:
+        return '""'
+    if _numeric_text(text) is not None:
+        return text
+    if text.lower() == "true":
+        return "True"
+    if text.lower() == "false":
+        return "False"
+    if _METTA_SYMBOL_RE.match(text):
+        return text
+    return _metta_string(text)
+
+
+def config_assignment_atom(name, default):
+    """Build the MeTTa assignment used by `(configure name default)`.
+
+    The lookup is deliberately mechanical: command-line `name=value` first,
+    then environment variable `name`, then the MeTTa default supplied by the
+    caller. Keeping this in Python avoids PeTTa specialization warnings for
+    dynamic env/argv predicates while preserving the symbolic configure atom.
+    """
+    key = str(name or "").strip()
+    if not _METTA_SYMBOL_RE.match(key):
+        safe = _escape_metta_string(key or "<empty>")
+        return f'(ConfigError "invalid configure key: {safe}")'
+    override = _config_override(key)
+    value = default if override is None else override
+    return f"(= ({key}) {_config_value_expr(value)})"
 
 
 def assimilation_event_atom(spec):

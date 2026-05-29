@@ -542,10 +542,11 @@ def write_start_scripts(workspace: pathlib.Path) -> list[pathlib.Path]:
             if [ -f repos/OmegaClaw-Core/install/doctor.py ]; then
               "$OMEGACLAW_PYTHON_EXECUTABLE" repos/OmegaClaw-Core/install/doctor.py --workspace "$PWD" --startup-check
             fi
-            if [ "${OMEGACLAW_METTA_TRACE:-0}" = "1" ]; then
-              exec ./run.sh run.metta "$@"
-            fi
-            exec ./run.sh run.metta --silent "$@"
+            mkdir -p logs
+            LOG_FILE="${OMEGACLAW_LOG_FILE:-$PWD/logs/omegaclaw-$(date +%Y%m%d-%H%M%S).log}"
+            echo "OmegaClaw log: $LOG_FILE"
+            ./run.sh run.metta "$@" 2>&1 | tee -a "$LOG_FILE"
+            exit "${PIPESTATUS[0]}"
             """
         ).lstrip(),
         encoding="utf-8",

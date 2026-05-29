@@ -4,11 +4,15 @@ Every tunable in OmegaClaw is declared as `(= (name) (empty))` and later bound b
 
 ```metta
 (= (configure $name $default)
-   (let $value (argk $name $default)
-        (add-atom &self (= ($name) $value))))
+   (let $atom (sread (py-call (helper.config_assignment_atom $name $default)))
+        (add-atom &self $atom)))
 ```
 
-This reads a command-line override via `argk` (`name=value` on the MeTTa command line) if present, otherwise falls back to the default.
+This reads a command-line override (`name=value` on the MeTTa command line) if
+present, then an environment variable of the same name, otherwise the default.
+The lookup is performed by a small Python config membrane to avoid PeTTa
+specialization noise during boot; the resulting runtime value is still installed
+as an ordinary symbolic MeTTa assignment such as `(= (commchannel) telegram)`.
 
 ## Loop (`src/loop.metta`, `initLoop`)
 
@@ -67,4 +71,5 @@ Slack example:
 metta run.metta commchannel=slack SL_BOT_TOKEN=xoxb-... SL_CHANNEL_ID=C0123456789
 ```
 
-The `argk` helper parses `key=value` pairs from `argv`.
+The low-level `argk` helper remains available for direct experiments, but normal
+runtime configuration should use `(configure name default)`.

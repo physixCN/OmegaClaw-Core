@@ -108,10 +108,12 @@ class InstallerTests(unittest.TestCase):
 
     def test_metta_configure_reads_environment_without_exposing_secrets_as_argv(self):
         utils = (ROOT / "src" / "utils.metta").read_text(encoding="utf-8")
-        self.assertIn("!(import_prolog_function getenv)", utils)
-        self.assertIn("(= (envk $Prefix)", utils)
-        self.assertIn("(let $env (collapse (envk $Prefix))", utils)
-        self.assertIn("(translatePredicate (atom_string $Res $Value))", utils)
+        helper = (ROOT / "src" / "helper_metta.py").read_text(encoding="utf-8")
+        self.assertIn("helper.config_assignment_atom", utils)
+        self.assertNotIn("(let $value (argk $name $default)", utils)
+        self.assertIn("def config_assignment_atom", helper)
+        self.assertIn("os.environ.get(key)", helper)
+        self.assertIn("sys.argv[1:]", helper)
         self.assertNotIn("(atom_to_number $Value)", utils)
 
     def test_required_secret_reprompts_unless_existing_env_is_available(self):
@@ -327,8 +329,9 @@ class InstallerTests(unittest.TestCase):
             self.assertIn("install/doctor.py", start)
             self.assertIn("--startup-check", start)
             self.assertNotIn("--quiet", start)
-            self.assertIn("OMEGACLAW_METTA_TRACE", start)
-            self.assertIn("--silent", start)
+            self.assertIn("OmegaClaw log:", start)
+            self.assertIn("tee -a", start)
+            self.assertNotIn("--silent", start)
             self.assertIn(launcher, launchers)
             self.assertIn("start-omegaclaw.sh", launcher.read_text(encoding="utf-8"))
 

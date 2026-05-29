@@ -214,7 +214,11 @@ A reasoning-heavy turn typically uses all three memory tiers:
 
 ### Configuration
 
-Runtime parameters are declared as `(empty)` at module top and filled by `configure` calls during `initLoop`, `initMemory`, and `initChannels`. Command-line overrides are accepted via the `argk` helper in `src/utils.metta`. Full list in [reference-configuration.md](./reference-configuration.md).
+Runtime parameters are declared as `(empty)` at module top and filled by
+`configure` calls during `initLoop`, `initMemory`, and `initChannels`.
+Command-line `name=value` and environment overrides are resolved by the
+configuration membrane, then installed as normal MeTTa assignments. Full list in
+[reference-configuration.md](./reference-configuration.md).
 
 ---
 

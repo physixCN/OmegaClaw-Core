@@ -48,6 +48,8 @@ The installer creates or updates:
 - `~/OmegaClaw/local/prompt.txt` with the chosen agent name.
 - `~/OmegaClaw/local/modules-loader.metta` for selected modules.
 - `~/OmegaClaw/start-omegaclaw.sh` and a platform launcher.
+- `~/OmegaClaw/logs/omegaclaw-*.log` for full startup/runtime output from
+  each launcher run.
 
 Secrets are local runtime configuration. Do not commit `.env`.
 
@@ -97,3 +99,7 @@ For Telegram, leaving `TG_CHAT_ID` empty enables first-chat binding. If the
 local auth secret is enabled, the installer writes `telegram-auth-command.txt`
 inside the workspace; send that one-time `/auth ...` message to the bot before
 ordinary chat messages will reach the agent.
+
+The generated launcher intentionally runs the normal verbose MeTTa path rather
+than hiding startup internals. The same output shown in Terminal is also written
+to the latest file under `~/OmegaClaw/logs/`.
