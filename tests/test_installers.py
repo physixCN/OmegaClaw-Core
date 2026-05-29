@@ -52,16 +52,24 @@ class InstallerTests(unittest.TestCase):
         run_metta = (ROOT / "run.metta").read_text(encoding="utf-8")
         self.assertIn("https://github.com/physixCN/OmegaClaw-Core.git", run_metta)
         self.assertIn("git-import!", run_metta)
-        self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", run_metta)
+        self.assertIn("(library OmegaClaw-Core lib_omegaclaw)", run_metta)
+        self.assertNotIn("lib_omegaclaw_no_agentverse", run_metta)
+        self.assertNotIn("https://github.com/asi-alliance/OmegaClaw-Core.git", run_metta)
+
+    def test_core_substrate_defers_loop_until_modules_are_loaded(self):
+        core = (ROOT / "lib_omegaclaw_core.metta").read_text(encoding="utf-8")
+        full = (ROOT / "lib_omegaclaw.metta").read_text(encoding="utf-8")
+        self.assertNotIn("./src/loop", core)
+        self.assertNotIn("./modules/loader.metta", core)
+        self.assertIn("./src/memory", core)
         assert_ordered(
             self,
-            run_metta,
-            "lib_omegaclaw_no_agentverse",
+            full,
+            "lib_omegaclaw_core",
             "./modules/loader.metta",
             "lib_omegaclaw_attention",
-            "(omegaclaw)",
+            "./src/loop",
         )
-        self.assertNotIn("https://github.com/asi-alliance/OmegaClaw-Core.git", run_metta)
 
     def test_installer_discovers_modules_and_writes_workspace_local_loader(self):
         installer = load_installer_common()
@@ -319,6 +327,8 @@ class InstallerTests(unittest.TestCase):
             self.assertIn("install/doctor.py", start)
             self.assertIn("--startup-check", start)
             self.assertNotIn("--quiet", start)
+            self.assertIn("OMEGACLAW_METTA_TRACE", start)
+            self.assertIn("--silent", start)
             self.assertIn(launcher, launchers)
             self.assertIn("start-omegaclaw.sh", launcher.read_text(encoding="utf-8"))
 
@@ -331,13 +341,14 @@ class InstallerTests(unittest.TestCase):
             self.assertIn("git-import!", text)
             self.assertIn(installer.PUBLIC_CORE_URL, text)
             self.assertIn("./local/modules-loader.metta", text)
-            self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", text)
+            self.assertIn("(library OmegaClaw-Core lib_omegaclaw_core)", text)
             assert_ordered(
                 self,
                 text,
-                "lib_omegaclaw_no_agentverse",
+                "lib_omegaclaw_core",
                 "./local/modules-loader.metta",
                 "lib_omegaclaw_attention",
+                "./src/loop",
                 "(omegaclaw)",
             )
             self.assertNotIn("lib_omegaclaw_body", text)
@@ -346,16 +357,8 @@ class InstallerTests(unittest.TestCase):
         text = (ROOT / "run.metta").read_text(encoding="utf-8")
         self.assertIn("git-import!", text)
         self.assertIn("https://github.com/physixCN/OmegaClaw-Core.git", text)
-        self.assertIn("./modules/loader.metta", text)
-        self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", text)
-        assert_ordered(
-            self,
-            text,
-            "lib_omegaclaw_no_agentverse",
-            "./modules/loader.metta",
-            "lib_omegaclaw_attention",
-            "(omegaclaw)",
-        )
+        self.assertIn("(library OmegaClaw-Core lib_omegaclaw)", text)
+        self.assertNotIn("lib_omegaclaw_no_agentverse", text)
         self.assertNotIn("lib_omegaclaw_body", text)
 
     def test_macos_installer_writes_desktop_launcher_when_desktop_exists(self):
@@ -510,9 +513,10 @@ class InstallerTests(unittest.TestCase):
             (workspace / "local" / "prompt.txt").write_text("You are Ada.\n", encoding="utf-8")
             (workspace / "run.metta").write_text(
                 '!(git-import! "https://github.com/physixCN/OmegaClaw-Core.git")\n'
-                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_no_agentverse))\n"
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_core))\n"
                 "!(import! &self ./local/modules-loader.metta)\n"
                 "!(import! &self (library OmegaClaw-Core lib_omegaclaw_attention))\n"
+                "!(import! &self (library OmegaClaw-Core ./src/loop))\n"
                 "!(omegaclaw)\n",
                 encoding="utf-8",
             )
@@ -545,9 +549,10 @@ class InstallerTests(unittest.TestCase):
             prompt_path = workspace / "local" / "prompt.txt"
             prompt_path.write_text("You are Ada.\n", encoding="utf-8")
             (workspace / "run.metta").write_text(
-                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_no_agentverse))\n"
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_core))\n"
                 "!(import! &self ./local/modules-loader.metta)\n"
                 "!(import! &self (library OmegaClaw-Core lib_omegaclaw_attention))\n"
+                "!(import! &self (library OmegaClaw-Core ./src/loop))\n"
                 "!(omegaclaw)\n",
                 encoding="utf-8",
             )
@@ -591,8 +596,9 @@ class InstallerTests(unittest.TestCase):
             (workspace / "run.metta").write_text(
                 '!(git-import! "https://github.com/physixCN/OmegaClaw-Core.git")\n'
                 "!(import! &self ./local/modules-loader.metta)\n"
-                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_no_agentverse))\n"
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_core))\n"
                 "!(import! &self (library OmegaClaw-Core lib_omegaclaw_attention))\n"
+                "!(import! &self (library OmegaClaw-Core ./src/loop))\n"
                 "!(omegaclaw)\n",
                 encoding="utf-8",
             )
@@ -629,9 +635,10 @@ class InstallerTests(unittest.TestCase):
             (workspace / "local" / "prompt.txt").write_text("You are Ada.\n", encoding="utf-8")
             (workspace / "run.metta").write_text(
                 '!(git-import! "https://github.com/physixCN/OmegaClaw-Core.git")\n'
-                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_no_agentverse))\n"
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_core))\n"
                 "!(import! &self ./local/modules-loader.metta)\n"
                 "!(import! &self (library OmegaClaw-Core lib_omegaclaw_attention))\n"
+                "!(import! &self (library OmegaClaw-Core ./src/loop))\n"
                 "!(omegaclaw)\n",
                 encoding="utf-8",
             )

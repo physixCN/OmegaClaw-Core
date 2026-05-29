@@ -120,12 +120,17 @@ def diagnose(workspace: pathlib.Path, include_remote: bool = False, check_runtim
     if run_path.exists():
         run_text = run_path.read_text(encoding="utf-8", errors="replace")
         ok &= _check("./local/modules-loader.metta" in run_text, "root module loader", "workspace-local loader imported", "root run.metta does not import ./local/modules-loader.metta", rows)
-        ok &= _check("lib_omegaclaw_no_agentverse" in run_text, "root core import", "core substrate imported", "core substrate import missing", rows)
+        core_imported = "lib_omegaclaw_core" in run_text or "lib_omegaclaw" in run_text
+        ok &= _check(core_imported, "root core import", "core substrate imported", "core substrate import missing", rows)
+        if "lib_omegaclaw_core" in run_text:
+            order_needles = ("lib_omegaclaw_core", "./local/modules-loader.metta", "lib_omegaclaw_attention", "./src/loop", "(omegaclaw)")
+        else:
+            order_needles = ("lib_omegaclaw", "(omegaclaw)")
         ok &= _check(
-            _ordered(run_text, "lib_omegaclaw_no_agentverse", "./local/modules-loader.metta", "lib_omegaclaw_attention", "(omegaclaw)"),
+            _ordered(run_text, *order_needles),
             "composition order",
-            "core -> local modules -> attention -> loop",
-            "root run.metta must import core before local modules and start loop last",
+            "core -> local modules -> attention -> loop -> start",
+            "root run.metta must import core before local modules, attention before loop, and start loop last",
             rows,
         )
         ok &= _check("lib_omegaclaw_body" not in run_text, "old body loader", "not imported by generated root", "generated root still imports old body loader path", rows)

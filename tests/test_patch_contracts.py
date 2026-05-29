@@ -70,7 +70,7 @@ class PatchBoundaryContractTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_core_body_split_keeps_devices_out_of_cognitive_substrate(self):
-        core = read("lib_omegaclaw.metta")
+        core = read("lib_omegaclaw_core.metta")
         body = read("lib_omegaclaw_body.metta")
         assume = read("modules/assume/entry.metta")
         attention = read("lib_omegaclaw_attention.metta")
@@ -118,7 +118,7 @@ class PatchBoundaryContractTests(unittest.TestCase):
     def test_skill_catalog_is_import_local_not_filesystem_global(self):
         catalog = read("src/skill_catalog.metta")
         affordance_skills = read("src/skills_affordance.metta") + read("src/skill_affordance_affordance.metta")
-        core = read("lib_omegaclaw.metta")
+        core = read("lib_omegaclaw_core.metta")
         assume = read("modules/assume/entry.metta")
         attention = read("lib_omegaclaw_attention.metta")
         body = read("lib_omegaclaw_body.metta")
@@ -204,7 +204,7 @@ class PatchBoundaryContractTests(unittest.TestCase):
             read(path)
             for path in [
                 "lib_omegaclaw.metta",
-                "lib_omegaclaw_no_agentverse.metta",
+                "lib_omegaclaw_core.metta",
                 "lib_omegaclaw_attention.metta",
             ]
         )

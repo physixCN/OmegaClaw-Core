@@ -87,9 +87,11 @@ The generated root `run.metta` uses PeTTa's `git-import!` to register the local
 `repos/OmegaClaw-Core` clone as the `OmegaClaw-Core` library. The installer
 pulls that clone during setup. The generated root `run.metta` imports
 the core substrate first, then `~/OmegaClaw/local/modules-loader.metta`, then
-starts the loop. The selected channel and module surface are visible to MeTTa
-without dirtying the Git clone, but modules attach only after core runtime
-primitives are loaded.
+the attention organ, then `src/loop.metta`, and only then starts the loop. The
+loop must be imported last because PeTTa compiles calls such as `initChannels`,
+`receive`, and attention helpers at import time. The selected channel and module
+surface are visible to MeTTa without dirtying the Git clone, but modules attach
+only after core runtime primitives are loaded.
 
 For Telegram, leaving `TG_CHAT_ID` empty enables first-chat binding. If the
 local auth secret is enabled, the installer writes `telegram-auth-command.txt`

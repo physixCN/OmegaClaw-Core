@@ -68,7 +68,7 @@ class SkillAffordanceContractTests(unittest.TestCase):
         for filename in declaration_files:
             self.assertNotIn(filename, organ)
 
-        for relative in ["src/skills.metta", "lib_omegaclaw.metta"]:
+        for relative in ["src/skills.metta", "lib_omegaclaw_core.metta"]:
             source = (ROOT / relative).read_text(encoding="utf-8")
             organ_index = source.index("skills_affordance.metta")
             for filename in declaration_files:

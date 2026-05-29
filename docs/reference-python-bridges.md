@@ -16,20 +16,22 @@ LLM and embedding bridges.
 
 OpenAI calls go through MeTTa-side helpers (`useGPT`, `useGPTEmbedding`) that are defined elsewhere in the library but use the same LLM call pattern.
 
-## `modules/agentverse/src/agentverse_organ.py`
+## `modules/agentverse/src/agentverse_bridge.py`
 
 Optional Agentverse/uAgents remote-agent transport membrane.
 
 | Function | Purpose |
 |---|---|
 | `agentverse_status()` | Report uAgents availability and trace/search paths without exposing secrets. |
-| `agentverse_discover_atoms(query)` | Search Agentverse and return candidate atoms for `&agentverse`. |
+| `agentverse_discover_atoms(query, limit)` | Search Agentverse and return candidate atoms for `&agentverse`. |
 | `agentverse_record_agent(name, address, schema, capability)` | Mirror a chosen remote agent into a local registry file. |
-| `agentverse_ask(destination, schema, payload)` | Send a typed uAgents request to a raw destination. |
+| `agentverse_call(address, schema, payload)` | Send a typed AgentChatProtocol message to a raw remote address. |
+| `agentverse_ask(destination, schema, payload)` | Send a typed request to a registered remote agent. |
+| `agentverse_inbox()` | Inspect listener acknowledgement and reply state. |
 | `agentverse_trace()` | Return recent local Agentverse trace atoms. |
 
-`src/agentverse.py` is now only a compatibility shim for old deployments. New
-work should import `modules/agentverse/entry.metta`.
+Agentverse is loaded only through `modules/agentverse/entry.metta`; there is no
+core-level compatibility facade.
 
 ## `src/helper.py`
 

@@ -119,11 +119,14 @@ loop, and full traces should be enabled only by an explicit runtime setting.
 
 ## Add a remote skill
 
-Same as above, but the body delegates to `src/agentverse.py`:
+Remote-agent skills should live inside a module, with their Python transport
+under that module's `src/` directory and their symbolic surface in
+`entry.metta`, `skills.metta`, `signatures.metta`, `catalog.metta`, and
+`affordance.metta`:
 
 ```metta
 (= (my-remote-skill $arg)
-   (py-call (agentverse.my_remote_skill $arg)))
+   (py-call (my_remote_module.my_remote_skill $arg)))
 ```
 
 Full walkthrough: [tutorial-06-remote-agentverse-skills.md](./tutorial-06-remote-agentverse-skills.md).

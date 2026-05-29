@@ -471,9 +471,10 @@ def write_root_run(workspace: pathlib.Path) -> None:
             f"""
             !(import! &self (library lib_import))
             !(git-import! "{PUBLIC_CORE_URL}")
-            !(import! &self (car-atom (collapse (library OmegaClaw-Core lib_omegaclaw_no_agentverse))))
+            !(import! &self (car-atom (collapse (library OmegaClaw-Core lib_omegaclaw_core))))
             !(import! &self ./local/modules-loader.metta)
             !(import! &self (car-atom (collapse (library OmegaClaw-Core lib_omegaclaw_attention))))
+            !(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/loop))))
 
             !(omegaclaw)
             """
@@ -541,7 +542,10 @@ def write_start_scripts(workspace: pathlib.Path) -> list[pathlib.Path]:
             if [ -f repos/OmegaClaw-Core/install/doctor.py ]; then
               "$OMEGACLAW_PYTHON_EXECUTABLE" repos/OmegaClaw-Core/install/doctor.py --workspace "$PWD" --startup-check
             fi
-            exec ./run.sh run.metta "$@"
+            if [ "${OMEGACLAW_METTA_TRACE:-0}" = "1" ]; then
+              exec ./run.sh run.metta "$@"
+            fi
+            exec ./run.sh run.metta --silent "$@"
             """
         ).lstrip(),
         encoding="utf-8",

@@ -112,18 +112,19 @@ The **LLM layer** is opaque and creative. The **engine layer** is deterministic 
 
 ```
 run.metta                 entry point: (omegaclaw)
-lib_omegaclaw.metta       loads all submodules
-├── src/loop.metta        agentic loop, turn structure
-├── src/memory.metta      long-term memory + history
-├── src/skills.metta      callable skill surface
-├── src/channels.metta    receive/send/search dispatch
-├── src/utils.metta       configure, string ops, time
-├── src/helper.py         parenthesis balancing, normalization
-├── src/agentverse.py     remote-agent bridge
-├── src/skills.pl         Prolog helpers (shell, first_char)
-├── lib_nal.metta         NAL truth functions
-├── lib_pln.metta         PLN rules
-└── lib_llm_ext.py        Claude / GPT / MiniMax / local embeddings
+lib_omegaclaw.metta       ordered standard composition
+├── lib_omegaclaw_core.metta
+│   ├── src/memory.metta      long-term memory + history
+│   ├── src/skills*.metta     core skill surface
+│   ├── src/utils.metta       configure, string ops, time
+│   ├── src/helper.py         parenthesis balancing, normalization
+│   ├── src/skills.pl         Prolog helpers (shell, first_char)
+│   ├── lib_nal.metta         NAL truth functions
+│   ├── lib_pln.metta         PLN rules
+│   └── lib_llm_ext.py        provider and embedding bridges
+├── modules/loader.metta      enabled modules and channels
+├── lib_omegaclaw_attention.metta
+└── src/loop.metta            agentic loop, turn structure
 
 channels/irc.py           IRC adapter
 channels/telegram.py      Telegram adapter

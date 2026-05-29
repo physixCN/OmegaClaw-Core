@@ -30,7 +30,6 @@ class AgentverseModuleTests(unittest.TestCase):
         listener_impl = (ROOT / "modules" / "agentverse" / "src" / "agentverse_listener.py").read_text(encoding="utf-8")
         requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
 
-        self.assertTrue((ROOT / "src" / "agentverse.py").exists())
         self.assertIn("./modules/loader.metta", core)
         self.assertNotIn("./modules/agentverse/entry.metta", loader)
         self.assertNotIn("./src/agentverse.py", core)

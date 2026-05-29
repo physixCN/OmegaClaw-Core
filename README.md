@@ -118,14 +118,12 @@ several live lessons into explicit, reviewable architecture:
 
 ```text
 run.metta
-  -> lib_omegaclaw.metta              core boot composition
-     -> src/loop.metta                sense -> reason -> act -> verify -> remember
-     -> src/memory.metta              runtime memory and history membrane
-     -> src/skills*.metta             core skill implementations
-     -> src/skill_* .metta            symbolic skill signatures/catalog/cards
-     -> modules/loader.metta          optional organ composition
-     -> lib_omegaclaw_attention.metta attention/immune organ
-     -> modules/assume/entry.metta    symbolic assumption graph organ
+  -> lib_omegaclaw.metta               standard ordered composition
+     -> lib_omegaclaw_core.metta       core substrate and memory membrane
+     -> modules/loader.metta           enabled module affordances and channels
+     -> lib_omegaclaw_attention.metta  attention/immune organ
+     -> src/loop.metta                 sense -> reason -> act -> verify -> remember
+  -> modules/assume/entry.metta        symbolic assumption graph organ
 ```
 
 The separation to look for during review:
@@ -297,6 +295,10 @@ works predictably. Re-running the generated launcher uses the saved
 configuration and does not ask again. Use `python install/installer_common.py
 --workspace ~/OmegaClaw --repair` from the public clone to repair stale launch
 files without re-entering secrets.
+
+The generated composition imports the loop last, after modules and attention.
+This is required because the loop compiles against the active `initChannels`,
+`receive`, and attention functions.
 
 See `install/README.md` for more detail.
 

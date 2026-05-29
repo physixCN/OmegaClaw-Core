@@ -528,7 +528,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
                 self.assertGreaterEqual(output.count("✅"), 3)
 
     def test_reasoning_organs_are_advertised(self):
-        lib = (ROOT / "lib_omegaclaw.metta").read_text(encoding="utf-8")
+        lib = (ROOT / "lib_omegaclaw_core.metta").read_text(encoding="utf-8")
         skills = skill_implementation_source()
         self.assertIn("library lib_nars", lib)
         self.assertIn("library lib_spaces", lib)
@@ -553,7 +553,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("helper.agenda_goal_name_atom", skills)
 
     def test_activity_trace_space_is_native_and_bounded(self):
-        lib = (ROOT / "lib_omegaclaw.metta").read_text(encoding="utf-8")
+        lib = (ROOT / "lib_omegaclaw_core.metta").read_text(encoding="utf-8")
         loop = (ROOT / "src" / "loop.metta").read_text(encoding="utf-8")
         memory = (ROOT / "src" / "memory.metta").read_text(encoding="utf-8")
         skills = skill_implementation_source()
@@ -602,7 +602,12 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("(= (getHistory)\n   (py-call (helper.context_recent_history_entries (maxHistory) 12)))", memory)
 
     def test_imported_metta_source_files_are_balanced(self):
-        files = [ROOT / "lib_omegaclaw.metta", ROOT / "lib_omegaclaw_body.metta", ROOT / "run.metta"]
+        files = [
+            ROOT / "lib_omegaclaw.metta",
+            ROOT / "lib_omegaclaw_core.metta",
+            ROOT / "lib_omegaclaw_body.metta",
+            ROOT / "run.metta",
+        ]
         files.extend(sorted((ROOT / "src").glob("*.metta")))
         files.extend(sorted((ROOT / "modules").glob("*/*.metta")))
         files.extend(sorted((ROOT / "modules").glob("*/*.metta")))
@@ -614,7 +619,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertEqual({}, failures)
 
     def test_glucose_app_is_external_readable_affordance(self):
-        lib = (ROOT / "lib_omegaclaw.metta").read_text(encoding="utf-8")
+        lib = (ROOT / "lib_omegaclaw_core.metta").read_text(encoding="utf-8")
         body = (ROOT / "lib_omegaclaw_body.metta").read_text(encoding="utf-8")
         skills = skill_implementation_source()
         skill_catalog = skill_catalog_source()
@@ -645,7 +650,7 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("assimilate-persistent", skills)
 
     def test_web_control_is_a_channel_not_a_decision_layer(self):
-        lib = (ROOT / "lib_omegaclaw.metta").read_text(encoding="utf-8")
+        lib = (ROOT / "lib_omegaclaw_core.metta").read_text(encoding="utf-8")
         body = (ROOT / "lib_omegaclaw_body.metta").read_text(encoding="utf-8")
         channel = (ROOT / "modules" / "channel_web_control" / "src" / "web_control.py").read_text(encoding="utf-8")
         router = (ROOT / "modules" / "channel_router" / "src" / "router.py").read_text(encoding="utf-8")
