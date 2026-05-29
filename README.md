@@ -253,14 +253,14 @@ Download or clone this repository, then double-click:
 install/macos/Install OmegaClaw.command
 ```
 
-The installer opens Apple's command-line tools installer if needed. When
-Homebrew is already available, it uses Homebrew to install `git`, `python@3.11`,
-`swi-prolog`, `node`, `cmake`, `pkg-config`, and `openblas`. When Homebrew is
-missing or cannot install the required packages, it installs Python/Git/Node
-from conda-forge under `~/OmegaClaw/.micromamba` and installs the official
-universal SWI-Prolog macOS app bundle under `~/OmegaClaw/.local`, without
-requiring sudo. Before configuration starts, the installer verifies Python
-3.11.x, Node.js >=20, Git, and SWI-Prolog >=10.0.
+The installer opens Apple's command-line tools installer if needed. It then
+creates a pinned user-local OmegaClaw runtime under
+`~/OmegaClaw/.micromamba` and `~/OmegaClaw/.local`, even if Homebrew is
+installed. The runtime uses Python 3.11, Node.js >=20 <27, Git, build tools,
+and the SWI-Prolog 10.0.2-1 universal macOS app bundle with Janus patched to
+the local Python runtime. Before configuration starts, the installer verifies
+Python, Node.js, Git, SWI-Prolog, and an actual SWI-Prolog Janus `py_call`
+smoke test. No sudo is required.
 
 ### Windows Installer
 

@@ -15,14 +15,13 @@ install/macos/Install OmegaClaw.command
 ```
 
 The installer opens Apple's command-line tools installer if needed. It then
-uses Homebrew when Homebrew is already available. If Homebrew is missing or
-cannot install the required packages, the installer creates a user-local
-micromamba toolchain under
-`~/OmegaClaw/.micromamba` and installs `git`, `python=3.11`, `nodejs`,
-`cmake`, `pkg-config`, and `openblas` from conda-forge. It installs the
-official universal SWI-Prolog macOS app bundle under `~/OmegaClaw/.local` and
-adds a local `swipl` wrapper, without sudo. It verifies Python 3.11.x, Node.js
->=20, Git, and SWI-Prolog >=10.0 before continuing.
+creates a pinned user-local OmegaClaw runtime under
+`~/OmegaClaw/.micromamba` and `~/OmegaClaw/.local`, even if Homebrew is
+installed. The runtime installs `python=3.11`, `nodejs>=20,<27`, `git`,
+`cmake`, `pkg-config`, `openblas`, and `pip` from conda-forge, plus the
+SWI-Prolog 10.0.2-1 universal macOS app bundle. The local `swipl` wrapper uses
+the local Python runtime, and the installer verifies an actual SWI-Prolog Janus
+`py_call` smoke test before continuing. It runs without sudo.
 
 ## Windows
 

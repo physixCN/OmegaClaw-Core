@@ -210,19 +210,25 @@ class InstallerTests(unittest.TestCase):
         script = (ROOT / "install" / "macos" / "Install OmegaClaw.command").read_text(encoding="utf-8")
         self.assertIn("install_local_toolchain", script)
         self.assertIn("micro.mamba.pm/api/micromamba", script)
-        self.assertIn("swipl-latest.fat.dmg", script)
+        self.assertIn('SWI_VERSION="10.0.2"', script)
+        self.assertIn('SWI_BUILD="1"', script)
+        self.assertIn("swipl-${SWI_VERSION}-${SWI_BUILD}.fat.dmg", script)
         self.assertIn("install_swi_prolog_app", script)
         self.assertIn("repair_swi_janus_linkage", script)
         self.assertIn("install_name_tool -change", script)
         self.assertIn("libpython3.11.dylib", script)
         self.assertIn("verify_toolchain_versions", script)
-        self.assertIn("nodejs>=20", script)
+        self.assertIn("nodejs>=20,<27", script)
         self.assertIn("SWI-Prolog must be >=10.0", script)
+        self.assertIn("current_predicate(py_call/3)", script)
+        self.assertIn("SWI-Prolog Janus must embed Python 3.11.x", script)
         self.assertIn("No administrator password is required", script)
         self.assertIn("~/OmegaClaw/.micromamba", (ROOT / "README.md").read_text(encoding="utf-8"))
         self.assertIn("without sudo", (ROOT / "install" / "README.md").read_text(encoding="utf-8"))
         self.assertIn("Node.js >=20", (ROOT / "README.md").read_text(encoding="utf-8"))
+        self.assertIn("SWI-Prolog 10.0.2-1", (ROOT / "README.md").read_text(encoding="utf-8"))
         self.assertNotIn("swi-prolog nodejs", script)
+        self.assertNotIn("brew install", script)
         self.assertNotIn("raw.githubusercontent.com/Homebrew/install", script)
         self.assertNotIn("NONINTERACTIVE=1", script)
 
@@ -518,6 +524,50 @@ class InstallerTests(unittest.TestCase):
             )
             ok, rows = doctor.diagnose(workspace)
             self.assertTrue(ok, rows)
+
+    def test_doctor_startup_check_rejects_broken_janus_bridge(self):
+        doctor = load_doctor()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp) / "OmegaClaw"
+            core = workspace / "repos" / "OmegaClaw-Core"
+            (core / ".git").mkdir(parents=True)
+            (core / "src").mkdir()
+            (core / "src" / "loop.metta").write_text(
+                "(change-state! &loops 0)\n",
+                encoding="utf-8",
+            )
+            (workspace / "local").mkdir()
+            (workspace / "local" / "modules-loader.metta").write_text(
+                "!(import! &self (library OmegaClaw-Core ./modules/channel_router/entry.metta))\n",
+                encoding="utf-8",
+            )
+            prompt_path = workspace / "local" / "prompt.txt"
+            prompt_path.write_text("You are Ada.\n", encoding="utf-8")
+            (workspace / "run.metta").write_text(
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_no_agentverse))\n"
+                "!(import! &self ./local/modules-loader.metta)\n"
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_attention))\n"
+                "!(omegaclaw)\n",
+                encoding="utf-8",
+            )
+            (workspace / "start-omegaclaw.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+            (workspace / "Start OmegaClaw.command").write_text("#!/bin/sh\n", encoding="utf-8")
+            (workspace / ".env").write_text(
+                f"commchannel='mock'\nOMEGACLAW_PRIMARY_CHANNEL='mock'\nOMEGACLAW_PROMPT_FILE='{prompt_path}'\n",
+                encoding="utf-8",
+            )
+
+            original = doctor._janus_smoke
+            try:
+                doctor._janus_smoke = lambda: (False, "Janus native library could not load its Python runtime")
+                ok, rows = doctor.diagnose(workspace, check_runtime=True)
+            finally:
+                doctor._janus_smoke = original
+
+            self.assertFalse(ok)
+            joined = "\n".join(str(row) for row in rows)
+            self.assertIn("SWI-Prolog Janus bridge", joined)
+            self.assertIn("rerun the macOS installer", joined)
 
     def test_doctor_rejects_loader_before_core_composition(self):
         doctor = load_doctor()

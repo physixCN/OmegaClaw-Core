@@ -17,14 +17,6 @@ pause_before_exit() {
   read _answer || true
 }
 
-ensure_brew_shellenv() {
-  if [ -x /opt/homebrew/bin/brew ]; then
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-  elif [ -x /usr/local/bin/brew ]; then
-    eval "$(/usr/local/bin/brew shellenv)"
-  fi
-}
-
 micromamba_platform() {
   case "$(uname -m)" in
     arm64) echo "osx-arm64" ;;
@@ -43,13 +35,18 @@ install_local_toolchain() {
   MICROMAMBA="$BOOTSTRAP_DIR/bin/micromamba"
   ENV_PREFIX="$MAMBA_ROOT/envs/omegaclaw"
   PLATFORM=$(micromamba_platform)
+  PYTHON_SPEC="python=3.11"
+  NODE_SPEC="nodejs>=20,<27"
+  SWI_VERSION="10.0.2"
+  SWI_BUILD="1"
   SWI_APP_DIR="$WORKSPACE/.local/SWI-Prolog.app"
-  SWI_DMG="$BOOTSTRAP_DIR/swipl-stable-macos-fat.dmg"
-  SWI_DMG_URL="https://www.swi-prolog.org/download/stable/bin/swipl-latest.fat.dmg"
+  SWI_DMG="$BOOTSTRAP_DIR/swipl-${SWI_VERSION}-${SWI_BUILD}.fat.dmg"
+  SWI_DMG_URL="https://www.swi-prolog.org/download/stable/bin/swipl-${SWI_VERSION}-${SWI_BUILD}.fat.dmg"
 
-  echo "Homebrew is not installed or not available on PATH."
-  echo "Installing a user-local OmegaClaw toolchain instead."
+  echo "Installing a pinned user-local OmegaClaw toolchain."
+  echo "OmegaClaw uses this local runtime even if Homebrew is installed."
   echo "No administrator password is required for this path."
+  echo "Pinned runtime: Python 3.11, Node.js >=20 <27, SWI-Prolog ${SWI_VERSION}-${SWI_BUILD}"
   echo "Toolchain location: $ENV_PREFIX"
   echo
 
@@ -62,13 +59,13 @@ install_local_toolchain() {
   fi
 
   export MAMBA_ROOT_PREFIX="$MAMBA_ROOT"
-  PACKAGES="python=3.11 nodejs>=20 git cmake pkg-config openblas"
+  PACKAGES="$PYTHON_SPEC $NODE_SPEC git cmake pkg-config openblas pip"
   if [ -x "$ENV_PREFIX/bin/python" ]; then
     echo "Updating local OmegaClaw toolchain..."
-    "$MICROMAMBA" install -y -n omegaclaw -c conda-forge $PACKAGES
+    "$MICROMAMBA" install -y -n omegaclaw -c conda-forge $PACKAGES </dev/null
   else
     echo "Creating local OmegaClaw toolchain..."
-    "$MICROMAMBA" create -y -n omegaclaw -c conda-forge $PACKAGES
+    "$MICROMAMBA" create -y -n omegaclaw -c conda-forge $PACKAGES </dev/null
   fi
 
   install_swi_prolog_app "$WORKSPACE" "$ENV_PREFIX" "$BOOTSTRAP_DIR" "$SWI_APP_DIR" "$SWI_DMG" "$SWI_DMG_URL"
@@ -128,7 +125,6 @@ repair_swi_janus_linkage() {
   SWI_APP_DIR="$2"
   JANUS_PLUGIN="$SWI_APP_DIR/Contents/PlugIns/swipl/janus.so"
   PYTHON_DYLIB="$ENV_PREFIX/lib/libpython3.11.dylib"
-  PYTHON_FRAMEWORK="/Library/Frameworks/Python.framework/Versions/3.11/Python"
 
   if [ ! -f "$JANUS_PLUGIN" ]; then
     echo "SWI-Prolog Janus plugin was not found: $JANUS_PLUGIN" >&2
@@ -139,26 +135,15 @@ repair_swi_janus_linkage() {
     exit 1
   fi
 
-  if otool -L "$JANUS_PLUGIN" | grep -q "$PYTHON_FRAMEWORK"; then
+  PYTHON_REFS=$(otool -L "$JANUS_PLUGIN" | awk '/Python\.framework|libpython[0-9.]*\.dylib/ {print $1}')
+  if [ -n "$PYTHON_REFS" ]; then
     echo "Patching SWI-Prolog Janus to use local OmegaClaw Python..."
-    install_name_tool -change "$PYTHON_FRAMEWORK" "$PYTHON_DYLIB" "$JANUS_PLUGIN"
+    for old_ref in $PYTHON_REFS; do
+      if [ "$old_ref" != "$PYTHON_DYLIB" ]; then
+        install_name_tool -change "$old_ref" "$PYTHON_DYLIB" "$JANUS_PLUGIN"
+      fi
+    done
   fi
-}
-
-install_homebrew_toolchain() {
-  echo "Installing/updating system packages with Homebrew..."
-  brew update || return 1
-  for package in git python@3.11 swi-prolog node cmake pkg-config openblas; do
-    if brew list "$package" >/dev/null 2>&1; then
-      echo "$package already installed."
-    else
-      brew install "$package" || return 1
-    fi
-  done
-
-  PYTHON_BIN=$(command -v python3.11 || command -v python3)
-  verify_toolchain_versions "$PYTHON_BIN" || return 1
-  exec "$PYTHON_BIN" "$CORE_DIR/install/installer_common.py" --workspace "${OMEGACLAW_WORKSPACE:-$HOME/OmegaClaw}"
 }
 
 verify_toolchain_versions() {
@@ -195,6 +180,30 @@ match = re.search(r"version\s+(\d+)\.(\d+)", swipl, re.I)
 if not match or (int(match.group(1)), int(match.group(2))) < (10, 0):
     errors.append(f"SWI-Prolog must be >=10.0, found {swipl or 'missing'}")
 
+try:
+    janus_result = subprocess.run(
+        [
+            "swipl",
+            "-q",
+            "-g",
+            "use_module(library(janus)),current_predicate(py_call/3),py_call(sys:version,V,[py_string_as(string)]),writeln(V),halt.",
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        timeout=15,
+        check=False,
+    )
+    janus = janus_result.stdout.strip().splitlines()
+    if janus_result.returncode != 0:
+        tail = "\n".join(janus[-8:]) if janus else "no output"
+        errors.append("SWI-Prolog Janus bridge is not callable:\n" + tail)
+        janus = []
+    elif not janus or not janus[-1].startswith("3.11."):
+        errors.append("SWI-Prolog Janus must embed Python 3.11.x, found " + (janus[-1] if janus else "no output"))
+except Exception as exc:
+    errors.append(f"SWI-Prolog Janus bridge is not callable: {exc}")
+
 if errors:
     print("OmegaClaw toolchain verification failed:", file=sys.stderr)
     for error in errors:
@@ -206,6 +215,7 @@ print(f"  Python {sys.version.split()[0]}")
 print(f"  {outputs['node']}")
 print(f"  {outputs['git']}")
 print(f"  {outputs['swipl']}")
+print(f"  Janus Python {janus[-1].split()[0]}")
 PYVERIFY
 }
 
@@ -225,16 +235,5 @@ while ! command -v xcode-select >/dev/null 2>&1 || ! xcode-select -p >/dev/null 
       ;;
   esac
 done
-
-if ! command -v brew >/dev/null 2>&1; then
-  ensure_brew_shellenv
-fi
-
-if command -v brew >/dev/null 2>&1; then
-  if install_homebrew_toolchain; then
-    exit 0
-  fi
-  echo "Homebrew could not install the required toolchain; falling back to local micromamba."
-fi
 
 install_local_toolchain

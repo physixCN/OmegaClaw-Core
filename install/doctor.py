@@ -58,7 +58,29 @@ def _ordered(text: str, *needles: str) -> bool:
     return True
 
 
-def diagnose(workspace: pathlib.Path, include_remote: bool = False) -> tuple[bool, list[tuple[str, str, str]]]:
+def _janus_smoke() -> tuple[bool, str]:
+    rc, output = _run_text(
+        [
+            "swipl",
+            "-q",
+            "-g",
+            "use_module(library(janus)),current_predicate(py_call/3),py_call(sys:version,V,[py_string_as(string)]),writeln(V),halt.",
+        ],
+        timeout=15,
+    )
+    if rc != 0:
+        detail = output.splitlines()[-1] if output else "swipl Janus smoke failed"
+        if "Library not loaded" in output:
+            detail = "Janus native library could not load its Python runtime"
+        return False, detail
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    version = lines[-1] if lines else ""
+    if not version.startswith("3.11."):
+        return False, f"Janus must embed Python 3.11.x; got {version or 'no version output'}"
+    return True, f"Python {version.split()[0]}"
+
+
+def diagnose(workspace: pathlib.Path, include_remote: bool = False, check_runtime: bool = False) -> tuple[bool, list[tuple[str, str, str]]]:
     workspace = workspace.expanduser().resolve()
     core = workspace / "repos" / "OmegaClaw-Core"
     env_path = workspace / ".env"
@@ -138,6 +160,16 @@ def diagnose(workspace: pathlib.Path, include_remote: bool = False) -> tuple[boo
     if channel == "telegram":
         ok &= _check(bool(env.get("TG_BOT_TOKEN")), "Telegram token", "configured", "TG_BOT_TOKEN missing", rows)
         rows.append(("INFO", "Telegram bind mode", "fixed chat" if env.get("TG_CHAT_ID") else "auth/auto-bind"))
+
+    if check_runtime:
+        janus_ok, janus_detail = _janus_smoke()
+        ok &= _check(
+            janus_ok,
+            "SWI-Prolog Janus bridge",
+            janus_detail,
+            janus_detail + "; rerun the macOS installer to repair the pinned local runtime",
+            rows,
+        )
 
     return ok, rows
 
@@ -264,7 +296,11 @@ def main() -> int:
     if args.telegram_probe:
         ok, rows = telegram_probe(pathlib.Path(args.workspace))
     else:
-        ok, rows = diagnose(pathlib.Path(args.workspace), include_remote=args.remote and not args.startup_check)
+        ok, rows = diagnose(
+            pathlib.Path(args.workspace),
+            include_remote=args.remote and not args.startup_check,
+            check_runtime=args.startup_check,
+        )
     if not args.quiet:
         print_rows(rows)
     if not ok:
