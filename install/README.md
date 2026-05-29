@@ -87,8 +87,10 @@ python ~/OmegaClaw/repos/OmegaClaw-Core/install/installer_common.py --workspace 
 The generated root `run.metta` uses PeTTa's `git-import!` to register the local
 `repos/OmegaClaw-Core` clone as the `OmegaClaw-Core` library. The installer
 pulls that clone during setup. The generated root `run.metta` imports
-`~/OmegaClaw/local/modules-loader.metta` before the loop starts, so the selected
-channel and module surface are visible to MeTTa without dirtying the Git clone.
+the core substrate first, then `~/OmegaClaw/local/modules-loader.metta`, then
+starts the loop. The selected channel and module surface are visible to MeTTa
+without dirtying the Git clone, but modules attach only after core runtime
+primitives are loaded.
 
 For Telegram, leaving `TG_CHAT_ID` empty enables first-chat binding. If the
 local auth secret is enabled, the installer writes `telegram-auth-command.txt`

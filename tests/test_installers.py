@@ -17,6 +17,14 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
+def assert_ordered(testcase, text, *needles):
+    offset = -1
+    for needle in needles:
+        found = text.find(needle)
+        testcase.assertGreater(found, offset, f"{needle!r} should appear after the previous composition element")
+        offset = found
+
+
 def load_installer_common():
     path = ROOT / "install" / "installer_common.py"
     spec = importlib.util.spec_from_file_location("installer_common", path)
@@ -44,6 +52,14 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("https://github.com/physixCN/OmegaClaw-Core.git", run_metta)
         self.assertIn("git-import!", run_metta)
         self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", run_metta)
+        assert_ordered(
+            self,
+            run_metta,
+            "lib_omegaclaw_no_agentverse",
+            "./modules/loader.metta",
+            "lib_omegaclaw_attention",
+            "(omegaclaw)",
+        )
         self.assertNotIn("https://github.com/asi-alliance/OmegaClaw-Core.git", run_metta)
 
     def test_installer_discovers_modules_and_writes_workspace_local_loader(self):
@@ -308,6 +324,14 @@ class InstallerTests(unittest.TestCase):
             self.assertIn(installer.PUBLIC_CORE_URL, text)
             self.assertIn("./local/modules-loader.metta", text)
             self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", text)
+            assert_ordered(
+                self,
+                text,
+                "lib_omegaclaw_no_agentverse",
+                "./local/modules-loader.metta",
+                "lib_omegaclaw_attention",
+                "(omegaclaw)",
+            )
             self.assertNotIn("lib_omegaclaw_body", text)
 
     def test_repo_run_registers_public_local_clone(self):
@@ -316,6 +340,14 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("https://github.com/physixCN/OmegaClaw-Core.git", text)
         self.assertIn("./modules/loader.metta", text)
         self.assertIn("(library OmegaClaw-Core lib_omegaclaw_no_agentverse)", text)
+        assert_ordered(
+            self,
+            text,
+            "lib_omegaclaw_no_agentverse",
+            "./modules/loader.metta",
+            "lib_omegaclaw_attention",
+            "(omegaclaw)",
+        )
         self.assertNotIn("lib_omegaclaw_body", text)
 
     def test_macos_installer_writes_desktop_launcher_when_desktop_exists(self):
@@ -432,8 +464,10 @@ class InstallerTests(unittest.TestCase):
             (workspace / "local" / "prompt.txt").write_text("You are Ada.\n", encoding="utf-8")
             (workspace / "run.metta").write_text(
                 '!(git-import! "https://github.com/physixCN/OmegaClaw-Core.git")\n'
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_no_agentverse))\n"
                 "!(import! &self ./local/modules-loader.metta)\n"
-                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_no_agentverse))\n",
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_attention))\n"
+                "!(omegaclaw)\n",
                 encoding="utf-8",
             )
             (workspace / "start-omegaclaw.sh").write_text("#!/bin/sh\n", encoding="utf-8")
@@ -445,6 +479,45 @@ class InstallerTests(unittest.TestCase):
             )
             ok, rows = doctor.diagnose(workspace)
             self.assertTrue(ok, rows)
+
+    def test_doctor_rejects_loader_before_core_composition(self):
+        doctor = load_doctor()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp) / "OmegaClaw"
+            core = workspace / "repos" / "OmegaClaw-Core"
+            (core / ".git").mkdir(parents=True)
+            (core / "src").mkdir()
+            (core / "src" / "loop.metta").write_text(
+                "(change-state! &loops 0)\n(println! (CHARS_SENT: (string_length $send)))\n",
+                encoding="utf-8",
+            )
+            (workspace / "local").mkdir()
+            (workspace / "local" / "modules-loader.metta").write_text(
+                "!(import! &self (library OmegaClaw-Core ./modules/channel_router/entry.metta))\n"
+                "!(import! &self (library OmegaClaw-Core ./modules/channel_telegram/entry.metta))\n",
+                encoding="utf-8",
+            )
+            (workspace / "local" / "prompt.txt").write_text("You are Ada.\n", encoding="utf-8")
+            (workspace / "run.metta").write_text(
+                '!(git-import! "https://github.com/physixCN/OmegaClaw-Core.git")\n'
+                "!(import! &self ./local/modules-loader.metta)\n"
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_no_agentverse))\n"
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_attention))\n"
+                "!(omegaclaw)\n",
+                encoding="utf-8",
+            )
+            (workspace / "start-omegaclaw.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+            (workspace / "Start OmegaClaw.command").write_text("#!/bin/sh\n", encoding="utf-8")
+            prompt_path = workspace / "local" / "prompt.txt"
+            (workspace / ".env").write_text(
+                f"commchannel='telegram'\nOMEGACLAW_PRIMARY_CHANNEL='telegram'\nTG_BOT_TOKEN='token'\nOMEGACLAW_PROMPT_FILE='{prompt_path}'\n",
+                encoding="utf-8",
+            )
+
+            ok, rows = doctor.diagnose(workspace)
+
+            self.assertFalse(ok, rows)
+            self.assertTrue(any(label == "composition order" and status == "FAIL" for status, label, _ in rows), rows)
 
     def test_public_prompt_has_no_private_operator_names(self):
         prompt = (ROOT / "memory" / "prompt.txt").read_text(encoding="utf-8")

@@ -471,8 +471,8 @@ def write_root_run(workspace: pathlib.Path) -> None:
             f"""
             !(import! &self (library lib_import))
             !(git-import! "{PUBLIC_CORE_URL}")
-            !(import! &self ./local/modules-loader.metta)
             !(import! &self (car-atom (collapse (library OmegaClaw-Core lib_omegaclaw_no_agentverse))))
+            !(import! &self ./local/modules-loader.metta)
             !(import! &self (car-atom (collapse (library OmegaClaw-Core lib_omegaclaw_attention))))
 
             !(omegaclaw)

@@ -45,6 +45,16 @@ def _contains_module(loader_text: str, module: str) -> bool:
     return f"./modules/{module}/entry.metta" in loader_text
 
 
+def _ordered(text: str, *needles: str) -> bool:
+    offset = -1
+    for needle in needles:
+        found = text.find(needle)
+        if found <= offset:
+            return False
+        offset = found
+    return True
+
+
 def diagnose(workspace: pathlib.Path, include_remote: bool = False) -> tuple[bool, list[tuple[str, str, str]]]:
     workspace = workspace.expanduser().resolve()
     core = workspace / "repos" / "OmegaClaw-Core"
@@ -77,6 +87,13 @@ def diagnose(workspace: pathlib.Path, include_remote: bool = False) -> tuple[boo
         run_text = run_path.read_text(encoding="utf-8", errors="replace")
         ok &= _check("./local/modules-loader.metta" in run_text, "root module loader", "workspace-local loader imported", "root run.metta does not import ./local/modules-loader.metta", rows)
         ok &= _check("lib_omegaclaw_no_agentverse" in run_text, "root core import", "core substrate imported", "core substrate import missing", rows)
+        ok &= _check(
+            _ordered(run_text, "lib_omegaclaw_no_agentverse", "./local/modules-loader.metta", "lib_omegaclaw_attention", "(omegaclaw)"),
+            "composition order",
+            "core -> local modules -> attention -> loop",
+            "root run.metta must import core before local modules and start loop last",
+            rows,
+        )
         ok &= _check("lib_omegaclaw_body" not in run_text, "old body loader", "not imported by generated root", "generated root still imports old body loader path", rows)
 
     ok &= _check(loader_path.exists(), "local module loader", str(loader_path), "missing local/modules-loader.metta", rows)
