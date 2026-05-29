@@ -663,6 +663,10 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         skill_catalog = skill_catalog_source()
         init_channels = channels[channels.index("(= (initChannels)"):channels.index(";Receive the latest user message")]
         self.assertIn("(configure commchannel mock)", init_channels)
+        self.assertIn("CHANNEL-INIT", init_channels)
+        self.assertIn("(configure OMEGACLAW_AUTH_SECRET \"\")", init_channels)
+        self.assertIn("(telegram.start_telegram (TG_BOT_TOKEN) (TG_CHAT_ID) (TG_POLL_TIMEOUT) (OMEGACLAW_AUTH_SECRET))", init_channels)
+        self.assertIn("CHANNEL-READY telegram", init_channels)
         self.assertIn("(= (send-control $msg)", channels)
         self.assertIn("(= (send-web-control $msg)", channels)
         self.assertIn("router.send_control_base64", channels)

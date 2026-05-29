@@ -95,8 +95,10 @@ Mattermost adapter using a bot token.
 
 Telegram adapter using Bot API long polling.
 
-- `start_telegram(bot_token, chat_id, poll_timeout)` — starts a poll loop.
+- `start_telegram(bot_token, chat_id, poll_timeout, auth_secret)` — starts a poll loop.
 - `TG_CHAT_ID` is optional; if empty, the adapter can auto-bind to the first valid inbound chat.
+- When `auth_secret` is set, pending updates are preserved until a private chat, group, or channel sends `/auth <secret>`.
+- Startup and poll decisions are logged with `[TELEGRAM]` diagnostics; message bodies are not printed in diagnostics.
 - Outbound messages are chunked to Telegram-safe lengths.
 
 ## `channels/slack.py`

@@ -37,7 +37,7 @@ This reads a command-line override via `argk` (`name=value` on the MeTTa command
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `commchannel` | `irc` | Active channel — `irc`, `telegram`, `slack`, or `mattermost`. |
+| `commchannel` | `irc` | Active channel — `irc`, `telegram`, `slack`, `mattermost`, `whatsapp`, `web_control`, or `mock`. |
 | `IRC_channel` | `##omegaclaw` | IRC channel to join. |
 | `IRC_server` | `irc.quakenet.org` | IRC server hostname. |
 | `IRC_port` | 6667 | IRC port. |
@@ -45,6 +45,7 @@ This reads a command-line override via `argk` (`name=value` on the MeTTa command
 | `TG_BOT_TOKEN` | *(empty — set at runtime)* | Telegram bot token (from BotFather). |
 | `TG_CHAT_ID` | *(empty — auto-bind supported)* | Optional fixed Telegram chat ID. Leave empty to auto-bind on first valid inbound auth/message. When `OMEGACLAW_AUTH_SECRET` is set, send `/auth <secret>` to the bot first; the installer writes this command to `telegram-auth-command.txt`. |
 | `TG_POLL_TIMEOUT` | 20 | Telegram long-poll timeout in seconds. |
+| `OMEGACLAW_CHANNEL_DEBUG` | `1` | Channel adapter diagnostics. Leave enabled while installing; set to `0` only after the selected channel is proven. |
 | `SL_BOT_TOKEN` | *(empty — set at runtime)* | Slack bot token (`xoxb-...`). |
 | `SL_CHANNEL_ID` | *(empty — auto-bind supported)* | Optional Slack channel ID where OmegaClaw reads/writes messages. Leave empty to auto-bind on first valid inbound auth/message. |
 | `SL_POLL_INTERVAL` | 60 | Slack poll interval in seconds (minimum effective value is 60). |

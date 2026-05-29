@@ -539,7 +539,7 @@ def write_start_scripts(workspace: pathlib.Path) -> list[pathlib.Path]:
               export PYTHONPATH="$PWD/repos/OmegaClaw-Core/src${PYTHONPATH:+:$PYTHONPATH}"
             fi
             if [ -f repos/OmegaClaw-Core/install/doctor.py ]; then
-              "$OMEGACLAW_PYTHON_EXECUTABLE" repos/OmegaClaw-Core/install/doctor.py --workspace "$PWD" --startup-check --quiet
+              "$OMEGACLAW_PYTHON_EXECUTABLE" repos/OmegaClaw-Core/install/doctor.py --workspace "$PWD" --startup-check
             fi
             exec ./run.sh run.metta "$@"
             """

@@ -318,6 +318,7 @@ class InstallerTests(unittest.TestCase):
             self.assertIn("PYTHONPATH", start)
             self.assertIn("install/doctor.py", start)
             self.assertIn("--startup-check", start)
+            self.assertNotIn("--quiet", start)
             self.assertIn(launcher, launchers)
             self.assertIn("start-omegaclaw.sh", launcher.read_text(encoding="utf-8"))
 
