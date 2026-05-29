@@ -224,6 +224,7 @@ class InstallerTests(unittest.TestCase):
             self.assertIn("MAMBA_ROOT_PREFIX", start)
             self.assertIn("PATH=\"$LOCAL_TOOLCHAIN:$PATH\"", start)
             self.assertIn("DYLD_FALLBACK_LIBRARY_PATH", start)
+            self.assertIn("OMEGACLAW_PYTHON_EXECUTABLE", start)
             self.assertIn(".venv/lib/python3.11/site-packages", start)
             self.assertIn("repos/OmegaClaw-Core/src", start)
             self.assertIn("PYTHONPATH", start)

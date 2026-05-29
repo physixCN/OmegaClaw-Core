@@ -4,6 +4,17 @@ import openai
 from typing import Optional
 
 try:
+    from src.python_runtime import configure_embedded_python_runtime
+except Exception:  # pragma: no cover - direct import from src path
+    try:
+        from python_runtime import configure_embedded_python_runtime
+    except Exception:
+        configure_embedded_python_runtime = None
+
+if configure_embedded_python_runtime is not None:
+    configure_embedded_python_runtime()
+
+try:
     import energy as _energy
 except Exception:
     _energy = None

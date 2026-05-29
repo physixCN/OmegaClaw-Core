@@ -116,6 +116,7 @@ install_swi_prolog_app() {
   cat > "$SWIPL_WRAPPER" <<EOF
 #!/bin/sh
 export DYLD_FALLBACK_LIBRARY_PATH="$ENV_PREFIX/lib\${DYLD_FALLBACK_LIBRARY_PATH:+:\$DYLD_FALLBACK_LIBRARY_PATH}"
+export OMEGACLAW_PYTHON_EXECUTABLE="$WORKSPACE/.venv/bin/python"
 export PYTHONPATH="$WORKSPACE/repos/OmegaClaw-Core/src:$WORKSPACE/.venv/lib/python3.11/site-packages:$ENV_PREFIX/lib/python3.11/site-packages\${PYTHONPATH:+:\$PYTHONPATH}"
 exec "$SWI_APP_DIR/Contents/MacOS/swipl" "\$@"
 EOF

@@ -9,6 +9,13 @@ import pathlib
 import sys
 
 try:
+    from .python_runtime import configure_embedded_python_runtime
+except Exception:  # pragma: no cover - direct script import fallback
+    from python_runtime import configure_embedded_python_runtime
+
+configure_embedded_python_runtime()
+
+try:
     from .helper_history import (
         extract_timestamp,
         coerce_recall_lines,

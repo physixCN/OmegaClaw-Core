@@ -404,6 +404,11 @@ def write_start_scripts(workspace: pathlib.Path) -> list[pathlib.Path]:
               export PATH="$LOCAL_TOOLCHAIN:$PATH"
               export DYLD_FALLBACK_LIBRARY_PATH="$LOCAL_PREFIX/lib${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"
             fi
+            if [ -x .venv/bin/python ]; then
+              export OMEGACLAW_PYTHON_EXECUTABLE="$PWD/.venv/bin/python"
+            elif [ -x "$LOCAL_TOOLCHAIN/python" ]; then
+              export OMEGACLAW_PYTHON_EXECUTABLE="$LOCAL_TOOLCHAIN/python"
+            fi
             if [ -f .venv/bin/activate ]; then
               . ./.venv/bin/activate
             fi
