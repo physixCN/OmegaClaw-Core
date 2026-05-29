@@ -8,10 +8,13 @@ composition matches the saved config before the MeTTa loop starts.
 from __future__ import annotations
 
 import argparse
+import json
 import pathlib
 import re
 import subprocess
 import sys
+import urllib.parse
+import urllib.request
 
 try:
     import installer_common
@@ -145,15 +148,123 @@ def print_rows(rows: list[tuple[str, str, str]]) -> None:
         print(f"{status:4} {label:<{width}} {detail}")
 
 
+def _telegram_api(token: str, method: str, params: dict[str, str] | None = None, timeout: int = 10) -> tuple[bool, object]:
+    params = params or {}
+    url = f"https://api.telegram.org/bot{token}/{method}"
+    if params:
+        url = f"{url}?{urllib.parse.urlencode(params)}"
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            payload = json.loads(response.read().decode("utf-8", errors="replace"))
+    except Exception as exc:
+        return False, f"{type(exc).__name__}: {exc}"
+    if not payload.get("ok"):
+        return False, payload.get("description", f"{method} failed")
+    return True, payload.get("result")
+
+
+def _telegram_update_message(update: dict) -> tuple[str, dict | None]:
+    for kind in ("message", "edited_message", "channel_post", "edited_channel_post"):
+        value = update.get(kind)
+        if isinstance(value, dict):
+            return kind, value
+    return "unsupported", None
+
+
+def _telegram_auth_candidate(text: str) -> str:
+    stripped = str(text or "").strip()
+    lower = stripped.lower()
+    if lower.startswith("/auth "):
+        return stripped[6:].strip()
+    if lower.startswith("auth "):
+        return stripped[5:].strip()
+    return stripped
+
+
+def _chat_summary(message: dict | None) -> str:
+    if not isinstance(message, dict):
+        return "chat=unknown"
+    chat = message.get("chat") or {}
+    chat_type = chat.get("type", "unknown")
+    chat_id = str(chat.get("id", "unknown"))
+    if len(chat_id) > 8:
+        chat_id = f"{chat_id[:4]}...{chat_id[-4:]}"
+    return f"chat_type={chat_type} chat={chat_id}"
+
+
+def telegram_probe(workspace: pathlib.Path) -> tuple[bool, list[tuple[str, str, str]]]:
+    workspace = workspace.expanduser().resolve()
+    env = installer_common.parse_env_file(workspace / ".env")
+    rows: list[tuple[str, str, str]] = []
+    ok = True
+
+    token = env.get("TG_BOT_TOKEN", "").strip()
+    auth_secret = env.get("OMEGACLAW_AUTH_SECRET", "").strip()
+    configured_chat = env.get("TG_CHAT_ID", "").strip()
+
+    ok &= _check(bool(token), "Telegram token", "configured", "TG_BOT_TOKEN missing", rows)
+    if not token:
+        return False, rows
+
+    api_ok, me = _telegram_api(token, "getMe")
+    ok &= _check(api_ok and isinstance(me, dict), "Telegram getMe", "bot reachable", f"failed: {me}", rows)
+    if isinstance(me, dict):
+        rows.append(("INFO", "Telegram bot", f"@{me.get('username', '<unknown>')} id={me.get('id', '<unknown>')}"))
+
+    api_ok, webhook = _telegram_api(token, "getWebhookInfo")
+    ok &= _check(api_ok and isinstance(webhook, dict), "Telegram webhook info", "available", f"failed: {webhook}", rows)
+    if isinstance(webhook, dict):
+        webhook_url = str(webhook.get("url", "") or "")
+        ok &= _check(
+            not webhook_url,
+            "Telegram webhook",
+            "not set; getUpdates polling can receive messages",
+            "webhook is set; Telegram will not deliver updates to polling until deleteWebhook",
+            rows,
+        )
+        pending = webhook.get("pending_update_count", 0)
+        rows.append(("INFO", "Telegram pending webhook updates", str(pending)))
+
+    api_ok, updates = _telegram_api(
+        token,
+        "getUpdates",
+        {"timeout": "0", "allowed_updates": json.dumps(["message", "edited_message", "channel_post", "edited_channel_post"])},
+    )
+    ok &= _check(api_ok and isinstance(updates, list), "Telegram getUpdates", "poll API reachable", f"failed: {updates}", rows)
+    if isinstance(updates, list):
+        rows.append(("INFO", "Telegram pending updates", str(len(updates))))
+        for update in updates[-10:]:
+            if not isinstance(update, dict):
+                continue
+            kind, message = _telegram_update_message(update)
+            text = ""
+            if isinstance(message, dict):
+                text = str(message.get("text", "") or message.get("caption", "") or "")
+            if configured_chat:
+                chat = str((message or {}).get("chat", {}).get("id", ""))
+                decision = "would-allow-fixed-chat" if chat == configured_chat else "would-ignore-wrong-chat"
+            elif auth_secret:
+                decision = "would-auth-bind" if _telegram_auth_candidate(text) == auth_secret else "would-ignore-auth-required"
+            else:
+                decision = "would-allow-auto-bind"
+            rows.append(("INFO", f"update {update.get('update_id', 'unknown')}", f"kind={kind} {_chat_summary(message)} {decision}"))
+
+    return ok, rows
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check an OmegaClaw source install.")
     parser.add_argument("--workspace", default=str(pathlib.Path.home() / "OmegaClaw"))
     parser.add_argument("--startup-check", action="store_true", help="Run only local checks suitable for launcher startup.")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--remote", action="store_true", help="Also query public GitHub HEAD.")
+    parser.add_argument("--telegram-probe", action="store_true", help="Probe Telegram Bot API without printing tokens or message bodies.")
     args = parser.parse_args()
 
-    ok, rows = diagnose(pathlib.Path(args.workspace), include_remote=args.remote and not args.startup_check)
+    if args.telegram_probe:
+        ok, rows = telegram_probe(pathlib.Path(args.workspace))
+    else:
+        ok, rows = diagnose(pathlib.Path(args.workspace), include_remote=args.remote and not args.startup_check)
     if not args.quiet:
         print_rows(rows)
     if not ok:

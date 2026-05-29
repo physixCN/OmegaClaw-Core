@@ -7,6 +7,7 @@ launcher files that do not embed private deployment state.
 """
 
 import importlib.util
+import json
 import os
 import pathlib
 import sys
@@ -595,6 +596,70 @@ class InstallerTests(unittest.TestCase):
 
             self.assertFalse(ok, rows)
             self.assertTrue(any(label == "channel config consistency" and status == "FAIL" for status, label, _ in rows), rows)
+
+    def test_telegram_probe_reports_webhook_and_auth_decision_without_message_body(self):
+        doctor = load_doctor()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp) / "OmegaClaw"
+            workspace.mkdir()
+            (workspace / ".env").write_text(
+                "TG_BOT_TOKEN='token'\nOMEGACLAW_AUTH_SECRET='secret'\n",
+                encoding="utf-8",
+            )
+
+            def fake_api(token, method, params=None, timeout=10):
+                self.assertEqual(token, "token")
+                if method == "getMe":
+                    return True, {"username": "OmegaTestBot", "id": 123}
+                if method == "getWebhookInfo":
+                    return True, {"url": "", "pending_update_count": 0}
+                if method == "getUpdates":
+                    self.assertEqual(json.loads(params["allowed_updates"]), ["message", "edited_message", "channel_post", "edited_channel_post"])
+                    return True, [
+                        {"update_id": 42, "message": {"chat": {"id": 999, "type": "private"}, "text": "/auth secret"}},
+                        {"update_id": 43, "message": {"chat": {"id": 999, "type": "private"}, "text": "private body should not print"}},
+                    ]
+                return False, "unexpected"
+
+            original_api = doctor._telegram_api
+            try:
+                doctor._telegram_api = fake_api
+                ok, rows = doctor.telegram_probe(workspace)
+            finally:
+                doctor._telegram_api = original_api
+
+            rendered = "\n".join(detail for _, _, detail in rows)
+            self.assertTrue(ok, rows)
+            self.assertIn("would-auth-bind", rendered)
+            self.assertIn("would-ignore-auth-required", rendered)
+            self.assertNotIn("private body should not print", rendered)
+            self.assertNotIn("/auth secret", rendered)
+
+    def test_telegram_probe_flags_active_webhook_as_polling_blocker(self):
+        doctor = load_doctor()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp) / "OmegaClaw"
+            workspace.mkdir()
+            (workspace / ".env").write_text("TG_BOT_TOKEN='token'\n", encoding="utf-8")
+
+            def fake_api(token, method, params=None, timeout=10):
+                if method == "getMe":
+                    return True, {"username": "OmegaTestBot", "id": 123}
+                if method == "getWebhookInfo":
+                    return True, {"url": "https://example.invalid/webhook", "pending_update_count": 2}
+                if method == "getUpdates":
+                    return False, "Conflict: webhook active"
+                return False, "unexpected"
+
+            original_api = doctor._telegram_api
+            try:
+                doctor._telegram_api = fake_api
+                ok, rows = doctor.telegram_probe(workspace)
+            finally:
+                doctor._telegram_api = original_api
+
+            self.assertFalse(ok, rows)
+            self.assertTrue(any(label == "Telegram webhook" and status == "FAIL" for status, label, _ in rows), rows)
 
     def test_public_prompt_has_no_private_operator_names(self):
         prompt = (ROOT / "memory" / "prompt.txt").read_text(encoding="utf-8")
