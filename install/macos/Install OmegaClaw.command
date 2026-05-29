@@ -87,10 +87,6 @@ install_swi_prolog_app() {
   SWI_DMG_URL="$6"
   SWIPL_WRAPPER="$ENV_PREFIX/bin/swipl"
 
-  if [ -x "$SWIPL_WRAPPER" ]; then
-    return 0
-  fi
-
   mkdir -p "$WORKSPACE/.local" "$ENV_PREFIX/bin"
   if [ ! -d "$SWI_APP_DIR" ]; then
     echo "Downloading official SWI-Prolog macOS bundle..."
@@ -115,11 +111,37 @@ install_swi_prolog_app() {
     exit 1
   fi
 
+  repair_swi_janus_linkage "$ENV_PREFIX" "$SWI_APP_DIR"
+
   cat > "$SWIPL_WRAPPER" <<EOF
 #!/bin/sh
+export DYLD_FALLBACK_LIBRARY_PATH="$ENV_PREFIX/lib\${DYLD_FALLBACK_LIBRARY_PATH:+:\$DYLD_FALLBACK_LIBRARY_PATH}"
+export PYTHONPATH="$WORKSPACE/repos/OmegaClaw-Core/src:$WORKSPACE/.venv/lib/python3.11/site-packages:$ENV_PREFIX/lib/python3.11/site-packages\${PYTHONPATH:+:\$PYTHONPATH}"
 exec "$SWI_APP_DIR/Contents/MacOS/swipl" "\$@"
 EOF
   chmod +x "$SWIPL_WRAPPER"
+}
+
+repair_swi_janus_linkage() {
+  ENV_PREFIX="$1"
+  SWI_APP_DIR="$2"
+  JANUS_PLUGIN="$SWI_APP_DIR/Contents/PlugIns/swipl/janus.so"
+  PYTHON_DYLIB="$ENV_PREFIX/lib/libpython3.11.dylib"
+  PYTHON_FRAMEWORK="/Library/Frameworks/Python.framework/Versions/3.11/Python"
+
+  if [ ! -f "$JANUS_PLUGIN" ]; then
+    echo "SWI-Prolog Janus plugin was not found: $JANUS_PLUGIN" >&2
+    exit 1
+  fi
+  if [ ! -f "$PYTHON_DYLIB" ]; then
+    echo "Local Python dylib was not found: $PYTHON_DYLIB" >&2
+    exit 1
+  fi
+
+  if otool -L "$JANUS_PLUGIN" | grep -q "$PYTHON_FRAMEWORK"; then
+    echo "Patching SWI-Prolog Janus to use local OmegaClaw Python..."
+    install_name_tool -change "$PYTHON_FRAMEWORK" "$PYTHON_DYLIB" "$JANUS_PLUGIN"
+  fi
 }
 
 install_homebrew_toolchain() {

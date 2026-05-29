@@ -397,13 +397,21 @@ def write_start_scripts(workspace: pathlib.Path) -> list[pathlib.Path]:
               . ./.env
               set +a
             fi
-            LOCAL_TOOLCHAIN="$PWD/.micromamba/envs/omegaclaw/bin"
+            LOCAL_PREFIX="$PWD/.micromamba/envs/omegaclaw"
+            LOCAL_TOOLCHAIN="$LOCAL_PREFIX/bin"
             if [ -d "$LOCAL_TOOLCHAIN" ]; then
               export MAMBA_ROOT_PREFIX="$PWD/.micromamba"
               export PATH="$LOCAL_TOOLCHAIN:$PATH"
+              export DYLD_FALLBACK_LIBRARY_PATH="$LOCAL_PREFIX/lib${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"
             fi
             if [ -f .venv/bin/activate ]; then
               . ./.venv/bin/activate
+            fi
+            if [ -d .venv/lib/python3.11/site-packages ]; then
+              export PYTHONPATH="$PWD/.venv/lib/python3.11/site-packages${PYTHONPATH:+:$PYTHONPATH}"
+            fi
+            if [ -d repos/OmegaClaw-Core/src ]; then
+              export PYTHONPATH="$PWD/repos/OmegaClaw-Core/src${PYTHONPATH:+:$PYTHONPATH}"
             fi
             exec ./run.sh run.metta "$@"
             """
