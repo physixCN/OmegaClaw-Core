@@ -444,6 +444,44 @@ class InstallerTests(unittest.TestCase):
             self.assertIn("channel_telegram", (resolved_workspace / "local" / "modules-loader.metta").read_text(encoding="utf-8"))
             self.assertIn("You are Ada", (resolved_workspace / "local" / "prompt.txt").read_text(encoding="utf-8"))
 
+    def test_repair_normalizes_stale_primary_channel_to_commchannel(self):
+        installer = load_installer_common()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp) / "OmegaClaw"
+            core = workspace / "repos" / "OmegaClaw-Core"
+            core.mkdir(parents=True)
+            (core / ".git").mkdir()
+            (core / "memory").mkdir()
+            (core / "memory" / "prompt.txt").write_text("You are Omega.\n", encoding="utf-8")
+            (core / "modules").mkdir()
+            for name in ["channel_router", "scratch_space", "web_search", "channel_telegram", "channel_whatsapp"]:
+                module = core / "modules" / name
+                module.mkdir()
+                (module / "module.toml").write_text(
+                    f'id = "{name}"\nkind = "module"\nentrypoint = "entry.metta"\ndefault_enabled = {"true" if name in {"channel_router", "scratch_space", "web_search"} else "false"}\n',
+                    encoding="utf-8",
+                )
+            (workspace / ".env").write_text(
+                "commchannel='telegram'\nOMEGACLAW_PRIMARY_CHANNEL='whatsapp'\nTG_BOT_TOKEN='token'\n",
+                encoding="utf-8",
+            )
+
+            original_prepare = installer.prepare_workspace
+            original_write_start = installer.write_start_scripts
+            try:
+                installer.prepare_workspace = lambda ws, repo_url: core
+                installer.write_start_scripts = lambda ws: []
+                result = installer.repair_install(workspace, installer.PUBLIC_CORE_URL)
+            finally:
+                installer.prepare_workspace = original_prepare
+                installer.write_start_scripts = original_write_start
+
+            self.assertEqual(result, 0)
+            env = installer.parse_env_file(workspace / ".env")
+            self.assertEqual(env["commchannel"], "telegram")
+            self.assertEqual(env["OMEGACLAW_PRIMARY_CHANNEL"], "telegram")
+            self.assertIn("channel_telegram", env["OMEGACLAW_ENABLED_MODULES"])
+
     def test_doctor_accepts_repaired_workspace_contract(self):
         doctor = load_doctor()
         with tempfile.TemporaryDirectory() as tmp:
@@ -518,6 +556,45 @@ class InstallerTests(unittest.TestCase):
 
             self.assertFalse(ok, rows)
             self.assertTrue(any(label == "composition order" and status == "FAIL" for status, label, _ in rows), rows)
+
+    def test_doctor_rejects_stale_primary_channel_mismatch(self):
+        doctor = load_doctor()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp) / "OmegaClaw"
+            core = workspace / "repos" / "OmegaClaw-Core"
+            (core / ".git").mkdir(parents=True)
+            (core / "src").mkdir()
+            (core / "src" / "loop.metta").write_text(
+                "(change-state! &loops 0)\n(println! (CHARS_SENT: (string_length $send)))\n",
+                encoding="utf-8",
+            )
+            (workspace / "local").mkdir()
+            (workspace / "local" / "modules-loader.metta").write_text(
+                "!(import! &self (library OmegaClaw-Core ./modules/channel_router/entry.metta))\n"
+                "!(import! &self (library OmegaClaw-Core ./modules/channel_telegram/entry.metta))\n",
+                encoding="utf-8",
+            )
+            (workspace / "local" / "prompt.txt").write_text("You are Ada.\n", encoding="utf-8")
+            (workspace / "run.metta").write_text(
+                '!(git-import! "https://github.com/physixCN/OmegaClaw-Core.git")\n'
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_no_agentverse))\n"
+                "!(import! &self ./local/modules-loader.metta)\n"
+                "!(import! &self (library OmegaClaw-Core lib_omegaclaw_attention))\n"
+                "!(omegaclaw)\n",
+                encoding="utf-8",
+            )
+            (workspace / "start-omegaclaw.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+            (workspace / "Start OmegaClaw.command").write_text("#!/bin/sh\n", encoding="utf-8")
+            prompt_path = workspace / "local" / "prompt.txt"
+            (workspace / ".env").write_text(
+                f"commchannel='telegram'\nOMEGACLAW_PRIMARY_CHANNEL='whatsapp'\nTG_BOT_TOKEN='token'\nOMEGACLAW_PROMPT_FILE='{prompt_path}'\n",
+                encoding="utf-8",
+            )
+
+            ok, rows = doctor.diagnose(workspace)
+
+            self.assertFalse(ok, rows)
+            self.assertTrue(any(label == "channel config consistency" and status == "FAIL" for status, label, _ in rows), rows)
 
     def test_public_prompt_has_no_private_operator_names(self):
         prompt = (ROOT / "memory" / "prompt.txt").read_text(encoding="utf-8")

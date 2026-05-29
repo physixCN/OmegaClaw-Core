@@ -69,7 +69,9 @@ def diagnose(workspace: pathlib.Path, include_remote: bool = False) -> tuple[boo
     ok = True
 
     env = installer_common.parse_env_file(env_path)
-    channel = env.get("commchannel") or env.get("OMEGACLAW_PRIMARY_CHANNEL") or ""
+    commchannel = env.get("commchannel", "")
+    primary_channel = env.get("OMEGACLAW_PRIMARY_CHANNEL", "")
+    channel = commchannel or primary_channel or ""
     expected_channel_module = installer_common.CHANNEL_MODULES.get(channel, "")
 
     ok &= _check(core.exists() and (core / ".git").exists(), "core clone", str(core), "missing Git clone", rows)
@@ -82,6 +84,13 @@ def diagnose(workspace: pathlib.Path, include_remote: bool = False) -> tuple[boo
 
     ok &= _check(env_path.exists(), ".env", str(env_path), "missing install config", rows)
     ok &= _check(bool(channel), "primary channel", channel or "<none>", "commchannel/OMEGACLAW_PRIMARY_CHANNEL unset", rows)
+    ok &= _check(
+        not (commchannel and primary_channel and commchannel != primary_channel),
+        "channel config consistency",
+        f"commchannel={commchannel or '<unset>'}",
+        f"commchannel={commchannel} but OMEGACLAW_PRIMARY_CHANNEL={primary_channel}",
+        rows,
+    )
     ok &= _check(run_path.exists(), "root run.metta", str(run_path), "missing root run.metta", rows)
     if run_path.exists():
         run_text = run_path.read_text(encoding="utf-8", errors="replace")

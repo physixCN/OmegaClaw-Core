@@ -667,6 +667,12 @@ def repair_install(workspace: pathlib.Path, repo_url: str) -> int:
     write_root_run(workspace)
     modules = discover_modules(core)
     channel = env_values.get("commchannel") or env_values.get("OMEGACLAW_PRIMARY_CHANNEL") or "mock"
+    if env_values.get("OMEGACLAW_PRIMARY_CHANNEL") != channel:
+        print(
+            "Repair normalized OMEGACLAW_PRIMARY_CHANNEL to match commchannel "
+            f"({channel})."
+        )
+        env_values["OMEGACLAW_PRIMARY_CHANNEL"] = channel
     enabled = enabled_modules_from_config(modules, channel, env_values, previous_loader)
     validate_enabled_modules(modules, enabled, channel)
 
