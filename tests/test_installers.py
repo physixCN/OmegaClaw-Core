@@ -7,6 +7,7 @@ launcher files that do not embed private deployment state.
 """
 
 import importlib.util
+import os
 import pathlib
 import sys
 import tempfile
@@ -213,11 +214,41 @@ class InstallerTests(unittest.TestCase):
         installer = load_installer_common()
         with tempfile.TemporaryDirectory() as tmp:
             workspace = pathlib.Path(tmp)
-            installer.write_start_scripts(workspace)
+            launchers = installer.write_start_scripts(workspace)
             start = (workspace / "start-omegaclaw.sh").read_text(encoding="utf-8")
+            launcher = workspace / "Start OmegaClaw.command"
             self.assertIn(".micromamba/envs/omegaclaw/bin", start)
             self.assertIn("MAMBA_ROOT_PREFIX", start)
             self.assertIn("PATH=\"$LOCAL_TOOLCHAIN:$PATH\"", start)
+            self.assertIn(launcher, launchers)
+            self.assertIn("start-omegaclaw.sh", launcher.read_text(encoding="utf-8"))
+
+    def test_macos_installer_writes_desktop_launcher_when_desktop_exists(self):
+        installer = load_installer_common()
+        with tempfile.TemporaryDirectory() as tmp:
+            home = pathlib.Path(tmp)
+            workspace = home / "OmegaClaw"
+            desktop = home / "Desktop"
+            workspace.mkdir()
+            desktop.mkdir()
+
+            original_platform = installer.sys.platform
+            original_home = os.environ.get("HOME")
+            try:
+                installer.sys.platform = "darwin"
+                os.environ["HOME"] = str(home)
+                launchers = installer.write_start_scripts(workspace)
+            finally:
+                installer.sys.platform = original_platform
+                if original_home is None:
+                    os.environ.pop("HOME", None)
+                else:
+                    os.environ["HOME"] = original_home
+
+            desktop_launcher = desktop / "Start OmegaClaw.command"
+            self.assertIn(desktop_launcher, launchers)
+            self.assertTrue(desktop_launcher.exists())
+            self.assertIn(str(workspace / "Start OmegaClaw.command"), desktop_launcher.read_text(encoding="utf-8"))
 
 
     def test_installer_personalizes_agent_name_without_renaming_framework(self):

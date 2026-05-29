@@ -13,6 +13,7 @@ import getpass
 import os
 import pathlib
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -383,7 +384,7 @@ def write_agent_prompt(core: pathlib.Path, agent_name: str) -> pathlib.Path:
     return prompt_path
 
 
-def write_start_scripts(workspace: pathlib.Path) -> None:
+def write_start_scripts(workspace: pathlib.Path) -> list[pathlib.Path]:
     start_sh = workspace / "start-omegaclaw.sh"
     start_sh.write_text(
         textwrap.dedent(
@@ -417,12 +418,31 @@ def write_start_scripts(workspace: pathlib.Path) -> None:
             """
             #!/bin/sh
             DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-            exec "$DIR/start-omegaclaw.sh"
+            exec "$DIR/start-omegaclaw.sh" "$@"
             """
         ).lstrip(),
         encoding="utf-8",
     )
     start_command.chmod(0o755)
+
+    launchers = [start_command]
+    if sys.platform == "darwin":
+        desktop = pathlib.Path.home() / "Desktop"
+        if desktop.is_dir():
+            desktop_command = desktop / "Start OmegaClaw.command"
+            desktop_command.write_text(
+                textwrap.dedent(
+                    f"""
+                    #!/bin/sh
+                    exec {shlex.quote(str(start_command))} "$@"
+                    """
+                ).lstrip(),
+                encoding="utf-8",
+            )
+            desktop_command.chmod(0o755)
+            launchers.append(desktop_command)
+
+    return launchers
 
 
 def pip_install(workspace: pathlib.Path, enabled: set[str]) -> None:
@@ -528,13 +548,15 @@ def main() -> int:
     write_loader(core, modules, enabled)
     prompt_path = write_agent_prompt(core, agent_name)
     env_path = write_env(workspace, env_values)
-    write_start_scripts(workspace)
+    launchers = write_start_scripts(workspace)
 
     print("\nOmegaClaw install complete.")
     print(f"Config: {env_path}")
     print(f"Modules: {core / 'modules' / 'loader.metta'}")
     print(f"Prompt: {prompt_path}")
     print(f"Start script: {workspace / 'start-omegaclaw.sh'}")
+    for launcher in launchers:
+        print(f"Launcher: {launcher}")
     print("Auth secret: generated and saved in .env; value not displayed")
     print("Run again later with the generated Start OmegaClaw launcher; it will reuse .env.")
     return 0
