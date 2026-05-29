@@ -21,6 +21,7 @@
 ;Connect all the channels:
 (= (initChannels)
    (progn (println! "Initializing channels")
+          (configure commchannel mock)
           (if (== (commchannel) irc)
               (py-call (irc.start_irc (IRC_channel) (IRC_server) (IRC_port) (IRC_user)))
           (if (== (commchannel) telegram)

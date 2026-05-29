@@ -629,6 +629,8 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         channels = (ROOT / "modules" / "channel_router" / "skills.metta").read_text(encoding="utf-8") + (ROOT / "modules" / "channel_web_control" / "skills.metta").read_text(encoding="utf-8")
         skills = skill_implementation_source()
         skill_catalog = skill_catalog_source()
+        init_channels = channels[channels.index("(= (initChannels)"):channels.index(";Receive the latest user message")]
+        self.assertIn("(configure commchannel mock)", init_channels)
         self.assertIn("(= (send-control $msg)", channels)
         self.assertIn("(= (send-web-control $msg)", channels)
         self.assertIn("router.send_control_base64", channels)
