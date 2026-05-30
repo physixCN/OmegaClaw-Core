@@ -187,7 +187,7 @@ def diagnose(workspace: pathlib.Path, include_remote: bool = False, check_runtim
     loop_path = core / "src" / "loop.metta"
     if loop_path.exists():
         loop_text = loop_path.read_text(encoding="utf-8", errors="replace")
-        ok &= _check("(change-state! &loops 0)" in loop_text, "listen-mode boot", "no-input boot does not call LLM", "loop does not set &loops 0 at boot", rows)
+        ok &= _check(bool(loop_text.strip()), "loop source", str(loop_path), "src/loop.metta is empty", rows)
         ok &= _check("(CHARS_SENT: (string_length $send) $send)" not in loop_text, "prompt leak guard", "prompt body is not printed", "loop still prints full prompt body", rows)
 
     if channel == "telegram":

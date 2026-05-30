@@ -644,17 +644,36 @@ def write_start_scripts(workspace: pathlib.Path) -> list[pathlib.Path]:
             mkdir -p logs
             LOG_FILE="${OMEGACLAW_LOG_FILE:-$PWD/logs/omegaclaw-$(date +%Y%m%d-%H%M%S).log}"
             echo "OmegaClaw log: $LOG_FILE"
+            echo "OmegaClaw supervisor active. Press Ctrl-C or close this window to stop." | tee -a "$LOG_FILE"
+            stop_requested=0
+            child_pid=""
+            stop_supervisor() {
+              stop_requested=1
+              echo "OmegaClaw supervisor stopping by user request." | tee -a "$LOG_FILE"
+              if [ -n "${child_pid:-}" ]; then
+                if command -v pkill >/dev/null 2>&1; then
+                  pkill -TERM -P "$child_pid" 2>/dev/null || true
+                fi
+                kill "$child_pid" 2>/dev/null || true
+                wait "$child_pid" 2>/dev/null || true
+              fi
+              exit 0
+            }
+            trap stop_supervisor INT TERM
             while true; do
               set +e
-              ./run.sh run.metta "$@" 2>&1 | tee -a "$LOG_FILE"
-              status="${PIPESTATUS[0]}"
+              ./run.sh run.metta "$@" > >(tee -a "$LOG_FILE") 2>&1 &
+              child_pid="$!"
+              wait "$child_pid"
+              status="$?"
+              child_pid=""
               set -e
-              if [ "$status" -ne 0 ]; then
-                echo "OmegaClaw stopped with status $status; not auto-restarting." | tee -a "$LOG_FILE"
-                exit "$status"
+              if [ "$stop_requested" -eq 1 ]; then
+                echo "OmegaClaw supervisor stopped." | tee -a "$LOG_FILE"
+                exit 0
               fi
-              echo "OmegaClaw run returned cleanly; restarting persistent listen loop." | tee -a "$LOG_FILE"
-              sleep 1
+              echo "OmegaClaw SWI runtime exited with status $status; supervisor restarting runtime." | tee -a "$LOG_FILE"
+              sleep "${OMEGACLAW_RESTART_DELAY:-2}"
             done
             """
         ).lstrip(),

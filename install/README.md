@@ -108,4 +108,7 @@ ordinary chat messages will reach the agent.
 
 The generated launcher intentionally runs the normal verbose MeTTa path rather
 than hiding startup internals. The same output shown in Terminal is also written
-to the latest file under `~/OmegaClaw/logs/`.
+to the latest file under `~/OmegaClaw/logs/`. The launcher is a persistent
+supervisor: if the SWI-Prolog runtime exits cleanly or crashes, the outer
+OmegaClaw session remains open and starts the runtime again. Stop it manually
+with Ctrl-C or by closing the launcher window.
