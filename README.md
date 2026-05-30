@@ -289,9 +289,10 @@ modules stay disabled unless you deliberately enable them later, so a normal
 install does not assume WhatsApp.
 
 It writes selected module imports to `~/OmegaClaw/local/modules-loader.metta`,
-writes the chosen agent name to `~/OmegaClaw/local/prompt.txt`, and writes local
-secrets to `.env`. The tracked repo files remain clean so later `git pull`
-works predictably. Re-running the generated launcher uses the saved
+writes the chosen agent name to `~/OmegaClaw/local/prompt.txt`, writes a
+non-secret MeTTa config overlay to `~/OmegaClaw/local/runtime-config.metta`, and
+writes local secrets to `.env`. The tracked repo files remain clean so later
+`git pull` works predictably. Re-running the generated launcher uses the saved
 configuration and does not ask again. Use `python install/installer_common.py
 --workspace ~/OmegaClaw --repair` from the public clone to repair stale launch
 files without re-entering secrets.

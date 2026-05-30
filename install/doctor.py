@@ -100,6 +100,7 @@ def diagnose(workspace: pathlib.Path, include_remote: bool = False, check_runtim
     launcher_path = workspace / "Start OmegaClaw.command"
     start_path = workspace / "start-omegaclaw.sh"
     loader_path = workspace / "local" / "modules-loader.metta"
+    runtime_config_path = workspace / "local" / "runtime-config.metta"
     prompt_path = workspace / "local" / "prompt.txt"
 
     rows: list[tuple[str, str, str]] = []
@@ -149,19 +150,20 @@ def diagnose(workspace: pathlib.Path, include_remote: bool = False, check_runtim
         core_imported = "lib_omegaclaw_core" in run_text or "lib_omegaclaw" in run_text
         ok &= _check(core_imported, "root core import", "core substrate imported", "core substrate import missing", rows)
         if "lib_omegaclaw_core" in run_text:
-            order_needles = ("lib_omegaclaw_core", "./local/modules-loader.metta", "lib_omegaclaw_attention", "./src/loop", "(omegaclaw)")
+            order_needles = ("lib_omegaclaw_core", "./local/modules-loader.metta", "lib_omegaclaw_attention", "./src/loop", "./local/runtime-config.metta", "(omegaclaw)")
         else:
             order_needles = ("lib_omegaclaw", "(omegaclaw)")
         ok &= _check(
             _ordered(run_text, *order_needles),
             "composition order",
-            "core -> local modules -> attention -> loop -> start",
-            "root run.metta must import core before local modules, attention before loop, and start loop last",
+            "core -> local modules -> attention -> loop -> local runtime config -> start",
+            "root run.metta must import core before local modules, attention before loop, local runtime config after loop, and start loop last",
             rows,
         )
         ok &= _check("lib_omegaclaw_body" not in run_text, "old body loader", "not imported by generated root", "generated root still imports old body loader path", rows)
 
     ok &= _check(loader_path.exists(), "local module loader", str(loader_path), "missing local/modules-loader.metta", rows)
+    ok &= _check(runtime_config_path.exists(), "local runtime config", str(runtime_config_path), "missing local/runtime-config.metta", rows)
     if loader_path.exists():
         loader_text = loader_path.read_text(encoding="utf-8", errors="replace")
         ok &= _check(_contains_module(loader_text, "channel_router"), "channel router", "enabled", "channel_router missing", rows)

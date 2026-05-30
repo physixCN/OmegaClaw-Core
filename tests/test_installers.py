@@ -100,6 +100,7 @@ class InstallerTests(unittest.TestCase):
         for text in [readme, install_readme]:
             self.assertIn("modules/loader.metta", text)
             self.assertIn("local/modules-loader.metta", text)
+            self.assertIn("local/runtime-config.metta", text)
             self.assertIn(".env", text)
             self.assertIn("default_enabled", text)
             self.assertIn("agent name", text.lower())
@@ -390,6 +391,7 @@ class InstallerTests(unittest.TestCase):
             self.assertIn("git-import!", text)
             self.assertIn(installer.PUBLIC_CORE_URL, text)
             self.assertIn("./local/modules-loader.metta", text)
+            self.assertIn("./local/runtime-config.metta", text)
             self.assertIn("(library OmegaClaw-Core lib_omegaclaw_core)", text)
             assert_ordered(
                 self,
@@ -398,9 +400,32 @@ class InstallerTests(unittest.TestCase):
                 "./local/modules-loader.metta",
                 "lib_omegaclaw_attention",
                 "./src/loop",
+                "./local/runtime-config.metta",
                 "(omegaclaw)",
             )
             self.assertNotIn("lib_omegaclaw_body", text)
+
+    def test_installer_writes_local_runtime_config_without_secrets(self):
+        installer = load_installer_common()
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = pathlib.Path(tmp)
+            path = installer.write_runtime_config(
+                workspace,
+                {
+                    "provider": "Ollama-local",
+                    "LLM": "z-ai/glm-5.1",
+                    "TG_BOT_TOKEN": "super-secret-token",
+                    "OMEGACLAW_AUTH_SECRET": "super-secret-auth",
+                },
+            )
+            self.assertEqual(path, workspace / "local" / "runtime-config.metta")
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("(remove-atom &self (= (provider) $old))", text)
+            self.assertIn("(remove-atom &self (= (commchannel) $old))", text)
+            self.assertIn("(= (provider) Ollama-local)", text)
+            self.assertIn('(= (LLM) "z-ai/glm-5.1")', text)
+            self.assertNotIn("super-secret-token", text)
+            self.assertNotIn("super-secret-auth", text)
 
     def test_repo_run_registers_public_local_clone(self):
         text = (ROOT / "run.metta").read_text(encoding="utf-8")
@@ -501,7 +526,9 @@ class InstallerTests(unittest.TestCase):
             self.assertIn("channel_telegram", env["OMEGACLAW_ENABLED_MODULES"])
             resolved_workspace = workspace.resolve()
             self.assertIn("./local/modules-loader.metta", (resolved_workspace / "run.metta").read_text(encoding="utf-8"))
+            self.assertIn("./local/runtime-config.metta", (resolved_workspace / "run.metta").read_text(encoding="utf-8"))
             self.assertIn("channel_telegram", (resolved_workspace / "local" / "modules-loader.metta").read_text(encoding="utf-8"))
+            self.assertTrue((resolved_workspace / "local" / "runtime-config.metta").exists())
             self.assertIn("You are Ada", (resolved_workspace / "local" / "prompt.txt").read_text(encoding="utf-8"))
 
     def test_repair_normalizes_stale_primary_channel_to_commchannel(self):
@@ -560,12 +587,14 @@ class InstallerTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (workspace / "local" / "prompt.txt").write_text("You are Ada.\n", encoding="utf-8")
+            (workspace / "local" / "runtime-config.metta").write_text("(= (provider) OpenRouter)\n", encoding="utf-8")
             (workspace / "run.metta").write_text(
                 '!(git-import! "https://github.com/physixCN/OmegaClaw-Core.git")\n'
                 "!(import! &self (library OmegaClaw-Core lib_omegaclaw_core))\n"
                 "!(import! &self ./local/modules-loader.metta)\n"
                 "!(import! &self (library OmegaClaw-Core lib_omegaclaw_attention))\n"
                 "!(import! &self (library OmegaClaw-Core ./src/loop))\n"
+                "!(import! &self ./local/runtime-config.metta)\n"
                 "!(omegaclaw)\n",
                 encoding="utf-8",
             )

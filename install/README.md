@@ -47,6 +47,8 @@ The installer creates or updates:
 - `~/OmegaClaw/.env` for local provider/channel secrets.
 - `~/OmegaClaw/local/prompt.txt` with the chosen agent name.
 - `~/OmegaClaw/local/modules-loader.metta` for selected modules.
+- `~/OmegaClaw/local/runtime-config.metta` for local non-secret MeTTa config
+  overlay values such as provider and model.
 - `~/OmegaClaw/start-omegaclaw.sh` and a platform launcher.
 - `~/OmegaClaw/logs/omegaclaw-*.log` for full startup/runtime output from
   each launcher run.
@@ -92,7 +94,8 @@ The generated root `run.metta` uses PeTTa's `git-import!` to register the local
 `repos/OmegaClaw-Core` clone as the `OmegaClaw-Core` library. The installer
 pulls that clone during setup. The generated root `run.metta` imports
 the core substrate first, then `~/OmegaClaw/local/modules-loader.metta`, then
-the attention organ, then `src/loop.metta`, and only then starts the loop. The
+the attention organ, then `src/loop.metta`, then
+`~/OmegaClaw/local/runtime-config.metta`, and only then starts the loop. The
 loop must be imported last because PeTTa compiles calls such as `initChannels`,
 `receive`, and attention helpers at import time. The selected channel and module
 surface are visible to MeTTa without dirtying the Git clone, but modules attach
