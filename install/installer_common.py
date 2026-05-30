@@ -545,8 +545,18 @@ def write_start_scripts(workspace: pathlib.Path) -> list[pathlib.Path]:
             mkdir -p logs
             LOG_FILE="${OMEGACLAW_LOG_FILE:-$PWD/logs/omegaclaw-$(date +%Y%m%d-%H%M%S).log}"
             echo "OmegaClaw log: $LOG_FILE"
-            ./run.sh run.metta "$@" 2>&1 | tee -a "$LOG_FILE"
-            exit "${PIPESTATUS[0]}"
+            while true; do
+              set +e
+              ./run.sh run.metta "$@" 2>&1 | tee -a "$LOG_FILE"
+              status="${PIPESTATUS[0]}"
+              set -e
+              if [ "$status" -ne 0 ]; then
+                echo "OmegaClaw stopped with status $status; not auto-restarting." | tee -a "$LOG_FILE"
+                exit "$status"
+              fi
+              echo "OmegaClaw run returned cleanly; restarting persistent listen loop." | tee -a "$LOG_FILE"
+              sleep 1
+            done
             """
         ).lstrip(),
         encoding="utf-8",
