@@ -6,6 +6,9 @@ import json
 
 LOCALHOST = "localhost"
 
+def pollrdhup_flag():
+    return getattr(select, "POLLRDHUP", select.POLLHUP)
+
 class Shared:
 
     def __init__(self, value=None):
@@ -280,7 +283,8 @@ class ConnectionTransport:
                     self._poll = select.poll()
                     self._poll.register(self._sock.fileno())
             else:
-                mask = select.POLLRDHUP
+                pollrdhup = pollrdhup_flag()
+                mask = pollrdhup
                 if not self._output.empty():
                     mask = mask | select.POLLOUT
                 if not self._input.full():
@@ -294,12 +298,15 @@ class ConnectionTransport:
                         self._recv()
                     if (event & select.POLLOUT) > 0:
                         self._send()
-                    if (event & (select.POLLERR | select.POLLRDHUP |
+                    if (event & (select.POLLERR | pollrdhup |
                                  select.POLLHUP | select.POLLNVAL)) > 0:
-                        def check(flag):
-                            return f'{flag}' if (event & eval(f'select.{flag}')) > 0 else ''
-                        flags = ["POLLERR", "POLLRDHUP", "POLLHUP", "POLLNVAL"]
-                        errors = [check(f) for f in flags]
+                        flags = [
+                            ("POLLERR", select.POLLERR),
+                            ("POLLRDHUP", pollrdhup),
+                            ("POLLHUP", select.POLLHUP),
+                            ("POLLNVAL", select.POLLNVAL),
+                        ]
+                        errors = [name for name, flag in flags if (event & flag) > 0]
                         logging.error(f'Socket error event: ' + ' '.join(errors))
                         self._close_connection()
 
