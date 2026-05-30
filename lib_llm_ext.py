@@ -113,10 +113,14 @@ class AIProvider(AbstractAIProvider):
     def required_env(self) -> str:
         return self._var_name
 
+    @property
+    def model_name(self) -> str:
+        return os.environ.get("LLM") or self._model_name
+
     def _openrouter_extra_body(self, request_kwargs):
         """Return OpenRouter routing hints supplied by runtime configuration."""
         extra_body = dict(request_kwargs.get("extra_body") or {})
-        suffix = _env_suffix(self._model_name)
+        suffix = _env_suffix(self.model_name)
         order = (
             _env_csv(f"OMEGACLAW_OPENROUTER_PROVIDER_ORDER_{suffix}")
             or _env_csv("OMEGACLAW_OPENROUTER_PROVIDER_ORDER")
@@ -146,7 +150,7 @@ class AIProvider(AbstractAIProvider):
                 request_kwargs["extra_body"] = self._openrouter_extra_body(request_kwargs)
 
             response = self._client.chat.completions.create(
-                model=self._model_name,
+                model=self.model_name,
                 messages=[{"role": "user", "content": content}],
                 max_tokens=max_tokens,
                 **request_kwargs
@@ -155,7 +159,7 @@ class AIProvider(AbstractAIProvider):
             raw_text = response.choices[0].message.content or ""
             _log_provider_call(
                 provider=self.name,
-                model=getattr(response, "model", self._model_name),
+                model=getattr(response, "model", self.model_name),
                 kind="llm",
                 usage=getattr(response, "usage", None),
                 prompt_chars=len(content),
@@ -194,7 +198,7 @@ class AsiOneProvider(AIProvider):
         sysmsg, usermsg = content.split(":-:-:-:")
         try:
             response = self._client.chat.completions.create(
-                model=self._model_name,
+                model=self.model_name,
                 messages=[{"role": "system", "content": sysmsg},
                           {"role": "user", "content": usermsg}],
                 max_tokens=max_tokens,
@@ -208,7 +212,7 @@ class AsiOneProvider(AIProvider):
             raw_text = response.choices[0].message.content or ""
             _log_provider_call(
                 provider=self.name,
-                model=getattr(response, "model", self._model_name),
+                model=getattr(response, "model", self.model_name),
                 kind="llm",
                 usage=getattr(response, "usage", None),
                 prompt_chars=len(content),

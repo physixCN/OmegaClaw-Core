@@ -21,6 +21,8 @@
    (progn (configure maxNewInputLoops 12) ;bounded restart posture; the agent can choose more with energy skills
           (configure maxWakeLoops 6) ;warm autonomous wake posture, not idle-only
           (configure spamShield True)
+          (configure LLM gpt-5.4)
+          (configure provider OpenAI)
           (configure sleepInterval 3) ;slower continuous loop
           (configure maxOutputToken 6000)
           (configure reasoningMode medium)

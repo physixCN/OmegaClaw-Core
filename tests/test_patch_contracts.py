@@ -441,6 +441,8 @@ class PatchBoundaryContractTests(unittest.TestCase):
     def test_loop_dispatches_parsed_commands_without_superpose_side_effects(self):
         loop = read("src/loop.metta")
 
+        self.assertIn("(configure LLM gpt-5.4)", loop)
+        self.assertIn("(configure provider OpenAI)", loop)
         self.assertIn("(= (command-results $items)", loop)
         self.assertIn("($cmd (car-atom $items))", loop)
         self.assertIn("(reduce $cmd)", loop)

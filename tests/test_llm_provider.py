@@ -82,6 +82,28 @@ class LlmProviderTests(unittest.TestCase):
 
     @mock.patch.dict(
         "os.environ",
+        {
+            "OLLAMA_API_KEY": "ollama-local",
+            "LLM_SERVER_LOCAL_URL": "http://127.0.0.1:19512",
+            "LLM": "e2e-model",
+        },
+        clear=False,
+    )
+    def test_provider_uses_installed_model_and_local_ollama_url(self):
+        module = self.load_module()
+
+        result = module.callProvider("Ollama-local", "hello", 123)
+
+        self.assertEqual(result, 'send "ok"')
+        self.assertEqual(len(FakeOpenAI.instances), 1)
+        client = FakeOpenAI.instances[0]
+        self.assertEqual(client.kwargs["base_url"], "http://127.0.0.1:19512/v1")
+        create_kwargs = client.completions.last_kwargs
+        self.assertEqual(create_kwargs["model"], "e2e-model")
+        self.assertEqual(create_kwargs["max_tokens"], 123)
+
+    @mock.patch.dict(
+        "os.environ",
         {"OMEGACLAW_OPENROUTER_PROVIDER_ORDER": "friendli, parasail"},
         clear=False,
     )
