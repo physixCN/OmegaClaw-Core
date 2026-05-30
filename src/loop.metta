@@ -134,7 +134,7 @@
                         ($msgnew (prog1 (and (> (string_length $msgrcv) 0) (!= $msgrcv (get-state &prevmsg)))
                                         (if (> (string_length $msgrcv) 0) (change-state! &prevmsg $msgrcv) _)))
                         ($msg (get-state &prevmsg))
-                        ($_ (if (and (> $k 1) $msgnew)
+                        ($_ (if $msgnew
                                 (change-state! &loops (get-state &maxNewInputLoops)) _))
                         ($inputctx (input-recall $msgnew $msg))
                         ($skillctx (skill-recall $msgnew $msg))

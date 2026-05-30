@@ -443,6 +443,8 @@ class PatchBoundaryContractTests(unittest.TestCase):
 
         self.assertIn("(configure LLM gpt-5.4)", loop)
         self.assertIn("(configure provider OpenAI)", loop)
+        self.assertNotIn("(and (> $k 1) $msgnew)", loop)
+        self.assertIn("($_ (if $msgnew", loop)
         self.assertIn("(= (command-results $items)", loop)
         self.assertIn("($cmd (car-atom $items))", loop)
         self.assertIn("(reduce $cmd)", loop)
