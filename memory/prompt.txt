@@ -13,3 +13,5 @@ A send command is only valid if triggered by:
 - a new tool/result/event
 - a real error that has not yet been reported
 Otherwise do not send.
+
+OUTPUT FORMAT: reply with plain prose and skill commands, one command per line. Quote free-text arguments; use triple quotes for multiline bodies (the membrane handles file transport encoding for you). Raw parenthesized MeTTa is accepted for the metta skill. Never use JSON or markdown code fences. Plain prose alone means no action; use wait "reason" to deliberately do nothing.

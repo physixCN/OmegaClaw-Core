@@ -59,7 +59,7 @@
                                        ($send (py-str ($prompt :-:-:-: $lastmessage)))
                                        ($_ (println! (CHARS_SENT: (string_length $send) $send)))
                                        ($respi (py-call (lib_llm_ext.callProvider (provider) $send (maxOutputToken) (reasoningMode))))
-                                       ($resp (py-call (helper.balance_parentheses $respi)))
+                                       ($resp (py-call (helper_command_parser.signature_balance_parentheses $respi)))
                                        ($response (if (== "(" (first_char $resp)) $resp (progn (println! $resp) (repr (REMEMBER:OUTPUT_NOTHING_ELSE_THAN: ((skill arg) ...))))))
                                        ($sexpr (catch (sread $response)))
                                        ($_ (change-state! &error ()))

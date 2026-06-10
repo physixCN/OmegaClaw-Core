@@ -62,3 +62,17 @@
 
 (= (pin $x)
    PIN-SUCCESS)
+
+; --- syntax membrane stage 1: sanctioned no-action, metta checking, and the
+; --- base64 transport surface that multiline write lowering targets.
+(= (wait $reason)
+   WAITING:$reason)
+
+(= (test-metta $str)
+   (py-call (helper_metta_syntax.test_metta_expression $str)))
+
+(= (write-file-base64 $file $payload)
+   (py-call (helper_metta_syntax.write_file_base64 $file $payload)))
+
+(= (append-file-base64 $file $payload)
+   (py-call (helper_metta_syntax.append_file_base64 $file $payload)))
