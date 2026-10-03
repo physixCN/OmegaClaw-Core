@@ -61,7 +61,7 @@ export function Provenance({ swarmId, statement, onClose }: { swarmId: string; s
   )
 
   return (
-    <Sheet label="Belief provenance" onClose={onClose} header={header} width={460} initialSnap="full">
+    <Sheet label="Belief provenance" onClose={onClose} header={header} width={460} initialSnap="peek" peekHeight="60dvh">
       <div className="thin-scroll min-h-0 flex-1 overflow-y-auto px-4 pb-6">
         <div className="relative rounded-2xl border border-line bg-black/30 p-4 pr-12 text-[15px]">
           <MeTTa src={statement} />

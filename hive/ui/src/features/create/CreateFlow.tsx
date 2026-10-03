@@ -362,7 +362,7 @@ function Choice({ on, hue, onClick, title, body, lead }: { on: boolean; hue: num
 function HueRing({ hue, onChange, name, kind }: { hue: number; onChange: (h: number) => void; name: string; kind: AgentKind }) {
   const ref = useRef<HTMLDivElement>(null)
   const S = 196
-  const R = S / 2 - 14
+  const R = (S / 2) * 0.89
   const set = (e: PointerEvent) => {
     const r = ref.current!.getBoundingClientRect()
     const a = Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2))
@@ -400,8 +400,8 @@ function HueRing({ hue, onChange, name, kind }: { hue: number; onChange: (h: num
           className="absolute inset-0 rounded-full"
           style={{
             background: `conic-gradient(${Array.from({ length: 13 }, (_, i) => hsl(i * 30, 92, 64)).join(',')})`,
-            mask: 'radial-gradient(circle, transparent 72%, #000 73%, #000 99%, transparent 100%)',
-            WebkitMask: 'radial-gradient(circle, transparent 72%, #000 73%, #000 99%, transparent 100%)',
+            mask: 'radial-gradient(circle closest-side, transparent 78%, #000 79.5%, #000 98.5%, transparent 100%)',
+            WebkitMask: 'radial-gradient(circle closest-side, transparent 78%, #000 79.5%, #000 98.5%, transparent 100%)',
             opacity: 0.9,
           }}
         />

@@ -25,7 +25,7 @@ type Group = 'agent' | 'model'
 
 const RANGE: Record<Range, { ms: number; bucket: number; label: string }> = {
   '24h': { ms: 86_400_000, bucket: 3_600_000, label: 'last 24 hours' },
-  '7d': { ms: 7 * 86_400_000, bucket: 6 * 3_600_000, label: 'last 7 days' },
+  '7d': { ms: 7 * 86_400_000, bucket: 86_400_000, label: 'last 7 days' },
   '30d': { ms: 30 * 86_400_000, bucket: 86_400_000, label: 'last 30 days' },
 }
 
@@ -165,8 +165,8 @@ export default function UsageView() {
             onChange={setRange}
             options={[
               { value: '24h', label: '24h' },
-              { value: '7d', label: '7 days' },
-              { value: '30d', label: '30 days' },
+              { value: '7d', label: '7d' },
+              { value: '30d', label: '30d' },
             ]}
           />
           <Segmented<Group>
@@ -174,17 +174,18 @@ export default function UsageView() {
             value={group}
             onChange={setGroup}
             options={[
-              { value: 'agent', label: 'By dot' },
-              { value: 'model', label: 'By model' },
+              { value: 'agent', label: 'Dots' },
+              { value: 'model', label: 'Models' },
             ]}
           />
           <button
             onClick={() => setTable(!table)}
             aria-pressed={table}
-            className={cx('ml-auto flex min-h-11 items-center gap-1.5 rounded-xl border px-3 text-[13px] transition-colors', table ? 'border-line-2 bg-white/[0.09] text-ink' : 'border-line text-ink-3 hover:text-ink')}
+            aria-label="Show as table"
+            className={cx('ml-auto flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border px-3 text-[13px] transition-colors', table ? 'border-line-2 bg-white/[0.09] text-ink' : 'border-line text-ink-3 hover:text-ink')}
           >
             <Icon name="table" size={16} />
-            Table
+            <span className="hidden sm:inline">Table</span>
           </button>
         </div>
 
@@ -203,7 +204,7 @@ export default function UsageView() {
           <EmptyState icon="chart" title="No usage yet" body={`Nothing was spent in the ${RANGE[range].label}. When dots think, the gateway meters every call here.`} />
         ) : (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-            <section className="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Key figures">
+            <section className="grid grid-cols-3 gap-2.5 md:grid-cols-4 md:gap-3" aria-label="Key figures">
               <Tile hero label={`Spend · ${RANGE[range].label}`} value={money(data.cost)} delta={pctDelta(data.cost, data.prevCost)} upIsGood={false} />
               <Tile label="Requests" value={compact(data.req)} delta={pctDelta(data.req, data.prevReq)} />
               <Tile label="Tokens" value={compact(data.tokens)} delta={pctDelta(data.tokens, data.prevTokens)} />
@@ -244,11 +245,11 @@ function Tile({ label, value, delta, hero, upIsGood = true }: { label: string; v
   const up = (delta ?? 0) >= 0
   const good = up === upIsGood
   return (
-    <div className={cx('rounded-2xl border border-line p-4', hero ? 'col-span-2 md:col-span-1' : '')} style={{ background: SURFACE }}>
-      <div className="text-[12px] text-ink-3">{label}</div>
-      <div className={cx('mt-1 font-sans font-semibold tracking-tight text-ink', hero ? 'text-[34px] leading-none md:text-[40px]' : 'text-2xl')}>{value}</div>
+    <div className={cx('rounded-2xl border border-line', hero ? 'col-span-3 p-4 md:col-span-1' : 'p-3 md:p-4')} style={{ background: SURFACE }}>
+      <div className="truncate text-[12px] text-ink-3">{label}</div>
+      <div className={cx('mt-1 font-sans font-semibold tracking-tight text-ink', hero ? 'text-[44px] leading-none md:text-[48px]' : 'text-xl md:text-2xl')}>{value}</div>
       {delta !== undefined && delta !== null && (
-        <div className="mt-1.5 flex items-center gap-1 text-[12px]">
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-1 text-[11px] md:text-[12px]">
           <span className={good ? 'text-[#4ade80]' : 'text-[#fda4af]'}>
             <Icon name="chevron" size={12} className={cx('inline', up ? '-rotate-90' : 'rotate-90')} /> {Math.abs(delta * 100).toFixed(0)}%
           </span>

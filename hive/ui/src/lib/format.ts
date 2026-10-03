@@ -2,6 +2,7 @@ export function money(n: number, opts: { compact?: boolean } = {}): string {
   if (opts.compact && n >= 1000) return `$${(n / 1000).toFixed(1)}K`
   if (n === 0) return '$0'
   if (n < 0.01) return `$${n.toFixed(4)}`
+  if (n >= 10 && Number.isInteger(n)) return `$${n}`
   if (n < 100) return `$${n.toFixed(2)}`
   return `$${Math.round(n).toLocaleString('en-US')}`
 }

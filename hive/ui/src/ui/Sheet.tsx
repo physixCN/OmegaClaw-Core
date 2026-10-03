@@ -39,6 +39,7 @@ export function Sheet({
 
   useEscape(onClose)
 
+  const reportRef = useRef<() => void>(() => undefined)
   useEffect(() => {
     const el = ref.current
     if (!el) return
@@ -47,6 +48,7 @@ export function Sheet({
       if (desktop) setInset(id, { right: window.innerWidth - r.left + 8 })
       else setInset(id, { bottom: Math.min(window.innerHeight * 0.6, window.innerHeight - r.top) })
     }
+    reportRef.current = report
     report()
     const ro = new ResizeObserver(report)
     ro.observe(el)
@@ -80,6 +82,7 @@ export function Sheet({
         aria-modal="false"
         aria-label={label}
         tabIndex={-1}
+        onAnimationComplete={() => reportRef.current()}
         initial={{ opacity: 0, x: 48, scale: 0.985 }}
         animate={{ opacity: 1, x: 0, scale: 1 }}
         exit={{ opacity: 0, x: 48, scale: 0.985, transition: { duration: 0.18 } }}
@@ -126,6 +129,8 @@ export function Sheet({
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={{ top: 0.06, bottom: 0.8 }}
         onDragEnd={onDragEnd}
+        onAnimationComplete={() => reportRef.current()}
+        onTransitionEnd={() => reportRef.current()}
         initial={{ y: '100%' }}
         animate={{ y: '0%' }}
         exit={{ y: '100%', transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
@@ -134,7 +139,7 @@ export function Sheet({
           height: snap === 'full' ? 'calc(100dvh - 48px - var(--sat))' : peekHeight,
           transition: reduced ? undefined : 'height 420ms cubic-bezier(0.22, 1.1, 0.36, 1)',
         }}
-        className={cx('glass-strong fixed inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden rounded-t-[26px] outline-none', className)}
+        className={cx('glass-strong fixed inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden rounded-t-[26px] !bg-[#0b0b22]/[0.97] outline-none', className)}
       >
         <div
           className="flex shrink-0 cursor-grab touch-none justify-center pt-2.5 pb-1 active:cursor-grabbing"

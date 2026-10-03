@@ -11,7 +11,7 @@ const only = process.argv[2] // optional: "mobile" | "desktop"
 
 await mkdir(OUT, { recursive: true })
 
-const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { cwd: new URL('..', import.meta.url).pathname, stdio: 'pipe' })
+const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { cwd: new URL('..', import.meta.url).pathname, stdio: 'pipe', detached: true })
 server.stdout.resume()
 server.stderr.resume()
 for (let i = 0; ; i++) {
@@ -108,7 +108,11 @@ try {
   if (only !== 'mobile') await run('desktop', { width: 1440, height: 900 }, { deviceScaleFactor: 1 })
 } finally {
   await browser.close()
-  server.kill()
+  try {
+    process.kill(-server.pid)
+  } catch {
+    server.kill()
+  }
 }
 
 if (errors.length) {
@@ -118,3 +122,4 @@ if (errors.length) {
 } else {
   console.log('\nNo console errors.')
 }
+process.exit(process.exitCode ?? 0)

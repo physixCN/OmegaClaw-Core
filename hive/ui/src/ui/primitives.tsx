@@ -163,7 +163,7 @@ export function Segmented<T extends string>({
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.value)}
-            className={cx('relative min-h-9 flex-1 rounded-lg px-3 text-[13px] font-medium transition-colors', on ? 'text-ink' : 'text-ink-3 hover:text-ink-2')}
+            className={cx('relative min-h-9 flex-1 rounded-lg px-3 text-[13px] font-medium whitespace-nowrap transition-colors', on ? 'text-ink' : 'text-ink-3 hover:text-ink-2')}
           >
             {on && (
               <motion.span
