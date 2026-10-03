@@ -317,8 +317,14 @@ def context_input_recall_text(
     promotion_inflation_factor: int = 10,
     max_recall_items: int = 20,
     current_time: float | None = None,
+    embedding_provider: str = "Local",
 ) -> str:
-    """Embed text and return bounded memory hints as one deterministic value."""
+    """Embed text and return bounded memory hints as one deterministic value.
+
+    Uses the same embedding source as the rest of memory (``embeddingprovider``).
+    Recall is a hint: if embedding fails it returns "" so the message itself
+    still reaches the model instead of the whole loop iteration failing.
+    """
     import lib_llm_ext
 
     if not isinstance(query_text, str) or not query_text.strip():
@@ -327,14 +333,24 @@ def context_input_recall_text(
     recall_basis = dialogue_recall_basis_text(query_text, current_time=current_time) or query_text
 
     def embed(text: str) -> list[float]:
+        if str(embedding_provider) != "Local":
+            import openai
+
+            model = os.environ.get("OMEGACLAW_OPENAI_EMBEDDING_MODEL", "text-embedding-3-large")
+            return openai.OpenAI().embeddings.create(model=model, input=text).data[0].embedding
         try:
             return lib_llm_ext.useLocalEmbedding(text)
         except RuntimeError:
             lib_llm_ext.initLocalEmbedding()
             return lib_llm_ext.useLocalEmbedding(text)
 
+    try:
+        query_embedding = embed(query_text)
+    except Exception as exc:
+        print(f"[helper_recall] input recall skipped: {type(exc).__name__}: {exc}")
+        return ""
     raw_recall = context_input_recall(
-        embed(query_text),
+        query_embedding,
         max_items=max_items,
         promotion_inflation_factor=promotion_inflation_factor,
         max_recall_items=max_recall_items,

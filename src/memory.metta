@@ -86,7 +86,7 @@
 
 (= (input-recall $msgnew $msg)
    (if $msgnew
-       (car-atom (collapse (once (py-call (helper.context_input_recall_text (string-safe $msg) (maxInputRecallItems) (promotionInflationFactor) (maxRecallItems) (get_time))))))
+       (car-atom (collapse (once (py-call (helper.context_input_recall_text (string-safe $msg) (maxInputRecallItems) (promotionInflationFactor) (maxRecallItems) (get_time) (embeddingprovider))))))
        ""))
 
 (= (get-promotion $current_time $uuid)

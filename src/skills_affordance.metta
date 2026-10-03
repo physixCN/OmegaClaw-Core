@@ -150,12 +150,14 @@
                         (append (skill-recall-card-lines-with-cards-normalized &skill_triggers &skills $signal)
                                 (skill-recall-card-lines-with-cards-normalized &skill_triggers &self $signal)))))
 
-(= (skill-recall-cards-for-signals ())
-   ())
-
+; One clause: a separate (skill-recall-cards-for-signals ()) case would also
+; match the general clause, so every recursion level would fork and the loop
+; would re-run its LLM call once per duplicate result.
 (= (skill-recall-cards-for-signals $signals)
-   (append (skill-recall-cards-for-signal (car-atom $signals))
-           (skill-recall-cards-for-signals (cdr-atom $signals))))
+   (if (== $signals ())
+       ()
+       (append (skill-recall-cards-for-signal (car-atom $signals))
+               (skill-recall-cards-for-signals (cdr-atom $signals)))))
 
 (= (skill-recall $msgnew $msg)
    (if $msgnew

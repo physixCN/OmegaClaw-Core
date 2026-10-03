@@ -438,7 +438,10 @@ def memory_file(name):
     if not _SAFE_MEMORY_FILE.fullmatch(name):
         raise ValueError(f"unsafe memory file name: {name!r}")
     MEMORY_DIR.mkdir(parents=True, exist_ok=True)
-    return str(MEMORY_DIR / name)
+    path = MEMORY_DIR / name
+    # append-file requires an existing file; a fresh agent's memory dir has none.
+    path.touch(exist_ok=True)
+    return str(path)
 
 
 def ensure_runtime_memory_files(names=""):

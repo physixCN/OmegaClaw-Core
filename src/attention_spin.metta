@@ -12,13 +12,13 @@
 (= (wait-command? $cmd)
    (== (car-atom $cmd) wait))
 
-(= (all-wait-commands? ())
-   true)
-
+; One clause, so the empty list does not also match the general case.
 (= (all-wait-commands? $items)
-   (if (wait-command? (car-atom $items))
-       (all-wait-commands? (cdr-atom $items))
-       false))
+   (if (== $items ())
+       true
+       (if (wait-command? (car-atom $items))
+           (all-wait-commands? (cdr-atom $items))
+           false)))
 
 (= (pure-wait-response? $items)
    (if (== $items ()) false (all-wait-commands? $items)))
