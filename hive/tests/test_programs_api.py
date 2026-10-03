@@ -89,3 +89,37 @@ def test_capabilities_errors_and_disable(client, tmp_path, monkeypatch):
     assert off.status_code == 409 and off.json()["error"]["code"] == "program_disabled"
     unknown = client.post("/api/programs/broken/act", json={"swarm_id": s["id"], "action": "explode", "items": []})
     assert unknown.status_code == 400
+
+
+def test_commons_explorer_over_real_beliefs(client):
+    from hive.tests.test_core_api import agent_headers, make_swarm_and_agents
+    s, (a, b, c) = make_swarm_and_agents(client, n=3)
+    for agent, f, conf in ((a, 0.9, 0.8), (b, 0.2, 0.6)):
+        client.post("/api/agent/publish", headers=agent_headers(agent),
+                    json={"statement": "(--> bridge safe)", "f": f, "c": conf})
+    client.post("/api/agent/publish", headers=agent_headers(c), json={"statement": "(--> bridge closed)", "f": 0.7, "c": 0.5})
+    overview = client.post("/api/programs/commons-explorer/view", json={"swarm_id": s["id"]}).json()
+    ids = {i["id"] for i in overview["items"]}
+    assert {"overview", "b:(--> bridge safe)", "b:(--> bridge closed)"} <= ids
+    assert any(i["kind"] == "gap" for i in overview["items"])                 # single-source belief
+    one = client.post("/api/programs/commons-explorer/view",
+                      json={"swarm_id": s["id"], "focus": "b:(--> bridge safe)", "stage": "unfold"}).json()
+    rels = {link["rel"] for link in one["links"]}
+    assert {"supports", "contradicts", "rivals"} <= rels
+    report = next(i for i in one["items"] if i["kind"] == "report")
+    opened = client.post("/api/programs/commons-explorer/act", json={
+        "swarm_id": s["id"], "action": "inspect-source", "items": [report["id"]],
+        "base_revision": one["revision"]}).json()
+    assert opened["status"] == "done" and opened["detail"]["sources"][0]["kind"] == "dot"
+    compared = client.post("/api/programs/commons-explorer/act", json={
+        "swarm_id": s["id"], "action": "compare", "items": ["b:(--> bridge safe)", "b:(--> bridge closed)"],
+        "base_revision": one["revision"]}).json()
+    assert compared["status"] == "done" and compared["graph"]["stage"] == "compare"
+    mapped = client.post("/api/programs/commons-explorer/view",
+                         json={"swarm_id": s["id"], "focus": "b:(--> bridge safe)", "stage": "map"}).json()
+    assert "b:(--> bridge closed)" in {i["id"] for i in mapped["items"]}
+    client.post("/api/agent/publish", headers=agent_headers(c), json={"statement": "(--> river high)", "f": 0.9, "c": 0.5})
+    stale = client.post("/api/programs/commons-explorer/act", json={
+        "swarm_id": s["id"], "action": "challenge", "items": ["b:(--> bridge safe)"],
+        "base_revision": one["revision"]}).json()
+    assert stale["status"] == "stale"
