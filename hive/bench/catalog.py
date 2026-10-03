@@ -6,7 +6,8 @@ SUITES = [
     {"id": "tests-hive", "kind": "tests", "title": "Hive server tests",
      "description": "API, policy, goals, schedule, drift guards and the Docker driver, against real PeTTa spaces.",
      "estimate_s": 10, "pytest": ["hive/tests", "--ignore=hive/tests/test_acceptance.py",
-                                  "--ignore=hive/tests/test_phase2_acceptance.py"]},
+                                  "--ignore=hive/tests/test_phase2_acceptance.py",
+                                  "--ignore=hive/tests/test_sharing_acceptance.py"]},
     {"id": "tests-runtime", "kind": "tests", "title": "Omega runtime tests",
      "description": "The agent runtime: command parser, memory paths, modules, attention, recall, persistence.",
      "estimate_s": 15, "pytest": ["tests", "--ignore=tests/fixtures"]},
@@ -15,9 +16,10 @@ SUITES = [
      "estimate_s": 20, "pytest": ["tests/test_memory_safety.py", "tests/test_multi_instance_memory.py"],
      "needs": ["petta", "chromadb"]},
     {"id": "tests-e2e", "kind": "tests", "title": "End to end with real Omegas",
-     "description": "Three Omegas chat, publish and revise, survive a restart; approvals, goals, memory control "
-                    "and a mixed Omega + Iter swarm.",
-     "estimate_s": 120, "pytest": ["hive/tests/test_acceptance.py", "hive/tests/test_phase2_acceptance.py"],
+     "description": "Three Omegas chat, publish and revise, survive a restart; approvals, goals, memory control, "
+                    "a mixed Omega + Iter swarm, and dots sharing spaces and exhibits with each other.",
+     "estimate_s": 140, "pytest": ["hive/tests/test_acceptance.py", "hive/tests/test_phase2_acceptance.py",
+                                    "hive/tests/test_sharing_acceptance.py"],
      "env": {"HIVE_E2E": "1"}, "needs": ["petta", "chromadb"]},
     {"id": "tests-ui", "kind": "tests", "title": "Web UI tests",
      "description": "Store, simulator and helpers of the web UI (vitest).", "estimate_s": 10, "vitest": True},

@@ -42,6 +42,12 @@ reply with `send`. You belong to a swarm that shares a commons of beliefs:
 - `hive-belief <statement>` shows a shared belief with its sources.
 Beliefs from independent evidence are merged by revision; repeating what another
 dot told you does not make it more certain.
+
+To show larger work, share it for a while instead of sending long messages:
+- `hive-exhibit Lyra,Orion 60 Title | text and atoms` shows a piece of work (or `swarm`).
+- `hive-share-request Lyra world 30 why` asks to read one of Lyra's spaces; Lyra answers
+  `hive-share-grant sh_id` or `hive-share-deny sh_id reason`; `hive-share-offer` opens yours.
+- `hive-shared sh_id filter` reads what was shared with you; access ends by itself.
 """
 
 

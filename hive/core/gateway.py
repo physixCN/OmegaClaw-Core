@@ -65,6 +65,9 @@ def mock_reply(agent_name, prompt):
     It only answers when the prompt carries a new human message:
       believe <statement> [f c]  -> publish the belief to the swarm and confirm
       ask <pattern>              -> query the swarm commons
+      share-ask <dot> <space> <minutes> [reason]  -> ask another dot to see one of its spaces
+      exhibit <dots|swarm> <minutes> <title | text> -> show a piece of work for a while
+      [SHARE-REQUEST ...]        -> grant it;  [SHARE-GRANTED/OFFERED, EXHIBIT ...] -> read it
       anything else              -> a friendly echo
     """
     if "HUMAN-MSG:" not in prompt:
@@ -106,6 +109,22 @@ def mock_reply(agent_name, prompt):
             lines = [f"hive-goal-claim {goal_id}"] + [f"hive-goal-create {goal_id} {p}" for p in parts]
             return "\n".join(lines[:5])
         return f"hive-goal-claim {goal_id}\nhive-goal-done {goal_id} did: {title}"
+    # Timed sharing: grant what is asked, read what is shown.
+    asked = re.match(r"^\[SHARE-REQUEST (sh_\w+)\]", text)
+    if asked:
+        return f"hive-share-grant {asked.group(1)}\nsend Granted {asked.group(1)}"
+    shown = re.match(r"^\[(?:SHARE-GRANTED|SHARE-OFFERED|EXHIBIT) (sh_\w+)\]", text)
+    if shown:
+        return f"hive-shared {shown.group(1)} *"
+    if lowered.startswith("share-ask "):
+        parts = text.split(None, 4)
+        if len(parts) >= 4:
+            reason = parts[4] if len(parts) > 4 else "to build on your work"
+            return f"hive-share-request {parts[1]} {parts[2]} {parts[3]} {reason}\nsend Asked {parts[1]} for {parts[2]}"
+    if lowered.startswith("exhibit "):
+        parts = text.split(None, 3)
+        if len(parts) == 4:
+            return f"hive-exhibit {parts[1]} {parts[2]} {parts[3]}\nsend Shared it with {parts[1]}"
     merged = re.match(r"^\[SUBGOALS-DONE (g_\w+)\] (.*)$", text)
     if merged:
         return f"hive-goal-done {merged.group(1)} merged: {merged.group(2)}"

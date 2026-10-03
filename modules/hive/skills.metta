@@ -22,6 +22,32 @@
 (= (hive-goal-create $parent $title)
    (py-call (hive_commons.goal_create $parent $title)))
 
+; ---- timed sharing: show spaces and work to other dots for a while ----
+
+(= (hive-shares)
+   (py-call (hive_commons.shares)))
+
+(= (hive-share-request $owner $space $minutes $reason)
+   (py-call (hive_commons.share_request $owner $space $minutes $reason)))
+
+(= (hive-share-grant $id)
+   (py-call (hive_commons.share_grant $id)))
+
+(= (hive-share-deny $id $reason)
+   (py-call (hive_commons.share_deny $id $reason)))
+
+(= (hive-share-offer $dot $space $minutes)
+   (py-call (hive_commons.share_offer $dot $space $minutes)))
+
+(= (hive-shared $id $filter)
+   (py-call (hive_commons.shared $id $filter)))
+
+(= (hive-exhibit $to $minutes $text)
+   (py-call (hive_commons.exhibit $to $minutes $text)))
+
+(= (hive-exhibit-space $to $space $minutes $filter)
+   (py-call (hive_commons.exhibit_space $to $space $minutes $filter)))
+
 ; ---- loop hooks (declared in entry.metta; only act when commchannel=hive) ----
 
 (= (hive-mode?)

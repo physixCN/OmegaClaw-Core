@@ -63,6 +63,7 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
                 await run_in_threadpool(supervisor.check)
                 await hive.scheduler.tick()
                 await hive.goals.expire()
+                await hive.shares.expire()
                 for agent_id in hive.idle_candidates():
                     await run_in_threadpool(hive.lifecycle, agent_id, "sleep")
             except Exception as exc:  # keep reconciling
@@ -106,6 +107,9 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
         if not isinstance(data, dict):
             raise HiveError(400, "bad_request", "expected a JSON object")
         return data
+
+    async def optional_body(request: Request):
+        return await body(request) if await request.body() else {}
 
     @app.post("/api/auth/login")
     async def login(request: Request):
@@ -552,6 +556,65 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
         goal = hive.goals.result(agent, goal_id, data.get("status", "done"), data.get("result", ""))
         await hive.goals.notify_parent(goal)
         return goal
+
+    # ---- timed sharing of private memory between dots ---------------------------------------------
+
+    @app.get("/api/agent/shares")
+    async def agent_shares(request: Request):
+        return hive.shares.mine(agent_from(request))
+
+    @app.post("/api/agent/shares/request")
+    async def agent_share_request(request: Request):
+        agent, data = agent_from(request), await body(request)
+        return await hive.shares.request(agent, data.get("owner"), data.get("space"), data.get("minutes"),
+                                         data.get("filter") or data.get("pattern"), data.get("reason", ""))
+
+    @app.post("/api/agent/shares/offer")
+    async def agent_share_offer(request: Request):
+        agent, data = agent_from(request), await body(request)
+        return await hive.shares.offer(agent, data.get("grantee"), data.get("space"), data.get("minutes"),
+                                       data.get("filter") or data.get("pattern"), data.get("note", ""))
+
+    @app.post("/api/agent/shares/{share_id}/grant")
+    async def agent_share_grant(share_id: str, request: Request):
+        agent, data = agent_from(request), await optional_body(request)
+        return await hive.shares.grant(agent, share_id, data.get("minutes"))
+
+    @app.post("/api/agent/shares/{share_id}/deny")
+    async def agent_share_deny(share_id: str, request: Request):
+        agent, data = agent_from(request), await optional_body(request)
+        return await hive.shares.deny(agent, share_id, data.get("reason", ""))
+
+    @app.post("/api/agent/shares/{share_id}/revoke")
+    async def agent_share_revoke(share_id: str, request: Request):
+        return await hive.shares.revoke(share_id, by_agent=agent_from(request))
+
+    @app.get("/api/agent/shares/{share_id}/atoms")
+    async def agent_share_read(share_id: str, request: Request, q: str = "", limit: int = 200):
+        agent = agent_from(request)
+        return await run_in_threadpool(hive.shares.read, agent, share_id, q, limit)
+
+    @app.post("/api/agent/exhibits")
+    async def agent_exhibit(request: Request):
+        agent, data = agent_from(request), await body(request)
+        return await hive.shares.exhibit(agent, data.get("title", ""), data.get("to", "swarm"), data.get("minutes"),
+                                         data.get("body", ""), data.get("atoms"), data.get("space"),
+                                         data.get("filter") or data.get("pattern"))
+
+    @app.get("/api/shares")
+    async def shares(request: Request, status: str = "", agent_id: str = ""):
+        operator(request)
+        return hive.shares.list(status or None, agent_id or None)
+
+    @app.get("/api/shares/{share_id}/reads")
+    async def share_reads(share_id: str, request: Request):
+        operator(request)
+        return hive.shares.reads(share_id)
+
+    @app.post("/api/shares/{share_id}/revoke")
+    async def share_revoke(share_id: str, request: Request):
+        operator(request)
+        return await hive.shares.revoke(share_id)
 
     # ---- the web UI ---------------------------------------------------------------------------------
 

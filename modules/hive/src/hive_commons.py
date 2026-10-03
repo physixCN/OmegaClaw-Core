@@ -64,12 +64,76 @@ def belief(statement):
             f"sources={','.join(result['sources'])} assertions={len(result.get('assertions', []))}")
 
 
+# ---- timed sharing of private memory ------------------------------------------------------
+
+def shares():
+    result, error = _call("GET", "/api/agent/shares")
+    if error:
+        return error
+    if not result:
+        return "HIVE-SHARES none"
+    return "HIVE-SHARES " + " | ".join(
+        f"{s['id']} {s['status']} {s['kind']} owner={s['owner_name']} reader={s['grantee_name']} "
+        f"{s.get('space') or (s.get('exhibit') or {}).get('title', '')} until={s['expires_at']}" for s in result[:20])
+
+
+def share_request(owner, space, minutes, reason):
+    result, error = _call("POST", "/api/agent/shares/request", {"owner": _text(owner), "space": _text(space),
+                                                                 "minutes": float(minutes), "reason": _text(reason)})
+    return error or f"HIVE-SHARE-REQUESTED {result['id']} {result['status']} owner={result['owner_name']}"
+
+
+def share_grant(share_id):
+    result, error = _call("POST", f"/api/agent/shares/{_text(share_id)}/grant", {})
+    return error or f"HIVE-SHARE-GRANTED {result['id']} to {result['grantee_name']} until {result['expires_at']}"
+
+
+def share_deny(share_id, reason):
+    result, error = _call("POST", f"/api/agent/shares/{_text(share_id)}/deny", {"reason": _text(reason)})
+    return error or f"HIVE-SHARE-DENIED {result['id']}"
+
+
+def share_offer(grantee, space, minutes):
+    result, error = _call("POST", "/api/agent/shares/offer", {"grantee": _text(grantee), "space": _text(space),
+                                                               "minutes": float(minutes)})
+    return error or f"HIVE-SHARE-OFFERED {result['id']} to {result['grantee_name']} until {result['expires_at']}"
+
+
+def shared(share_id, text_filter):
+    query = urllib.parse.urlencode({"q": _text(text_filter) or "*", "limit": 200})
+    result, error = _call("GET", f"/api/agent/shares/{_text(share_id)}/atoms?{query}")
+    if error:
+        return error
+    head = (f"HIVE-SHARED {result['share_id']} from={result['owner']} "
+            + (f"exhibit={result['title']!r} " if result["kind"] == "exhibit" else f"space={result['space']} ")
+            + f"atoms={len(result['atoms'])}/{result['total']} until={result['expires_at']}")
+    body = f" text: {result['body'][:4000]}" if result.get("body") else ""
+    return head + body + ("".join(f"\n{a}" for a in result["atoms"]))
+
+
+def exhibit(to, minutes, text):
+    title, _, body = _text(text).partition(" | ")
+    atoms = [line for line in body.split("\n") if line.strip().startswith("(")]
+    result, error = _call("POST", "/api/agent/exhibits", {"title": title, "to": _text(to), "minutes": float(minutes),
+                                                           "body": body, "atoms": atoms})
+    return error or (f"HIVE-EXHIBITED {result['exhibit_id']} {result['title']!r} to "
+                     f"{len(result['shares'])} dots ({result['bytes']} bytes)")
+
+
+def exhibit_space(to, space, minutes, text_filter):
+    result, error = _call("POST", "/api/agent/exhibits", {"title": f"{_text(space)} snapshot", "to": _text(to),
+                                                           "minutes": float(minutes), "space": _text(space),
+                                                           "filter": _text(text_filter) or None})
+    return error or (f"HIVE-EXHIBITED {result['exhibit_id']} {result['atoms']} atoms of {_text(space)} to "
+                     f"{len(result['shares'])} dots")
+
+
 # ---- policy gate -----------------------------------------------------------------------
 
 # Skills that never leave the agent and the hive: no round trip needed.
 LOCAL_ALLOW = {"send", "wait", "pin", "query", "remember", "episodes", "hive-publish", "hive-query",
                "hive-belief", "hive-goals", "hive-goal-claim", "hive-goal-done", "hive-goal-fail",
-               "hive-goal-create"}
+               "hive-goal-create", "hive-shares", "hive-shared", "hive-share-request", "hive-share-deny"}
 
 
 def _skill(command):

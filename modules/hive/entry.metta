@@ -19,8 +19,16 @@
 (Provides omegaclaw.hive.commons (Skill hive-goal-done))
 (Provides omegaclaw.hive.commons (Skill hive-goal-fail))
 (Provides omegaclaw.hive.commons (Skill hive-goal-create))
+(Provides omegaclaw.hive.commons (Skill hive-shares))
+(Provides omegaclaw.hive.commons (Skill hive-share-request))
+(Provides omegaclaw.hive.commons (Skill hive-share-grant))
+(Provides omegaclaw.hive.commons (Skill hive-share-deny))
+(Provides omegaclaw.hive.commons (Skill hive-share-offer))
+(Provides omegaclaw.hive.commons (Skill hive-shared))
+(Provides omegaclaw.hive.commons (Skill hive-exhibit))
+(Provides omegaclaw.hive.commons (Skill hive-exhibit-space))
 
-(OrganPrinciple omegaclaw.hive.commons "The commons is shared memory between dots; private memory never leaves this agent unless published.")
+(OrganPrinciple omegaclaw.hive.commons "The commons is shared memory between dots. Private memory leaves this agent only when it publishes, or grants another dot of its swarm a timed share.")
 
 (RuntimeDependency omegaclaw.hive.commons python ">=3.10")
 (RuntimeConfig omegaclaw.hive.commons HIVE_API_URL "runtime-config")

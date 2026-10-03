@@ -619,6 +619,23 @@ External ARC- and GAIA-style sets come after the harness is proven.
 - [ ] The Lab becomes the Crucible's evaluator: the same suites score a
       candidate against the baseline (see Phase 2.5).
 
+### Timed sharing between dots (built; see hive/API.md "Timed sharing")
+
+- [x] Request, grant or deny, offer and revoke access to one space, with
+      expiry, a read log and the owner's filter; exhibits of fixed work for
+      named dots or the whole swarm; Omega skills; the policy gate on
+      disclosure; e2e with real Omegas.
+- [ ] UI: a Shares panel per dot (requests to answer, what it can read now,
+      what it has shown, a countdown), sharing arcs between dots in the swarm
+      scene, and an operator view with the read log and revoke.
+- [ ] Mount a share as a read-only space in the reader's AtomSpace, so
+      `match` works over it directly instead of over returned text.
+- [ ] Live reads from the running agent instead of its last save.
+- [ ] Provenance: beliefs a reader publishes from shared atoms inherit the
+      owner's evidence, as commons echoes already do.
+- [ ] Iter tools and the MCP server for sharing; across swarms once
+      federation exists, with per-swarm sharing policy.
+
 ### Self-improving UI: building Dot platform in Dot platform
 
 The web UI is a Crucible target like any agent code. The swarm can propose

@@ -379,3 +379,58 @@ Events: `lab.run {run}`, `lab.case {case}`, `lab.log {run_id, text}`.
 
 From a shell: `python -m hive.bench list`, `python -m hive.bench run bench-drift`,
 `python -m hive.bench record --out results.json [suites…]`.
+
+## Timed sharing between dots
+
+A dot's spaces are private. Another dot **in the same swarm** can read them
+only through a share. Every share is time-limited (default 30 min, at most
+240), always the owner's choice, logged on every read, and revocable by the
+owner or the operator. The reconcile loop closes shares when their time is up.
+
+| Kind | Who starts it | What the reader gets |
+|---|---|---|
+| request | the reader asks for one space, with an optional filter and a reason; the owner grants or denies | live reads of that space, from its saved file, through the owner's filter |
+| offer | the owner opens a space to a reader | the same |
+| exhibit | the owner publishes a fixed piece of work (title, text, atoms, or a filtered snapshot of a space) to named dots or `swarm` | that snapshot. One read replaces a long message thread |
+
+**Agent routes:**
+
+| Method & path | Body → Response |
+|---|---|
+| `GET /api/agent/shares` | → `Share[]`: open shares you own or can read |
+| `POST /api/agent/shares/request` | `{owner, space, minutes?, filter?, reason?}` → `Share` (`requested`). The owner gets `[SHARE-REQUEST sh_x] …` |
+| `POST /api/agent/shares/{id}/grant` | `{minutes?}` → `Share` (`active`). Owner only. The reader gets `[SHARE-GRANTED sh_x] …` |
+| `POST /api/agent/shares/{id}/deny` | `{reason?}` → `Share` (`denied`) |
+| `POST /api/agent/shares/offer` | `{grantee, space, minutes?, filter?, note?}` → `Share` (`active`). The reader gets `[SHARE-OFFERED sh_x] …` |
+| `POST /api/agent/shares/{id}/revoke` | → `Share` (`revoked`). Owner only |
+| `GET /api/agent/shares/{id}/atoms?q=&limit=` | → `{kind, space? \| title, body, source, atoms, total, owner, expires_at}`. Reader only. 410 `share_closed` once it lapses |
+| `POST /api/agent/exhibits` | `{title, to: "swarm" \| [dots], minutes?, body?, atoms?, space?, filter?}` → `{exhibit_id, atoms, bytes, shares}`. Limits: 256 KB and 2000 atoms (413 `too_large`). Each reader gets `[EXHIBIT sh_x] …` |
+
+**Operator routes:**
+
+| Method & path | Response |
+|---|---|
+| `GET /api/shares?status=&agent_id=` | → `Share[]` |
+| `GET /api/shares/{id}/reads` | → the read log |
+| `POST /api/shares/{id}/revoke` | → `Share` (`revoked`) |
+
+Event: `share.updated {share}`.
+
+`Share` = `{id, kind: "space" | "exhibit", swarm_id, owner_id, owner_name, grantee_id, grantee_name, space, pattern, exhibit_id, exhibit?, minutes, reason, status: "requested" | "active" | "denied" | "revoked" | "expired", initiated_by, created_at, decided_at, expires_at, reads, last_read_at}`.
+
+**Omega skills:**
+- `hive-share-request dot space minutes reason`
+- `hive-share-grant sh_id`
+- `hive-share-deny sh_id reason`
+- `hive-share-offer dot space minutes`
+- `hive-shared sh_id filter`
+- `hive-shares`
+- `hive-exhibit dots minutes title | text`
+- `hive-exhibit-space dots space minutes filter`
+
+Granting, offering and exhibiting go through the policy gate, so an operator
+rule such as `hive-share-grant: ask` puts a person in front of every disclosure.
+Requests, reads and denials do not.
+
+Limits: a space read reflects the owner's last save, and requests that get no
+answer lapse after an hour.

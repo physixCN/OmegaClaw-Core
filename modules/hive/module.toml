@@ -16,6 +16,14 @@ provides = [
   "skill:hive-goal-done",
   "skill:hive-goal-fail",
   "skill:hive-goal-create",
+  "skill:hive-shares",
+  "skill:hive-share-request",
+  "skill:hive-share-grant",
+  "skill:hive-share-deny",
+  "skill:hive-share-offer",
+  "skill:hive-shared",
+  "skill:hive-exhibit",
+  "skill:hive-exhibit-space",
 ]
 
 requires = [
