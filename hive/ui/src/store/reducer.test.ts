@@ -153,6 +153,17 @@ describe('reduce · Phase 2', () => {
     expect(claimedByAgent(done.goals)).toEqual({ a_1: 1 })
   })
 
+  it('keeps waiting goals on their dot and says so', () => {
+    const s = run([
+      { type: 'goal.updated', at, goal: goal({ status: 'claimed', claimed_by: 'a_1' }) },
+      { type: 'goal.updated', at, goal: goal({ status: 'waiting', claimed_by: 'a_1', result: 'draft ready' }) },
+      { type: 'goal.updated', at, goal: goal({ id: 'g_9', status: 'stalled', attempts: 3 }) },
+    ])
+    expect(claimedByAgent(s.goals)).toEqual({ a_1: 1 })
+    expect(s.activity[0].text).toBe('delivered, waiting on you for “Ship it”')
+    expect(s.goals.g_9.status).toBe('stalled')
+  })
+
   it('keeps traces unique, ordered and capped', () => {
     let s = run([
       { type: 'agent.trace', at, trace: trace(3) },

@@ -93,3 +93,27 @@ describe('policy', () => {
     expect(skillRisk('query')).toBe('low')
   })
 })
+
+describe('gateway errors and leases', () => {
+  it('maps last_error text to a gateway code', async () => {
+    const { describeLlmError } = await import('./llmErrors')
+    expect(describeLlmError('llm: 402 hive_budget_exhausted')?.code).toBe('hive_budget_exhausted')
+    expect(describeLlmError('402 budget_exhausted: spent')?.code).toBe('budget_exhausted')
+    expect(describeLlmError('{"error":{"code":"no_budget"}}')?.status).toBe(402)
+    expect(describeLlmError('HTTP 429 Too Many Requests')?.code).toBe('rate_limited')
+    expect(describeLlmError('unpriced_model')?.title).toMatch(/price/)
+    expect(describeLlmError('upstream 529')).toMatchObject({ code: 'other', hint: 'upstream 529' })
+    expect(describeLlmError(null)).toBeNull()
+  })
+
+  it('reads a goal lease', async () => {
+    const { leaseOf, leaseText } = await import('./goals')
+    const base = { status: 'claimed', lease_until: '2026-10-03T12:30:00Z' } as Parameters<typeof leaseOf>[0]
+    const now = Date.parse('2026-10-03T12:00:00Z')
+    expect(leaseOf(base, now)).toMatchObject({ kind: 'running', ms: 30 * 60_000 })
+    expect(leaseOf(base, now + 31 * 60_000)).toEqual({ kind: 'lapsed' })
+    expect(leaseOf({ ...base, status: 'waiting' }, now)).toEqual({ kind: 'paused' })
+    expect(leaseOf({ ...base, status: 'open' }, now)).toBeNull()
+    expect(leaseText(90 * 60_000)).toBe('1h 30m')
+  })
+})

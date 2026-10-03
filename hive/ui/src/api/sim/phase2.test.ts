@@ -179,3 +179,50 @@ describe('SimClient · Phase 2 behaviour', () => {
     await expect(sim.patchAgent('a_vega01', { idle_sleep_minutes: -1 })).rejects.toThrow(/idle_sleep/)
   })
 })
+
+describe('SimClient · goal leases and gateway errors', () => {
+  it('seeds waiting and stalled goals and leases on claimed ones', async () => {
+    const sim = make()
+    const all = (await Promise.all(['s_lyra', 's_kelp', 's_forge'].map((id) => sim.listGoals(id)))).flat()
+    expect(all.some((g) => g.status === 'waiting' && g.claimed_by && g.result)).toBe(true)
+    expect(all.some((g) => g.status === 'stalled' && g.attempts === 3 && !g.claimed_by)).toBe(true)
+    for (const g of all.filter((x) => x.status === 'claimed')) expect(Date.parse(g.lease_until!)).toBeGreaterThan(Date.now())
+  })
+
+  it('reopens a lapsed lease, stalls on the third lapse, and a person can re-open it', async () => {
+    vi.useFakeTimers()
+    const sim = new SimClient({ seed: 6, latency: false, historyDays: 1 })
+    const seen: HiveEvent[] = []
+    sim.subscribe((e) => seen.push(e))
+    const g = (await sim.listGoals('s_kelp')).find((x) => x.title === 'Transect B')!
+    expect(g.attempts).toBe(1)
+    const live0 = sim.goals.get(g.id)!
+    Object.assign(live0, { status: 'claimed', lease_until: new Date(Date.now() - 1000).toISOString() })
+    sim.connect()
+    vi.advanceTimersByTime(3000)
+    sim.disconnect()
+    const lapsed = seen.find((e) => e.type === 'goal.updated' && e.goal.id === g.id && e.goal.attempts === 2)
+    expect(lapsed?.type === 'goal.updated' && lapsed.goal).toMatchObject({ status: 'open', claimed_by: null, lease_until: null })
+    // force the third lapse
+    const live = sim.goals.get(g.id)!
+    Object.assign(live, { status: 'claimed', claimed_by: 'a_coral5', attempts: 2, lease_until: new Date(Date.now() - 1000).toISOString() })
+    sim.connect()
+    vi.advanceTimersByTime(3000)
+    sim.disconnect()
+    expect(sim.goals.get(g.id)).toMatchObject({ status: 'stalled', claimed_by: null, attempts: 3 })
+    const reopened = await sim.patchGoal(g.id, { status: 'open' })
+    expect(reopened).toMatchObject({ status: 'open', attempts: 0, lease_until: null })
+  })
+
+  it('refuses paid models with no budget and records gateway errors', async () => {
+    vi.useFakeTimers()
+    const sim = make()
+    await sim.patchAgent('a_vega01', { budget_usd: 0 })
+    await sim.agentAction('a_vega01', 'sleep')
+    await expect(sim.agentAction('a_vega01', 'wake')).rejects.toMatchObject({ status: 402, code: 'no_budget' })
+    expect((await sim.getAgent('a_qnch11')).last_error).toMatch(/rate_limited/)
+    // local models are fine at $0
+    await sim.agentAction('a_mira04', 'sleep')
+    expect((await sim.agentAction('a_mira04', 'wake')).status).toBe('starting')
+  })
+})
