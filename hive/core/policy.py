@@ -38,6 +38,12 @@ def command_skill(command):
     return None
 
 
+def _minutes_ago(minutes):
+    import datetime
+    moment = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=minutes)
+    return moment.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
 def _matches(pattern, skill):
     return fnmatch.fnmatchcase(skill, pattern)
 
@@ -126,6 +132,40 @@ class Policy:
         self.recent.setdefault(agent["id"], {})[command] = (
             "ask" if decision["decision"] == "pending" else decision["decision"])
         return decision
+
+    def enforce(self, agent, skill, command):
+        """Apply the policy to an action taken directly through the HTTP API.
+
+        The Omega loop asks ``authorize`` before running a skill; external
+        members (and any client) call the routes directly, so disclosure routes
+        enforce the same rules here. ``deny`` refuses. ``ask`` needs a human:
+        either an approval the agent's own gate just used for this skill (one
+        redemption each), or an approval of this exact canonical command, filed
+        on the first attempt and allowed once after a human approves it.
+        """
+        mode, reason = self.decide(agent, skill)
+        if mode == "allow":
+            return
+        if mode == "deny":
+            raise self.hive.error(403, "policy_denied", f"{skill} is denied for {agent['name']}: {reason}")
+        recent = self.db.one(
+            "SELECT * FROM approvals WHERE agent_id = ? AND skill = ? AND status = 'used' AND redeemed_at IS NULL "
+            "AND decided_at >= ? ORDER BY decided_at DESC LIMIT 1",
+            (agent["id"], skill, _minutes_ago(30)))
+        gate_used = recent and self.recent.get(agent["id"], {}).get(recent["command"]) is not None
+        if gate_used:
+            self.db.execute("UPDATE approvals SET redeemed_at = ? WHERE id = ?", (now(), recent["id"]))
+            return
+        decision = self.authorize(agent, command)
+        if decision["decision"] == "allow":
+            if decision.get("approval_id"):
+                self.db.execute("UPDATE approvals SET redeemed_at = ? WHERE id = ?", (now(), decision["approval_id"]))
+            return
+        if decision["decision"] == "pending":
+            raise self.hive.error(403, "approval_required",
+                                  f"{skill} needs a person's approval ({decision['approval_id']}); send the same "
+                                  "request again once it is approved", {"approval_id": decision["approval_id"]})
+        raise self.hive.error(403, "policy_denied", decision.get("message", f"{skill} is denied"))
 
     def _file(self, agent, skill, command, reason):
         row = {"id": new_id("p"), "agent_id": agent["id"], "skill": skill, "command": command,

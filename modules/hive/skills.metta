@@ -42,6 +42,9 @@
 (= (hive-shared $id $filter)
    (py-call (hive_commons.shared $id $filter)))
 
+(= (hive-shared-page $id $offset $filter)
+   (py-call (hive_commons.shared_page $id $offset $filter)))
+
 (= (hive-exhibit $to $minutes $text)
    (py-call (hive_commons.exhibit $to $minutes $text)))
 

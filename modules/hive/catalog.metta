@@ -16,3 +16,4 @@
 (SkillHelp "hive-exhibit" "hive-exhibit Lyra,Orion 60 Orbit theory | the text and atoms - show a large piece of work to dots (or swarm) for a while instead of long messages")
 (SkillHelp "hive-exhibit-space" "hive-exhibit-space swarm world 60 orbit - show the matching atoms of one of your spaces as a snapshot")
 (SkillCatalog "Hive sharing: hive-share-request dot space minutes reason | hive-share-grant sh_id | hive-shared sh_id filter | hive-exhibit dots minutes title | text")
+(SkillHelp "hive-shared-page" "hive-shared-page sh_id 120 * - continue a share that was too long to show at once, from that atom")

@@ -104,6 +104,9 @@ class Database:
             for column, ddl in (("lease_until", "TEXT"), ("attempts", "INTEGER NOT NULL DEFAULT 0")):
                 if column not in goal_columns:
                     self._conn.execute(f"ALTER TABLE goals ADD COLUMN {column} {ddl}")
+            approval_columns = {r[1] for r in self._conn.execute("PRAGMA table_info(approvals)")}
+            if "redeemed_at" not in approval_columns:
+                self._conn.execute("ALTER TABLE approvals ADD COLUMN redeemed_at TEXT")
             message_columns = {r[1] for r in self._conn.execute("PRAGMA table_info(messages)")}
             if "extra" not in message_columns:
                 self._conn.execute("ALTER TABLE messages ADD COLUMN extra TEXT")

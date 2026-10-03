@@ -99,16 +99,44 @@ def share_offer(grantee, space, minutes):
     return error or f"HIVE-SHARE-OFFERED {result['id']} to {result['grantee_name']} until {result['expires_at']}"
 
 
-def shared(share_id, text_filter):
-    query = urllib.parse.urlencode({"q": _text(text_filter) or "*", "limit": 200})
-    result, error = _call("GET", f"/api/agent/shares/{_text(share_id)}/atoms?{query}")
-    if error:
-        return error
-    head = (f"HIVE-SHARED {result['share_id']} from={result['owner']} "
-            + (f"exhibit={result['title']!r} " if result["kind"] == "exhibit" else f"space={result['space']} ")
-            + f"atoms={len(result['atoms'])}/{result['total']} until={result['expires_at']}")
-    body = f" text: {result['body'][:4000]}" if result.get("body") else ""
-    return head + body + ("".join(f"\n{a}" for a in result["atoms"]))
+SHARED_OUTPUT_CHARS = 12000
+
+
+def shared(share_id, text_filter, offset=0):
+    """Read a share page by page, up to an output budget. When it cannot fit, it says exactly
+    how much is missing and how to continue, so partial work is never mistaken for the whole."""
+    sid, flt = _text(share_id), _text(text_filter) or "*"
+    start = int(float(offset or 0))
+    atoms, first, cursor = [], None, start
+    while True:
+        query = urllib.parse.urlencode({"q": flt, "limit": 500, "offset": cursor})
+        result, error = _call("GET", f"/api/agent/shares/{sid}/atoms?{query}")
+        if error:
+            return error
+        first = first or result
+        atoms += result["atoms"]
+        cursor = result["next_offset"]
+        if cursor is None or sum(len(a) + 1 for a in atoms) > SHARED_OUTPUT_CHARS:
+            break
+    shown, used = [], 0
+    for atom in atoms:
+        if used + len(atom) + 1 > SHARED_OUTPUT_CHARS and shown:
+            break
+        shown.append(atom)
+        used += len(atom) + 1
+    end = start + len(shown)
+    total = first["total"]
+    head = (f"HIVE-SHARED {first['share_id']} from={first['owner']} "
+            + (f"exhibit={first['title']!r} " if first["kind"] == "exhibit" else f"space={first['space']} ")
+            + f"atoms {start + 1 if shown else start}-{end} of {total} until={first['expires_at']}")
+    body = f" text: {first['body']}" if first.get("body") else ""
+    tail = ("" if end >= total else
+            f"\nTRUNCATED: {total - end} more atoms not shown. Continue with hive-shared-page {sid} {end} {flt}")
+    return head + body + "".join(f"\n{a}" for a in shown) + tail
+
+
+def shared_page(share_id, offset, text_filter):
+    return shared(share_id, text_filter, offset)
 
 
 def exhibit(to, minutes, text):
@@ -133,7 +161,7 @@ def exhibit_space(to, space, minutes, text_filter):
 # Skills that never leave the agent and the hive: no round trip needed.
 LOCAL_ALLOW = {"send", "wait", "pin", "query", "remember", "episodes", "hive-publish", "hive-query",
                "hive-belief", "hive-goals", "hive-goal-claim", "hive-goal-done", "hive-goal-fail",
-               "hive-goal-create", "hive-shares", "hive-shared", "hive-share-request", "hive-share-deny"}
+               "hive-goal-create", "hive-shares"}
 
 
 def _skill(command):

@@ -50,6 +50,12 @@ MAX_EXHIBIT_ATOMS = 2000
 MAX_READ_ATOMS = 500
 
 
+def _canon(skill, *args):
+    """A stable command text for an HTTP sharing action, so a person approves exactly what runs."""
+    clean = [re.sub(r"[^A-Za-z0-9 _.,:@/-]", "", str(a if a is not None else ""))[:120] for a in args]
+    return "(" + skill + "".join(f' "{c}"' for c in clean) + ")"
+
+
 def _at(minutes):
     moment = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=minutes)
     return moment.isoformat(timespec="milliseconds").replace("+00:00", "Z")
@@ -124,7 +130,11 @@ class Shares:
 
     # ---- request / grant / deny / offer / revoke ------------------------------------------------
 
+    def _enforce(self, agent, skill, *args):
+        self.hive.policy.enforce(agent, skill, _canon(skill, *args))
+
     async def request(self, agent, owner, space, minutes=None, pattern=None, reason=""):
+        self._enforce(agent, "hive-share-request", owner, space, pattern)
         if not agent["swarm_id"]:
             raise self.hive.error(400, "no_swarm", "agent is not in a swarm")
         target = self._member(agent["swarm_id"], owner, agent["id"])
@@ -154,6 +164,7 @@ class Shares:
         share = self.get(share_id)
         if share["owner_id"] != agent["id"]:
             raise self.hive.error(403, "forbidden", "only the owner can grant access")
+        self._enforce(agent, "hive-share-grant", share_id)
         if share["status"] != "requested":
             raise self.hive.error(409, "not_requested", f"share is {share['status']}")
         minutes = self._minutes(minutes if minutes not in (None, "") else share["minutes"])
@@ -168,6 +179,7 @@ class Shares:
         share = self.get(share_id)
         if share["owner_id"] != agent["id"]:
             raise self.hive.error(403, "forbidden", "only the owner can deny access")
+        self._enforce(agent, "hive-share-deny", share_id)
         if share["status"] != "requested":
             raise self.hive.error(409, "not_requested", f"share is {share['status']}")
         self.db.update("shares", share_id, {"status": "denied", "decided_at": now(), "reason": share["reason"]
@@ -177,6 +189,7 @@ class Shares:
         return self._emit(share_id)
 
     async def offer(self, agent, grantee, space, minutes=None, pattern=None, note=""):
+        self._enforce(agent, "hive-share-offer", grantee, space, pattern)
         if not agent["swarm_id"]:
             raise self.hive.error(400, "no_swarm", "agent is not in a swarm")
         target = self._member(agent["swarm_id"], grantee, agent["id"])
@@ -193,6 +206,7 @@ class Shares:
         return self._emit(share_id)
 
     async def revoke(self, share_id, by_agent=None):
+        # Revoking only ever narrows access, so no policy can block it.
         share = self.get(share_id)
         if by_agent is not None and share["owner_id"] != by_agent["id"]:
             raise self.hive.error(403, "forbidden", "only the owner can revoke access")
@@ -207,6 +221,9 @@ class Shares:
 
     async def exhibit(self, agent, title, grantees, minutes=None, body="", atoms=None, space=None, pattern=None):
         """Publish a fixed piece of work to some dots (or 'swarm') for a while."""
+        skill = "hive-exhibit-space" if space else "hive-exhibit"
+        to = grantees if isinstance(grantees, str) else ",".join(map(str, grantees or []))
+        self._enforce(agent, skill, title, to, space, pattern)
         if not agent["swarm_id"]:
             raise self.hive.error(400, "no_swarm", "agent is not in a swarm")
         title = str(title or "").strip()[:200]
@@ -252,27 +269,40 @@ class Shares:
 
     # ---- reading --------------------------------------------------------------------------------
 
-    def read(self, agent, share_id, q=None, limit=200):
+    def read(self, agent, share_id, q=None, limit=200, offset=0):
+        """One page of a share. Every page says how much exists and where the next one starts,
+        so a reader can never take a partial read for the whole thing."""
         share = self.get(share_id)
         if share["grantee_id"] != agent["id"]:
             raise self.hive.error(403, "forbidden", "this share is not yours")
         if share["status"] != "active" or (share["expires_at"] and share["expires_at"] < now()):
             raise self.hive.error(410, "share_closed", f"share is {share['status']}"
                                   + (" (expired)" if share["status"] == "active" else ""))
+        self._enforce(agent, "hive-shared", share_id)
         q = None if q in (None, "", "*") else str(q)
-        limit = max(1, min(int(limit or 200), MAX_READ_ATOMS))
+        try:
+            requested, offset = int(limit or 200), max(0, int(offset or 0))
+        except (TypeError, ValueError):
+            raise self.hive.error(400, "bad_request", "limit and offset must be integers") from None
+        limit = max(1, min(requested, MAX_READ_ATOMS))
         if share["kind"] == "exhibit":
             ex = self.db.one("SELECT * FROM exhibits WHERE id = ?", (share["exhibit_id"],))
             atoms = [a for a in json.loads(ex["atoms"]) if not q or q.lower() in a.lower()]
-            result = {"kind": "exhibit", "title": ex["title"], "body": ex["body"] if not q else "",
-                      "source": ex["source"], "atoms": atoms[:limit], "total": len(atoms)}
+            result = {"kind": "exhibit", "title": ex["title"], "source": ex["source"],
+                      # the text body comes whole, on the first page only
+                      "body": ex["body"] if offset == 0 and not q else "",
+                      "body_bytes": len(ex["body"].encode())}
         else:
-            rows = self.hive.memory_atoms(share["owner_id"], share["space"], share["pattern"], limit=1000)
+            rows = self.hive.memory_atoms(share["owner_id"], share["space"], share["pattern"], limit=None)
             atoms = [r["text"] for r in rows if not q or q.lower() in r["text"].lower()]
-            result = {"kind": "space", "space": share["space"], "pattern": share["pattern"], "atoms": atoms[:limit],
-                      "total": len(atoms)}
+            result = {"kind": "space", "space": share["space"], "pattern": share["pattern"]}
+        page = atoms[offset:offset + limit]
+        end = offset + len(page)
+        result.update(atoms=page, total=len(atoms), offset=offset, limit=limit, returned=len(page),
+                      complete=offset == 0 and end >= len(atoms), next_offset=end if end < len(atoms) else None,
+                      limit_clamped=requested > limit)
         self.db.insert("share_reads", {"share_id": share_id, "reader_id": agent["id"], "q": q,
-                                       "returned": len(result["atoms"]), "created_at": now()})
+                                       "returned": len(page), "created_at": now()})
         self.db.execute("UPDATE shares SET reads = reads + 1, last_read_at = ? WHERE id = ?", (now(), share_id))
         self._emit(share_id)
         owner = self.db.one("SELECT name FROM agents WHERE id = ?", (share["owner_id"],))

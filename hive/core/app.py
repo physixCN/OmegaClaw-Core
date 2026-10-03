@@ -76,7 +76,10 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
 
     @app.exception_handler(HiveError)
     async def hive_error(_, exc: HiveError):
-        return JSONResponse({"error": {"code": exc.code, "message": exc.message}}, status_code=exc.status)
+        error = {"code": exc.code, "message": exc.message}
+        if getattr(exc, "details", None):
+            error.update(exc.details)
+        return JSONResponse({"error": error}, status_code=exc.status)
 
     @app.exception_handler(GatewayError)
     async def gateway_error(_, exc: GatewayError):
@@ -590,9 +593,9 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
         return await hive.shares.revoke(share_id, by_agent=agent_from(request))
 
     @app.get("/api/agent/shares/{share_id}/atoms")
-    async def agent_share_read(share_id: str, request: Request, q: str = "", limit: int = 200):
+    async def agent_share_read(share_id: str, request: Request, q: str = "", limit: int = 200, offset: int = 0):
         agent = agent_from(request)
-        return await run_in_threadpool(hive.shares.read, agent, share_id, q, limit)
+        return await run_in_threadpool(hive.shares.read, agent, share_id, q, limit, offset)
 
     @app.post("/api/agent/exhibits")
     async def agent_exhibit(request: Request):

@@ -25,6 +25,7 @@
 (Provides omegaclaw.hive.commons (Skill hive-share-deny))
 (Provides omegaclaw.hive.commons (Skill hive-share-offer))
 (Provides omegaclaw.hive.commons (Skill hive-shared))
+(Provides omegaclaw.hive.commons (Skill hive-shared-page))
 (Provides omegaclaw.hive.commons (Skill hive-exhibit))
 (Provides omegaclaw.hive.commons (Skill hive-exhibit-space))
 

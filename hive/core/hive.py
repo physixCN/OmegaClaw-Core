@@ -29,9 +29,9 @@ EDITABLE = {"name", "swarm_id", "model", "persona", "hue", "budget_usd", "idle_s
 
 
 class HiveError(Exception):
-    def __init__(self, status, code, message):
+    def __init__(self, status, code, message, details=None):
         super().__init__(message)
-        self.status, self.code, self.message = status, code, message
+        self.status, self.code, self.message, self.details = status, code, message, details
 
 
 def token_hash(token):
@@ -537,8 +537,8 @@ class Hive:
     # ---- phase 2: helpers -----------------------------------------------------------------
 
     @staticmethod
-    def error(status, code, message):
-        return HiveError(status, code, message)
+    def error(status, code, message, details=None):
+        return HiveError(status, code, message, details)
 
     def stop_all(self):
         stopped = 0
@@ -659,7 +659,7 @@ class Hive:
             raise HiveError(404, "not_found", f"no space {space}")
         atoms = self._atoms(path.read_text(encoding="utf-8", errors="replace"))
         rows = [{"index": i, "text": a} for i, a in enumerate(atoms) if not q or str(q).lower() in a.lower()]
-        return rows[: min(int(limit), 1000)]
+        return rows if limit is None else rows[: min(int(limit), 1000)]
 
     def queue_control(self, agent_id, op):
         self._agent_row(agent_id)

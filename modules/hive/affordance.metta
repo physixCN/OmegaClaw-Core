@@ -53,3 +53,6 @@
 (Risk "hive-share-offer" "private-memory-disclosure")
 (Risk "hive-exhibit" "private-memory-disclosure")
 (Risk "hive-exhibit-space" "private-memory-disclosure")
+(SkillTopic "hive-shared-page" "hive-shared-page")
+(SkillTopic "hive-shared-page" "share")
+(SkillCardLine "hive-shared-page" "hive-shared-page sh_id offset filter - continue reading a long share")

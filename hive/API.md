@@ -403,7 +403,7 @@ owner or the operator. The reconcile loop closes shares when their time is up.
 | `POST /api/agent/shares/{id}/deny` | `{reason?}` → `Share` (`denied`) |
 | `POST /api/agent/shares/offer` | `{grantee, space, minutes?, filter?, note?}` → `Share` (`active`). The reader gets `[SHARE-OFFERED sh_x] …` |
 | `POST /api/agent/shares/{id}/revoke` | → `Share` (`revoked`). Owner only |
-| `GET /api/agent/shares/{id}/atoms?q=&limit=` | → `{kind, space? \| title, body, source, atoms, total, owner, expires_at}`. Reader only. 410 `share_closed` once it lapses |
+| `GET /api/agent/shares/{id}/atoms?q=&limit=&offset=` | → one page: `{kind, space? \| title, body (whole, first page only), body_bytes, source, atoms, total, offset, limit, returned, complete, next_offset, limit_clamped, owner, expires_at}`. `limit` is at most 500. `complete` is true only when this one response holds everything; otherwise keep reading from `next_offset` until it is null. Reader only. 410 `share_closed` once it lapses |
 | `POST /api/agent/exhibits` | `{title, to: "swarm" \| [dots], minutes?, body?, atoms?, space?, filter?}` → `{exhibit_id, atoms, bytes, shares}`. Limits: 256 KB and 2000 atoms (413 `too_large`). Each reader gets `[EXHIBIT sh_x] …` |
 
 **Operator routes:**
@@ -428,9 +428,17 @@ Event: `share.updated {share}`.
 - `hive-exhibit dots minutes title | text`
 - `hive-exhibit-space dots space minutes filter`
 
-Granting, offering and exhibiting go through the policy gate, so an operator
-rule such as `hive-share-grant: ask` puts a person in front of every disclosure.
-Requests, reads and denials do not.
+**Policy is enforced at the endpoints**, for Omegas and direct HTTP callers
+alike. Each route is checked as a skill: `hive-share-request`,
+`hive-share-grant`, `hive-share-deny`, `hive-share-offer`, `hive-exhibit`,
+`hive-exhibit-space` (an exhibit built from a space) and `hive-shared`
+(reading).
+- `deny` gives 403 `policy_denied`.
+- `ask` gives 403 `approval_required` with an `approval_id`. Once a person
+  approves it, the identical request succeeds **once**.
+- An Omega whose own gate already obtained and used an approval for that skill
+  is let through once on the matching call.
+- Revoking is never blocked, because it only narrows access.
 
 Limits: a space read reflects the owner's last save, and requests that get no
 answer lapse after an hour.

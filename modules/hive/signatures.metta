@@ -14,3 +14,4 @@
 (SkillSignature hive-shared (Arg text share) (Arg rest-text filter))
 (SkillSignature hive-exhibit (Arg text to) (Arg number minutes) (Arg rest-text text))
 (SkillSignature hive-exhibit-space (Arg text to) (Arg text space) (Arg number minutes) (Arg rest-text filter))
+(SkillSignature hive-shared-page (Arg text share) (Arg number offset) (Arg rest-text filter))

@@ -22,6 +22,7 @@ provides = [
   "skill:hive-share-deny",
   "skill:hive-share-offer",
   "skill:hive-shared",
+  "skill:hive-shared-page",
   "skill:hive-exhibit",
   "skill:hive-exhibit-space",
 ]
