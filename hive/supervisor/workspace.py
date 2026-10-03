@@ -24,6 +24,12 @@ RUN_METTA = """!(import! &self (library lib_import))
 """
 
 CHROMADB_LIB_URL = "https://github.com/patham9/petta_lib_chromadb.git"
+ITER_URL = "https://github.com/patham9/iter.git"
+ITER_TEMPLATE = pathlib.Path(__file__).resolve().parents[1] / "templates" / "iter"
+# Iter files copied into a worker.  Its shell and python tools are left out on
+# purpose: an Iter rewrites its own tools, so it is not covered by the policy
+# gate and must run in a sandbox (docker driver).
+ITER_FILES = ["iter.py", "prompt.txt", "reprogramming.txt", "LICENSE", "tools/send.py", "tools/nop.py"]
 
 HIVE_PROMPT = """
 
@@ -57,11 +63,47 @@ class Workspace:
                 subprocess.run(["git", "clone", "-q", "--depth", "1", CHROMADB_LIB_URL, str(lib)], check=True)
         return lib
 
+    def iter_source(self) -> pathlib.Path:
+        source = self.settings.data_dir / "libs" / "iter"
+        if not (source / "iter.py").exists():
+            source.parent.mkdir(parents=True, exist_ok=True)
+            local = os.environ.get("HIVE_ITER_SRC")
+            if local and pathlib.Path(local, "iter.py").exists():
+                shutil.copytree(local, source, dirs_exist_ok=True)
+            else:
+                subprocess.run(["git", "clone", "-q", "--depth", "1", ITER_URL, str(source)], check=True)
+        return source
+
+    def create_iter(self, agent, token):
+        root = self.path(agent["id"])
+        source = self.iter_source()
+        for name in ITER_FILES:
+            target = root / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(source / name, target)
+        shutil.copytree(ITER_TEMPLATE, root, dirs_exist_ok=True)
+        persona = (agent.get("persona") or "").strip()
+        note = (root / "memory" / "hive.txt").read_text(encoding="utf-8")
+        (root / "memory" / "hive.txt").write_text(
+            f"Your name is {agent['name']}.\n" + note + (f"\nPersona: {persona}\n" if persona else ""), encoding="utf-8")
+        token_file = root / "token"
+        token_file.write_text(token, encoding="utf-8")
+        token_file.chmod(0o600)
+        return root
+
+    def command(self, agent, petta_path):
+        root = self.path(agent["id"])
+        if agent.get("kind") == "iter":
+            return ["python3", str(root / "iter.py")]
+        return ["sh", str(pathlib.Path(petta_path) / "run.sh"), str(root / "run.metta")]
+
     def base_prompt(self):
         prompt = self.settings.core_root / "memory" / "prompt.txt"
         return prompt.read_text(encoding="utf-8") if prompt.exists() else "You are Omega, an always-on agent."
 
     def write_prompt(self, agent):
+        if agent.get("kind") == "iter":
+            return
         memory = self.path(agent["id"]) / "memory"
         memory.mkdir(parents=True, exist_ok=True)
         text = self.base_prompt().replace("Omega", agent["name"])
@@ -71,6 +113,8 @@ class Workspace:
         (memory / "prompt.txt").write_text(text, encoding="utf-8")
 
     def create(self, agent, token):
+        if agent.get("kind") == "iter":
+            return self.create_iter(agent, token)
         root = self.path(agent["id"])
         (root / "repos").mkdir(parents=True, exist_ok=True)
         (root / "run.metta").write_text(RUN_METTA, encoding="utf-8")
@@ -90,8 +134,11 @@ class Workspace:
         return (self.path(agent_id) / "token").read_text(encoding="utf-8").strip()
 
     def env(self, agent, hub_url, api_url, memory_dir=None):
-        """Environment for an Omega agent talking to this hive."""
+        """Environment for an agent talking to this hive."""
         token = self.token(agent["id"])
+        if agent.get("kind") == "iter":
+            return {"LANG": "C.UTF-8", "HIVE_API_URL": api_url, "HIVE_TOKEN": token, "HIVE_AGENT_ID": agent["id"],
+                    "BASE_URL": f"{api_url.rstrip('/')}/llm/v1", "AI_API_KEY": token, "LLM_MODEL": "hive"}
         memory = memory_dir or str(self.path(agent["id"]) / "memory")
         llm = f"{api_url.rstrip('/')}/llm/v1"
         return {

@@ -12,6 +12,7 @@ format, so a hive can be demoed and tested without any provider.
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import re
 import time
@@ -89,6 +90,14 @@ def mock_reply(agent_name, prompt):
     if text.startswith("[WAKE "):
         reason = text.split("] ", 1)[-1]
         return f"send Awake: {reason}"
+    # Several goal announcements can arrive in one batch: take up to two.
+    announced = re.findall(r"New goal (g_\w+) \(priority [0-9.]+\): (.*?)(?=_newline_|\n|$)", tail)
+    simple = [(g, t) for g, t in announced if not t.startswith("Project:")]
+    if len(simple) > 1:
+        lines = []
+        for goal_id, title in simple[:2]:
+            lines += [f"hive-goal-claim {goal_id}", f"hive-goal-done {goal_id} did: {title.split(' - ', 1)[0]}"]
+        return "\n".join(lines)
     goal = re.match(r"^New goal (g_\w+) \(priority [0-9.]+\): (.*)$", text)
     if goal:
         goal_id, title = goal.group(1), goal.group(2).split(" - ", 1)[0]
@@ -111,6 +120,50 @@ def mock_reply(agent_name, prompt):
     if lowered.startswith("ask "):
         return f"hive-query {text[4:].strip()}\nsend Looking that up in our commons"
     return f"send I hear you - \"{text[:300]}\""
+
+
+def _tool_call(index, name, arguments):
+    return {"id": f"call_{index}_{name}", "type": "function",
+            "function": {"name": name, "arguments": json.dumps(arguments)}}
+
+
+def mock_tool_reply(agent_name, body):
+    """Mock for agents that use native tool calling (Iter): returns tool calls.
+
+    Acts only on a fresh hive message; otherwise calls nop, the Iter way of
+    saying there is nothing to do.
+    """
+    tools = {t.get("function", {}).get("name") for t in body.get("tools", [])}
+    messages = body.get("messages") or []
+    last = messages[-1] if messages else {}
+    content = str(last.get("content") or "")
+    calls = []
+    if last.get("role") == "user" and "[hive] " in content:
+        text = content.split("[hive] ", 1)[1].strip()
+        text = text.split(": ", 1)[1] if re.match(r"^[\w:.-]+: ", text) else text
+        goals = re.findall(r"New goal (g_\w+) \(priority [0-9.]+\): (.*)", content)
+        belief = re.match(r"^believe (\(.*\))\s*([0-9.]+)?\s*([0-9.]+)?$", text, re.I)
+        if goals and {"hive_goal_claim", "hive_goal_done"} <= tools:
+            for goal_id, title in goals[:4]:
+                title = title.split(" - ", 1)[0].strip()
+                calls += [_tool_call(len(calls), "hive_goal_claim", {"goal_id": goal_id}),
+                          _tool_call(len(calls) + 1, "hive_goal_done",
+                                     {"goal_id": goal_id, "status": "done", "result": f"did: {title}"})]
+        elif belief and "hive_publish" in tools:
+            calls = [_tool_call(0, "hive_publish", {"statement": belief.group(1), "f": belief.group(2) or "0.9",
+                                                    "c": belief.group(3) or "0.8"}),
+                     _tool_call(1, "send", {"channel": "hive", "content": f"I now believe {belief.group(1)}"})]
+        elif "send" in tools:
+            calls = [_tool_call(0, "send", {"channel": "hive", "content": f"I hear you - \"{text[:300]}\""})]
+    if not calls:
+        calls = [_tool_call(0, "nop", {})] if "nop" in tools else []
+    return {
+        "id": f"hive-{int(time.time() * 1000)}", "object": "chat.completion", "created": int(time.time()),
+        "model": "mock/echo",
+        "choices": [{"index": 0, "finish_reason": "tool_calls",
+                     "message": {"role": "assistant", "content": None, "tool_calls": calls}}],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+    }
 
 
 def mock_embedding(text):
@@ -145,6 +198,8 @@ class Gateway:
         provider = self.provider(provider_name)
         if body.get("stream"):
             raise GatewayError(400, "stream_unsupported", "streaming is not supported yet")
+        if provider_name == "mock" and body.get("tools"):
+            return mock_tool_reply(agent["name"], body), {"prompt_tokens": 1, "completion_tokens": 1, "cost_usd": 0.0}
         if provider_name == "mock":
             prompt = _prompt_text(body)
             text = mock_reply(agent["name"], prompt)

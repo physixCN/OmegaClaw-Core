@@ -59,11 +59,14 @@ class LocalDriver(Driver):
     def start(self, agent, env):
         if self.status(agent["id"]) == "running":
             return
+        if agent.get("kind") == "iter" and os.environ.get("HIVE_ALLOW_LOCAL_ITER") != "1":
+            raise RuntimeError("Iter workers rewrite their own tools and must run sandboxed: use the docker "
+                               "driver, or set HIVE_ALLOW_LOCAL_ITER=1 to accept running one on this host")
         root = self.workspace.path(agent["id"])
         log = open(root / "agent.log", "ab")
         full_env = dict(os.environ, **env)
         self.procs[agent["id"]] = subprocess.Popen(
-            ["sh", str(pathlib.Path(self.petta_path) / "run.sh"), str(root / "run.metta")],
+            self.workspace.command(agent, self.petta_path),
             cwd=root, env=full_env, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
             start_new_session=True,
         )
@@ -123,6 +126,16 @@ class DockerDriver(Driver):
         self._docker("rm", "-f", name)
         root = self.workspace.path(agent["id"])
         settings = self.workspace.settings
+        if agent.get("kind") == "iter":
+            args = ["run", "-d", "--name", name, "--network", self.network, "--label", "omegadots.agent=" + agent["id"],
+                    "--memory", "1g", "--pids-limit", "256", "-v", f"{root}:/agent", "-w", "/agent"]
+            for key, value in env.items():
+                args += ["-e", f"{key}={value}"]
+            args += [os.environ.get("HIVE_ITER_IMAGE", "omegadots/iter:dev"), "python3", "/agent/iter.py"]
+            result = self._docker(*args)
+            if result.returncode != 0:
+                raise RuntimeError(f"docker run failed: {result.stdout.strip()}")
+            return
         env = dict(env, OMEGACLAW_MEMORY_DIR="/agent/memory")
         args = ["run", "-d", "--name", name, "--network", self.network,
                 "--label", "omegadots.agent=" + agent["id"],

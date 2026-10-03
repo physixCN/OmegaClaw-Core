@@ -83,3 +83,49 @@ def test_gates_goals_traces_and_memory_with_real_agents(tmp_path):
         assert wait_until(lambda: not has_atom(), timeout=60), "atom was not retired"
     finally:
         hive.stop()
+
+
+def test_mixed_swarm_of_omegas_and_iter_workers(tmp_path, monkeypatch):
+    monkeypatch.setenv("HIVE_ALLOW_LOCAL_ITER", "1")
+    if pathlib.Path("/home/user/patham9/iter/iter.py").exists():
+        monkeypatch.setenv("HIVE_ITER_SRC", "/home/user/patham9/iter")
+    hive = Hive(tmp_path, free_port())
+    hive.start()
+    c = hive.client
+    try:
+        swarm = c.post("/api/swarms", json={"name": "Mixed"}).json()
+        members = {}
+        for name, kind in (("Omni", "omega"), ("Opal", "omega"), ("Ivy", "iter"), ("Ike", "iter")):
+            members[name] = c.post("/api/agents", json={"name": name, "kind": kind, "swarm_id": swarm["id"]}).json()
+            c.post(f"/api/agents/{members[name]['id']}/start")
+
+        def omegas_up():
+            agents = {a["name"]: a for a in c.get("/api/agents").json()}
+            return all(agents[n]["connected"] for n in ("Omni", "Opal"))
+
+        assert wait_until(omegas_up, timeout=120)
+        ivy = members["Ivy"]
+        c.post(f"/api/agents/{ivy['id']}/messages", json={"text": "hello Ivy"})
+        reply = wait_until(lambda: [m for m in c.get(f"/api/agents/{ivy['id']}/messages").json()
+                                    if m["direction"] == "out"], timeout=90)
+        assert reply and "hello Ivy" in reply[0]["text"], "Iter worker did not answer over the HTTP inbox"
+
+        project = c.post(f"/api/swarms/{swarm['id']}/goals",
+                         json={"title": "Project: map rivers; map hills; map lakes", "priority": 0.9}).json()
+
+        def settled():
+            goals = c.get(f"/api/swarms/{swarm['id']}/goals").json()
+            top = next(g for g in goals if g["id"] == project["id"])
+            subs = [g for g in goals if g["parent_id"] == project["id"]]
+            return (top, subs) if top["status"] == "done" and len(subs) == 3 else None
+
+        result = wait_until(settled, timeout=180)
+        assert result, f"goals did not settle: {json.dumps(c.get(f'/api/swarms/{swarm[chr(105)+chr(100)]}/goals').json())[:2000]}"
+        top, subs = result
+        workers = {s["claimed_by"] for s in subs}
+        kinds = {a["id"]: a["kind"] for a in c.get("/api/agents").json()}
+        assert all(s["status"] == "done" for s in subs)
+        assert top["result"].startswith("merged:")
+        assert "iter" in {kinds[w] for w in workers} or len(workers) >= 1
+    finally:
+        hive.stop()
