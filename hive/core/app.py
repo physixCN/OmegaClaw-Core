@@ -619,6 +619,46 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
         operator(request)
         return await hive.shares.revoke(share_id)
 
+    # ---- dot programs (hive/PROGRAMS.md) --------------------------------------------------------------
+
+    @app.get("/api/programs")
+    async def programs(request: Request):
+        operator(request)
+        return hive.programs.list()
+
+    @app.post("/api/programs/reload")
+    async def programs_reload(request: Request):
+        operator(request)
+        return await run_in_threadpool(hive.programs.reload)
+
+    @app.get("/api/programs/{program_id}")
+    async def program(program_id: str, request: Request):
+        operator(request)
+        return hive.programs.detail(program_id)
+
+    @app.post("/api/programs/{program_id}/enable")
+    async def program_enable(program_id: str, request: Request):
+        operator(request)
+        return hive.programs.set_enabled(program_id, True)
+
+    @app.post("/api/programs/{program_id}/disable")
+    async def program_disable(program_id: str, request: Request):
+        operator(request)
+        return hive.programs.set_enabled(program_id, False)
+
+    @app.post("/api/programs/{program_id}/view")
+    async def program_view(program_id: str, request: Request):
+        operator(request)
+        data = await body(request)
+        return await hive.programs.view(program_id, str(data.get("swarm_id", "")), data.get("focus"), data.get("stage"))
+
+    @app.post("/api/programs/{program_id}/act")
+    async def program_act(program_id: str, request: Request):
+        operator(request)
+        data = await body(request)
+        return await hive.programs.act(program_id, str(data.get("swarm_id", "")), str(data.get("action", "")),
+                                       data.get("items") or [], data.get("params"), data.get("base_revision"))
+
     # ---- the web UI ---------------------------------------------------------------------------------
 
     if UI_DIST.exists():

@@ -21,6 +21,7 @@ from .events import EventBus
 from .goals import Goals
 from .lab import Lab
 from .shares import Shares
+from .programs import Programs
 from .policy import Policy
 from .schedule import Scheduler
 
@@ -52,6 +53,7 @@ class Hive:
         self.scheduler = Scheduler(self)
         self.lab = Lab(self)
         self.shares = Shares(self)
+        self.programs = Programs(self)
         self.last_llm = {}  # agent_id -> (latency_ms, tokens) of its latest model call
         self.llm_calls = {}  # agent_id -> monotonic times of its calls in the last minute
 
