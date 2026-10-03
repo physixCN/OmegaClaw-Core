@@ -2,25 +2,59 @@ import { ApiError, Emitter, type ConnectionState, type HiveClient } from '../cli
 import type {
   Agent,
   AgentAction,
+  Approval,
+  ApprovalStatus,
   Assertion,
   AssertionOutcome,
   Belief,
   BeliefDetail,
   CreateAgentBody,
   CreatedAgent,
+  CreateGoalBody,
+  CreatePolicyBody,
   CreateSwarmBody,
+  CreateWakeupBody,
+  GateDecision,
+  Goal,
   HiveEvent,
   HiveInfo,
+  MemoryAtom,
+  MemorySpace,
   Message,
   PatchAgentBody,
+  PatchGoalBody,
+  PatchWakeupBody,
+  PolicyRule,
   Swarm,
   ThinkingPhase,
+  Trace,
+  TraceCommand,
   TruthValue,
   Usage,
+  Wakeup,
 } from '../types'
+import { cronError, isValidTz, nextRun } from '../../lib/cron'
+import { commandSkill, resolvePolicy, skillRisk } from '../../lib/policy'
 import { LOG_TEMPLATES, NAME_IDEAS, SEED_AGENTS, SEED_SWARMS, SIM_MODELS, SKILLS, type SeedAgent } from './data'
 import { overlaps, revise, round3, unionCapped } from './nal'
 import { generateReply, PEER_LINES, PEER_REPLIES } from './replies'
+import {
+  COMMON_CMDS,
+  EPISODES,
+  GOAL_FAILS,
+  GOAL_IDEAS,
+  GOAL_RESULTS,
+  hashStr,
+  HUMAN_ONLY_ATTEMPTS,
+  SEED_APPROVALS,
+  SEED_GOALS,
+  SEED_RULES,
+  SEED_WAKEUPS,
+  SUBGOAL_SPLITS,
+  SWARM_CMDS,
+  THOUGHTS,
+  type CmdTemplate,
+} from './phase2'
 
 export interface SimOptions {
   seed?: number
@@ -78,6 +112,15 @@ export class SimClient implements HiveClient {
   private timers = new Set<ReturnType<typeof setTimeout>>()
   private running = false
   private busy = new Set<string>()
+  // ---- Phase 2
+  readonly policy: PolicyRule[] = []
+  readonly approvals = new Map<string, Approval>()
+  readonly goals = new Map<string, Goal>()
+  readonly wakeups = new Map<string, Wakeup>()
+  private traces = new Map<string, Trace[]>()
+  private traceSeq = 1000
+  private iterations = new Map<string, number>()
+  private memory = new Map<string, Map<string, string[]>>()
 
   private events = new Emitter<HiveEvent>()
   private conn = new Emitter<ConnectionState>()
@@ -190,6 +233,7 @@ export class SimClient implements HiveClient {
         connected: sa.start !== 'stopped',
         last_active_at: null,
         created_at: iso(origin + (3 + i * 1.7) * day),
+        idle_sleep_minutes: [30, 0, 10, 15, 30, 20, 10, 0, 45, 15, 10, 0][i] ?? 15,
       }
       this.agents.set(a.id, a)
       this.voices.set(a.id, sa.voice)
@@ -217,6 +261,7 @@ export class SimClient implements HiveClient {
         connected: true,
         last_active_at: null,
         created_at: iso(origin + this.r(10, 40) * day),
+        idle_sleep_minutes: 0,
       }
       this.agents.set(id, a)
       this.voices.set(id, 'terse')
@@ -316,7 +361,431 @@ export class SimClient implements HiveClient {
       ['in', 'Is it safe to deploy tonight?'],
       ['out', 'Main is green and the gateway is healthy. p95 latency is still a little elevated, but within budget. I would ship.'],
     ])
+
+    this.seedPhase2(now)
   }
+
+  // ------------------------------------------------------------------ Phase 2 seeding
+
+  private seedPhase2(now: number) {
+    const day = 86_400_000
+    for (const r of SEED_RULES) {
+      this.policy.push({ id: this.id('r_'), scope: r.scope, skill: r.skill, mode: r.mode, note: r.note, created_at: iso(now - r.daysAgo * day) })
+    }
+
+    // approvals: a few waiting, a short history
+    for (const sa of SEED_APPROVALS) {
+      const a = this.agents.get(sa.agent)
+      if (!a) continue
+      const created = now - sa.minutesAgo * 60_000
+      const { reason } = this.gate(a, sa.command)
+      const decided = sa.status === 'pending' || sa.status === 'expired' ? null : iso(created + (sa.decidedAfter ?? 2) * 60_000)
+      const ap = this.makeApproval(a, sa.command, reason, iso(created))
+      ap.status = sa.status
+      ap.decided_at = decided
+      ap.decided_by = decided ? 'user:operator' : null
+      this.approvals.set(ap.id, ap)
+    }
+
+    // goals with nested subgoals
+    for (const [swarmId, list] of Object.entries(SEED_GOALS)) {
+      if (!this.swarms.has(swarmId)) continue
+      const keys = new Map<string, string>()
+      for (const sg of list) {
+        const at = iso(now - sg.hoursAgo * 3_600_000)
+        const g: Goal = {
+          id: this.id('g_'),
+          swarm_id: swarmId,
+          parent_id: sg.parent ? keys.get(sg.parent) ?? null : null,
+          title: sg.title,
+          detail: sg.detail ?? '',
+          priority: sg.priority,
+          status: sg.status,
+          created_by: sg.by,
+          claimed_by: sg.claimed ?? null,
+          result: sg.result ?? null,
+          created_at: at,
+          updated_at: iso(now - sg.hoursAgo * 3_600_000 * 0.6),
+        }
+        keys.set(sg.key, g.id)
+        this.goals.set(g.id, g)
+      }
+    }
+
+    // wakeups
+    for (const sw of SEED_WAKEUPS) {
+      if (!this.agents.has(sw.agent)) continue
+      const w: Wakeup = {
+        id: this.id('w_'),
+        agent_id: sw.agent,
+        cron: sw.cron ?? null,
+        at: sw.atHours !== undefined ? iso(Math.ceil((now + sw.atHours * 3_600_000) / 900_000) * 900_000) : null,
+        tz: sw.tz,
+        text: sw.text,
+        enabled: sw.enabled,
+        next_run_at: null,
+        last_run_at: sw.lastHours !== undefined ? iso(now - sw.lastHours * 3_600_000) : null,
+      }
+      w.next_run_at = this.computeNext(w, now)
+      this.wakeups.set(w.id, w)
+    }
+
+    // traces: a few hours of model iterations for every dot that has been running
+    for (const a of this.agents.values()) {
+      if (a.status === 'stopped' || a.id.startsWith('a_x')) continue
+      this.iterations.set(a.id, 40 + (hashStr(a.id) % 260))
+      const n = 9 + Math.floor(this.rng() * 6)
+      let t = now - this.r(4, 7) * 3_600_000
+      const span = (now - 60_000 - t) / n
+      for (let i = 0; i < n; i++) {
+        t += span * this.r(0.6, 1.2)
+        const kind = this.rng()
+        const input =
+          kind < 0.25
+            ? this.pick(['Anything new?', 'What changed overnight?', 'Can you check the commons?', 'Status?'])
+            : kind < 0.35
+              ? `[wakeup] ${this.pick(SEED_WAKEUPS.filter((w) => w.agent === a.id).map((w) => w.text).concat(['Routine check-in.']))}`
+              : null
+        const commands = this.rng() < 0.75 ? this.planCommands(a, this.rng() < 0.12 ? 'risky' : 'normal', true) : []
+        for (const c of commands) if (c.gated === 'ask') c.result = 'approved, ran on the next loop'
+        if (input && !input.startsWith('['))
+          commands.push({
+            command: `(send "${this.pick(['Checked. Nothing worth revising yet.', 'Two small revisions, both in the commons now.', 'All quiet. I will look again after the next observation.'])}")`,
+            result: 'delivered',
+            gated: 'allow',
+          })
+        const tokens = Math.round(this.r(1100, 4200))
+        this.storeTrace(a, input, this.thought(a), commands, Math.round(this.r(700, 3200)), tokens, iso(Math.min(t, now - 120_000)))
+      }
+    }
+    // the newest iteration of each asking dot is the one that raised its pending approval
+    for (const ap of [...this.approvals.values()].reverse()) {
+      if (ap.status !== 'pending') continue
+      const a = this.agents.get(ap.agent_id)!
+      const at = iso(Date.parse(ap.created_at) - 1500)
+      const safe = this.planCommands(a, 'normal', true).slice(0, 1)
+      this.storeTrace(a, null, this.thought(a), [...safe, { command: ap.command, result: `awaiting approval ${ap.id}`, gated: 'ask' }], Math.round(this.r(900, 2600)), Math.round(this.r(1500, 3800)), at)
+    }
+    // a denied human-only attempt for Bellows, so the timeline shows a deny
+    const bell = this.agents.get('a_bell10')
+    if (bell) {
+      this.storeTrace(
+        bell,
+        null,
+        'Quench keeps overspending. Move some of my budget over so it can finish the incident.',
+        [
+          { command: '(hive-status)', result: '12 dots · 7 awake · gateway healthy', gated: 'allow' },
+          { command: HUMAN_ONLY_ATTEMPTS[0], result: 'denied: human-only skill. A person has to do this.', gated: 'deny' },
+          { command: '(send "operator" "Quench is at 92% of budget. Can you top it up?")', result: 'delivered', gated: 'allow' },
+        ],
+        1840,
+        2960,
+        iso(now - 25 * 60_000),
+      )
+    }
+    for (const list of this.traces.values()) list.sort((x, y) => x.created_at.localeCompare(y.created_at))
+    // ids and iterations follow time
+    for (const list of this.traces.values()) {
+      const base = list.length ? list[0].iteration : 1
+      list.forEach((t, i) => (t.iteration = base + i))
+    }
+    const all = [...this.traces.values()].flat().sort((x, y) => x.created_at.localeCompare(y.created_at))
+    all.forEach((t, i) => (t.id = i + 1))
+    this.traceSeq = all.length
+    for (const [id, list] of this.traces) if (list.length) this.iterations.set(id, list[list.length - 1].iteration)
+  }
+
+  // ------------------------------------------------------------------ Phase 2 behaviour
+
+  private gate(a: Agent, command: string): { decision: GateDecision; reason: string; humanOnly: boolean; note: string } {
+    const skill = commandSkill(command)
+    const d = resolvePolicy(this.policy, { agentId: a.id, swarmId: a.swarm_id }, skill)
+    const reason =
+      d.rule?.note ||
+      (d.source === 'human-only'
+        ? 'human-only'
+        : d.source === 'unlisted'
+          ? 'Unlisted skill: asks by default'
+          : d.mode === 'ask'
+            ? 'Default policy: side effects on the machine or on durable memory'
+            : 'Default policy')
+    return { decision: d.mode, reason, humanOnly: d.source === 'human-only', note: d.rule?.note ?? '' }
+  }
+
+  private makeApproval(a: Agent, command: string, reason: string, at: string): Approval {
+    const skill = commandSkill(command)
+    return { id: this.id('p_'), agent_id: a.id, skill, command, reason, risk: skillRisk(skill), status: 'pending', decided_by: null, created_at: at, decided_at: null }
+  }
+
+  private cmdPool(a: Agent): CmdTemplate[] {
+    return [...(SWARM_CMDS[a.swarm_id ?? 'none'] ?? SWARM_CMDS.none), ...COMMON_CMDS]
+  }
+
+  private fill(text: string, a: Agent): string {
+    const commons = a.swarm_id ? [...(this.beliefs.get(a.swarm_id)?.values() ?? [])] : []
+    const b = commons.length ? this.pick(commons) : null
+    const musings = (a.swarm_id && this.musings.get(a.swarm_id)) || ['Listening for rumours.']
+    return text
+      .replace('{belief}', b ? `${b.statement} <${b.tv.f.toFixed(2)} ${b.tv.c.toFixed(2)}>` : '(--> rumour heard)')
+      .replace('{musing}', this.pick(musings).replace(/"/g, "'"))
+      .replace('{n}', String(1 + Math.floor(this.rng() * 4)))
+  }
+
+  private thought(a: Agent): string {
+    return this.pick(THOUGHTS[a.swarm_id ?? 'none'] ?? THOUGHTS.none)
+  }
+
+  /** Commands a dot runs in one iteration, already gated by the policy. */
+  private planCommands(a: Agent, mode: 'normal' | 'risky', quiet = false): TraceCommand[] {
+    const pool = this.cmdPool(a)
+    const safe = pool.filter((c) => !c.risky)
+    const risky = pool.filter((c) => c.risky)
+    const picks: CmdTemplate[] = [this.pick(safe)]
+    if (this.rng() < 0.4) picks.push(this.pick(safe))
+    if (mode === 'risky') {
+      if (this.rng() < 0.08 && !quiet) picks.push({ cmd: this.pick(HUMAN_ONLY_ATTEMPTS), result: '' })
+      else if (risky.length) picks.push(this.pick(risky))
+    }
+    const out: TraceCommand[] = []
+    for (const tpl of picks) {
+      const command = this.fill(tpl.cmd, a)
+      if (out.some((c) => c.command === command)) continue
+      const g = this.gate(a, command)
+      let result: string
+      if (g.decision === 'allow') result = tpl.error && this.rng() < 0.14 ? tpl.error : this.fill(tpl.result, a)
+      else if (g.decision === 'deny') result = g.humanOnly ? 'denied: human-only skill. A person has to do this.' : `denied by policy: ${g.note || 'deny'}`
+      else result = 'awaiting approval'
+      out.push({ command, result, gated: g.decision })
+    }
+    return out
+  }
+
+  private storeTrace(a: Agent, input: string | null, thought: string, commands: TraceCommand[], llm_ms: number, tokens: number, at: string): Trace {
+    const iteration = (this.iterations.get(a.id) ?? 1) + 1
+    this.iterations.set(a.id, iteration)
+    const response = [thought, ...commands.map((c) => c.command)].join('\n')
+    const tr: Trace = { id: ++this.traceSeq, agent_id: a.id, iteration, input, response, commands: commands.map((c) => ({ ...c })), llm_ms, tokens, created_at: at }
+    const list = this.traces.get(a.id) ?? []
+    list.push(tr)
+    if (list.length > 200) list.splice(0, list.length - 200)
+    this.traces.set(a.id, list)
+    return tr
+  }
+
+  private raiseApprovals(a: Agent, commands: TraceCommand[]) {
+    for (const c of commands) {
+      if (c.gated !== 'ask') {
+        const skill = commandSkill(c.command)
+        this.pushLog(a, c.gated === 'deny' ? 'WARN' : 'INFO', c.gated === 'deny' ? `authorize: ${skill} denied` : `skills: invoked ${skill} in ${Math.round(this.r(40, 900))}ms`)
+        continue
+      }
+      const { reason } = this.gate(a, c.command)
+      const ap = this.makeApproval(a, c.command, reason, this.now())
+      this.approvals.set(ap.id, ap)
+      c.result = `awaiting approval ${ap.id}`
+      this.pushLog(a, 'WARN', `authorize: ${ap.skill} needs a human (${ap.id})`)
+      this.emit({ type: 'approval.created', at: ap.created_at, approval: clone(ap) })
+    }
+  }
+
+  private pendingCount() {
+    let n = 0
+    for (const ap of this.approvals.values()) if (ap.status === 'pending') n++
+    return n
+  }
+
+  private useApproval(ap: Approval, tries = 0) {
+    const a = this.agents.get(ap.agent_id)
+    if (!a || ap.status !== 'approved' || a.status !== 'awake') return
+    if (this.busy.has(a.id)) {
+      if (tries < 8) this.later(900, () => this.useApproval(ap, tries + 1), true)
+      return
+    }
+    ap.status = 'used'
+    this.emit({ type: 'approval.updated', at: this.now(), approval: clone(ap) })
+    this.pushLog(a, 'INFO', `hub: [APPROVED ${ap.id}] ${ap.command}`)
+    const tpl = this.cmdPool(a).find((c) => c.cmd === ap.command || this.fill(c.cmd, a) === ap.command)
+    this.cycle(a, undefined, 1, { input: `[APPROVED ${ap.id}] ${ap.command}`, commands: [{ command: ap.command, result: tpl ? this.fill(tpl.result, a) : 'ok', gated: 'allow' }] })
+  }
+
+  private expireApprovals() {
+    const cutoff = Date.now() - 45 * 60_000
+    for (const ap of this.approvals.values()) {
+      if (ap.status === 'pending' && Date.parse(ap.created_at) < cutoff) {
+        ap.status = 'expired'
+        this.emit({ type: 'approval.updated', at: this.now(), approval: clone(ap) })
+      }
+    }
+  }
+
+  private emitGoal(g: Goal) {
+    g.updated_at = this.now()
+    this.emit({ type: 'goal.updated', at: g.updated_at, goal: clone(g) })
+  }
+
+  private claimGoal(g: Goal, a: Agent) {
+    if (g.status !== 'open') return
+    g.status = 'claimed'
+    g.claimed_by = a.id
+    this.emitGoal(g)
+    this.pushLog(a, 'INFO', `goals: claimed ${g.id} “${g.title}”`)
+  }
+
+  private childrenOf(id: string) {
+    return [...this.goals.values()].filter((g) => g.parent_id === id)
+  }
+
+  /** One step of swarm work: claim, split, finish or propose a goal. */
+  goalStep(): void {
+    const swarms = [...this.swarms.values()].filter((s) => s.member_ids.some((m) => this.agents.get(m)?.status === 'awake'))
+    if (!swarms.length) return
+    const s = this.pick(swarms)
+    const awake = s.member_ids.map((m) => this.agents.get(m)).filter((a): a is Agent => !!a && a.status === 'awake')
+    const gs = [...this.goals.values()].filter((g) => g.swarm_id === s.id)
+    const open = gs.filter((g) => g.status === 'open' && (!g.parent_id || this.goals.get(g.parent_id)?.status === 'claimed'))
+    const claimed = gs.filter((g) => g.status === 'claimed' && g.claimed_by && this.agents.get(g.claimed_by)?.status === 'awake')
+    const k = this.rng()
+    if (k < 0.4 && open.length) {
+      open.sort((x, y) => y.priority - x.priority)
+      const g = this.rng() < 0.7 ? open[0] : this.pick(open)
+      this.claimGoal(g, this.pick(awake))
+    } else if (k < 0.8 && claimed.length) {
+      const g = this.pick(claimed)
+      const a = this.agents.get(g.claimed_by!)!
+      const kids = this.childrenOf(g.id)
+      if (!kids.length && !g.parent_id && g.priority >= 0.5 && this.rng() < 0.6) {
+        const split = this.pick(SUBGOAL_SPLITS)
+        split.forEach((title, i) =>
+          this.later(220 * (i + 1), () => {
+            const sub: Goal = {
+              id: this.id('g_'),
+              swarm_id: s.id,
+              parent_id: g.id,
+              title,
+              detail: '',
+              priority: round3(Math.max(0.1, g.priority - 0.1)),
+              status: 'open',
+              created_by: `agent:${a.id}`,
+              claimed_by: null,
+              result: null,
+              created_at: this.now(),
+              updated_at: this.now(),
+            }
+            this.goals.set(sub.id, sub)
+            this.emitGoal(sub)
+          }, true),
+        )
+        this.pushLog(a, 'INFO', `goals: split ${g.id} into ${split.length} subgoals`)
+      } else if (kids.length) {
+        if (kids.every((c) => c.status === 'done' || c.status === 'failed' || c.status === 'cancelled')) {
+          const ok = kids.filter((c) => c.status === 'done').length
+          g.status = ok === kids.length ? 'done' : 'failed'
+          g.result = ok === kids.length ? `All ${kids.length} subgoals done.` : `${ok} of ${kids.length} subgoals done.`
+          this.emitGoal(g)
+        }
+      } else {
+        const fail = this.rng() < 0.12
+        g.status = fail ? 'failed' : 'done'
+        g.result = this.pick(fail ? GOAL_FAILS : GOAL_RESULTS)
+        this.emitGoal(g)
+        this.pushLog(a, fail ? 'WARN' : 'INFO', `goals: ${g.status} ${g.id}`)
+      }
+    } else if (gs.filter((g) => g.status === 'open' || g.status === 'claimed').length < 8) {
+      const ideas = (GOAL_IDEAS[s.id] ?? []).filter((t) => !gs.some((g) => g.title === t))
+      if (!ideas.length) return
+      const a = this.pick(awake)
+      const g: Goal = {
+        id: this.id('g_'),
+        swarm_id: s.id,
+        parent_id: null,
+        title: this.pick(ideas),
+        detail: '',
+        priority: round3(this.r(0.2, 0.75)),
+        status: 'open',
+        created_by: `agent:${a.id}`,
+        claimed_by: null,
+        result: null,
+        created_at: this.now(),
+        updated_at: this.now(),
+      }
+      this.goals.set(g.id, g)
+      this.emitGoal(g)
+    }
+  }
+
+  private computeNext(w: Wakeup, from = Date.now()): string | null {
+    if (!w.enabled) return null
+    if (w.cron) return nextRun(w.cron, w.tz, from)?.toISOString() ?? null
+    if (w.at) return Date.parse(w.at) > from ? w.at : null
+    return null
+  }
+
+  private checkWakeups() {
+    const now = Date.now()
+    for (const w of this.wakeups.values()) {
+      if (w.enabled && w.next_run_at && Date.parse(w.next_run_at) <= now) this.fireWakeup(w)
+    }
+  }
+
+  private fireWakeup(w: Wakeup) {
+    const a = this.agents.get(w.agent_id)
+    w.last_run_at = this.now()
+    if (w.at) {
+      w.enabled = false
+      w.next_run_at = null
+    } else {
+      w.next_run_at = this.computeNext(w)
+    }
+    if (!a) return
+    this.emit({ type: 'wakeup.fired', at: this.now(), wakeup_id: w.id, agent_id: a.id })
+    this.emit({ type: 'wakeup.updated', at: this.now(), wakeup: clone(w) })
+    if (a.status === 'stopped' || a.status === 'error') {
+      this.pushLog(a, 'WARN', `scheduler: wakeup ${w.id} skipped; agent is ${a.status}`)
+      return
+    }
+    this.pushLog(a, 'INFO', `scheduler: wakeup ${w.id} fired`)
+    const run = () => this.cycle(a, undefined, 1, { input: `[wakeup] ${w.text}` })
+    if (a.status === 'asleep' && this.canSpend(a)) {
+      this.setStatus(a, 'starting')
+      this.later(1000, () => {
+        this.setStatus(a, 'awake')
+        run()
+      }, true)
+    } else if (a.status === 'awake') run()
+  }
+
+  private memoryOf(agentId: string): Map<string, string[]> {
+    let m = this.memory.get(agentId)
+    if (m) return m
+    const a = this.mustAgent(agentId)
+    const rnd = mulberry32(hashStr(agentId))
+    const pick = <T,>(xs: readonly T[]) => xs[Math.floor(rnd() * xs.length)]
+    const vocab = a.swarm_id ? this.vocab.get(a.swarm_id) ?? [] : [...this.vocab.values()].flat()
+    const commons = a.swarm_id ? [...(this.beliefs.get(a.swarm_id)?.values() ?? [])] : [...this.beliefs.values()].flatMap((x) => [...x.values()]).slice(0, 12)
+    const self: string[] = commons.map(
+      (b) => `(${b.statement} (stv ${clamp01(b.tv.f + (rnd() - 0.5) * 0.1).toFixed(2)} ${clamp01(b.tv.c - rnd() * 0.15).toFixed(2)}))`,
+    )
+    for (const t of vocab.slice(0, 10)) self.push(`(: ${t} ${pick(['Concept', 'Term', 'Observable', 'Entity'])})`)
+    self.push(`(= (owner ${a.name.toLowerCase()}) operator)`, `(= (swarm ${a.name.toLowerCase()}) ${a.swarm_id ?? 'none'})`)
+    const episodes: string[] = []
+    const n = 22 + Math.floor(rnd() * 30)
+    for (let i = 0; i < n; i++) {
+      const at = new Date(Date.now() - (n - i) * (40 + rnd() * 120) * 60_000).toISOString().slice(0, 16)
+      episodes.push(`(episode ${i + 1} "${at}Z" "${pick(EPISODES).replace('{term}', pick(vocab.length ? vocab : ['rumour']))}")`)
+    }
+    const musings = (a.swarm_id && this.musings.get(a.swarm_id)) || ['Drifting between swarms.']
+    const notes = musings.map((x) => `(pin "${x.replace(/"/g, "'")}")`)
+    notes.push(`(pin "Persona: ${a.persona.slice(0, 60).replace(/"/g, "'")}…")`)
+    m = new Map([
+      ['&self', self],
+      ['&episodes', episodes],
+      ['&notes', notes],
+    ])
+    if (a.kind === 'omega') m.set('&skills', ['(skill-used query 214)', '(skill-used remember 88)', '(skill-used search 41)', '(skill-used send 133)', '(skill-preferred query search)'])
+    this.memory.set(agentId, m)
+    return m
+  }
+
 
   private seedConversation(agentId: string, turns: ['in' | 'out', string][]) {
     const list = this.messages.get(agentId)
@@ -489,7 +958,7 @@ export class SimClient implements HiveClient {
     this.emit({ type: 'agent.thinking', at: this.now(), agent_id: a.id, phase })
   }
 
-  private bill(a: Agent, scale = 1) {
+  private bill(a: Agent, scale = 1): Usage {
     const m = this.model(a.model)
     const pt = Math.round(this.r(900, 3600) * scale)
     const ct = Math.round(this.r(80, 700) * scale)
@@ -510,29 +979,44 @@ export class SimClient implements HiveClient {
       this.pushLog(a, 'ERROR', 'llm: 402 budget exhausted; going to sleep')
       this.setStatus(a, 'asleep')
     }
+    return u
   }
 
   private canSpend(a: Agent) {
     return !(a.budget_usd > 0 && a.spent_usd >= a.budget_usd)
   }
 
-  /** A full think cycle: llm → (skills) → idle, with usage and an optional callback. */
-  private cycle(a: Agent, done?: () => void, scale = 1) {
+  /**
+   * A full think cycle: llm → (skills) → idle, with usage, gated commands, approvals and an
+   * `agent.trace` for the iteration. `done` may return the text the dot said (traced as a send).
+   */
+  private cycle(
+    a: Agent,
+    done?: () => string | void,
+    scale = 1,
+    opts: { input?: string | null; mode?: 'normal' | 'risky'; commands?: TraceCommand[] } = {},
+  ) {
     if (this.busy.has(a.id)) return
     this.busy.add(a.id)
     this.think(a, 'llm')
     const t1 = this.r(900, 2600)
-    const useSkills = this.rng() < 0.4
+    const useSkills = !!opts.commands || opts.mode === 'risky' || this.rng() < 0.4
     this.later(t1, () => {
+      const commands = opts.commands ?? (useSkills ? this.planCommands(a, opts.mode ?? 'normal') : [])
       if (useSkills) {
         this.think(a, 'skills')
-        this.pushLog(a, 'INFO', `skills: invoked ${this.pick(SKILLS)} in ${Math.round(this.r(40, 900))}ms`)
+        if (!commands.length) this.pushLog(a, 'INFO', `skills: invoked ${this.pick(SKILLS)} in ${Math.round(this.r(40, 900))}ms`)
+        this.raiseApprovals(a, commands)
       }
       this.later(useSkills ? this.r(600, 1600) : 10, () => {
-        this.bill(a, scale)
+        const u = this.bill(a, scale)
         this.think(a, 'idle')
         this.busy.delete(a.id)
-        done?.()
+        const said = done?.()
+        if (typeof said === 'string')
+          commands.push({ command: `(send "${said.replace(/"/g, "'").slice(0, 160)}${said.length > 160 ? '…' : ''}")`, result: 'delivered', gated: 'allow' })
+        const tr = this.storeTrace(a, opts.input ?? null, this.thought(a), commands, Math.round(t1), u.prompt_tokens + u.completion_tokens, this.now())
+        this.emit({ type: 'agent.trace', at: tr.created_at, trace: clone(tr) })
       }, true)
     }, true)
   }
@@ -578,7 +1062,8 @@ export class SimClient implements HiveClient {
         const text = generateReply(this.rng, incoming.text, this.replyContext(a))
         this.say(a, text, incoming.conversation_id, 'out', `agent:${a.id}`)
         if (a.swarm_id && this.rng() < 0.35) this.later(this.r(500, 1500), () => this.publish(a, 'reassert'), true)
-      }, 1.4)
+        return text
+      }, 1.4, { input: incoming.text })
     }
     if (a.status === 'asleep') {
       this.pushLog(a, 'INFO', 'hub: message received while asleep; waking')
@@ -599,7 +1084,7 @@ export class SimClient implements HiveClient {
   private tick() {
     const all = [...this.agents.values()]
     const awake = all.filter((a) => a.status === 'awake' && !this.busy.has(a.id))
-    const roll = this.rng() * 15
+    const roll = this.rng() * 17
     if (roll < 5) {
       const a = awake.filter((x) => x.swarm_id)
       if (!a.length) return
@@ -627,7 +1112,7 @@ export class SimClient implements HiveClient {
       if (nAwake > 6 || (nAwake > 4 && this.rng() < 0.5)) {
         const a = this.pick(awake.length ? awake : all)
         if (a.status === 'awake') {
-          this.pushLog(a, 'INFO', 'scheduler: idle, going to sleep')
+          this.pushLog(a, 'INFO', a.idle_sleep_minutes ? `scheduler: idle for ${a.idle_sleep_minutes} min, going to sleep` : 'scheduler: idle, going to sleep')
           this.setStatus(a, 'asleep')
         }
       } else {
@@ -654,7 +1139,8 @@ export class SimClient implements HiveClient {
       this.say(to, this.pick(PEER_LINES).replace('{s}', s), conv, 'in', `agent:${from.id}`)
       if (this.rng() < 0.7) {
         this.later(this.r(1500, 3500), () => {
-          if (to.status === 'awake') this.cycle(to, () => this.say(to, this.pick(PEER_REPLIES), conv, 'out', `agent:${to.id}`), 0.5)
+          if (to.status === 'awake')
+            this.cycle(to, () => this.say(to, this.pick(PEER_REPLIES), conv, 'out', `agent:${to.id}`).text, 0.5, { input: this.pick(PEER_LINES).replace('{s}', s) })
         })
       }
     } else if (roll < 14.4) {
@@ -662,7 +1148,7 @@ export class SimClient implements HiveClient {
       if (!awake.length) return
       const a = this.pick(awake)
       const ctx = this.replyContext(a)
-      this.cycle(a, () => this.say(a, this.pick(ctx.musings), 'c_main', 'out', `agent:${a.id}`), 0.8)
+      this.cycle(a, () => this.say(a, this.pick(ctx.musings), 'c_main', 'out', `agent:${a.id}`).text, 0.8)
     } else if (roll < 14.6) {
       // a glitch: error, then recovery
       if (!awake.length) return
@@ -675,12 +1161,22 @@ export class SimClient implements HiveClient {
         this.setStatus(a, 'starting')
         this.later(1200, () => this.setStatus(a, 'awake'))
       })
+    } else if (roll >= 15 && roll < 16.2) {
+      this.goalStep()
+    } else if (roll >= 16.2) {
+      // a dot reaches for a risky skill: the policy gate raises an approval
+      const pool = awake.filter((x) => this.canSpend(x))
+      if (!pool.length) return
+      const a = this.pick(pool)
+      this.cycle(a, undefined, 1, { mode: this.pendingCount() < 6 ? 'risky' : 'normal' })
     }
   }
 
   private loop = () => {
     if (!this.running) return
     this.later(this.r(350, 1300), () => {
+      this.checkWakeups()
+      this.expireApprovals()
       this.tick()
       this.loop()
     })
@@ -800,6 +1296,7 @@ export class SimClient implements HiveClient {
         connected: false,
         last_active_at: null,
         created_at: this.now(),
+        idle_sleep_minutes: 0,
       }
       this.agents.set(a.id, a)
       this.voices.set(a.id, this.pick(['precise', 'warm', 'terse', 'poetic', 'wry'] as const))
@@ -842,6 +1339,8 @@ export class SimClient implements HiveClient {
           }
         }
       }
+      if (body.idle_sleep_minutes !== undefined && (!Number.isFinite(body.idle_sleep_minutes) || body.idle_sleep_minutes < 0))
+        throw new ApiError(400, 'invalid', 'idle_sleep_minutes must be 0 or more')
       Object.assign(a, body)
       this.pushLog(a, 'INFO', `config: updated ${Object.keys(body).join(', ')}`)
       this.emit({ type: 'agent.updated', at: this.now(), agent: clone(a) })
@@ -924,6 +1423,261 @@ export class SimClient implements HiveClient {
         (u) => (!opts.agent_id || u.agent_id === opts.agent_id) && (!opts.since || u.created_at >= opts.since),
       ),
     )
+  }
+
+  // ---- Phase 2 REST
+
+  listPolicy() {
+    return this.delay(() => clone(this.policy))
+  }
+  createPolicy(body: CreatePolicyBody) {
+    return this.delay(() => {
+      if (!body.skill?.trim()) throw new ApiError(400, 'invalid', 'Skill glob is required')
+      if (!['allow', 'ask', 'deny'].includes(body.mode)) throw new ApiError(400, 'invalid', 'Mode must be allow, ask or deny')
+      if (body.scope !== 'hive') {
+        const i = body.scope.indexOf(':')
+        const kind = body.scope.slice(0, i)
+        const id = body.scope.slice(i + 1)
+        if (kind === 'swarm') this.mustSwarm(id)
+        else if (kind === 'agent') this.mustAgent(id)
+        else throw new ApiError(400, 'invalid', 'Scope must be hive, swarm:<id> or agent:<id>')
+      }
+      const rule: PolicyRule = { id: this.id('r_'), scope: body.scope, skill: body.skill.trim(), mode: body.mode, note: body.note?.trim() ?? '', created_at: this.now() }
+      this.policy.push(rule)
+      this.emit({ type: 'policy.updated', at: this.now(), rules: clone(this.policy) })
+      return clone(rule)
+    })
+  }
+  deletePolicy(id: string) {
+    return this.delay(() => {
+      const i = this.policy.findIndex((r) => r.id === id)
+      if (i < 0) throw new ApiError(404, 'not_found', 'No such rule')
+      this.policy.splice(i, 1)
+      this.emit({ type: 'policy.updated', at: this.now(), rules: clone(this.policy) })
+      return { ok: true as const }
+    })
+  }
+  listApprovals(status?: ApprovalStatus) {
+    return this.delay(() =>
+      clone([...this.approvals.values()].filter((a) => !status || a.status === status).sort((x, y) => y.created_at.localeCompare(x.created_at))),
+    )
+  }
+  private decideApproval(id: string, status: 'approved' | 'denied') {
+    const ap = this.approvals.get(id)
+    if (!ap) throw new ApiError(404, 'not_found', 'No such approval')
+    if (ap.status !== 'pending') throw new ApiError(409, 'conflict', `Already ${ap.status}`)
+    ap.status = status
+    ap.decided_by = 'user:operator'
+    ap.decided_at = this.now()
+    this.emit({ type: 'approval.updated', at: ap.decided_at, approval: clone(ap) })
+    return ap
+  }
+  approve(id: string, remember = false) {
+    return this.delay(() => {
+      const ap = this.decideApproval(id, 'approved')
+      const a = this.agents.get(ap.agent_id)
+      if (remember && a) {
+        this.policy.push({ id: this.id('r_'), scope: `agent:${a.id}`, skill: ap.skill, mode: 'allow', note: `Always allowed (from ${ap.id})`, created_at: this.now() })
+        this.emit({ type: 'policy.updated', at: this.now(), rules: clone(this.policy) })
+      }
+      if (a) this.pushLog(a, 'INFO', `authorize: ${ap.id} approved by operator${remember ? ' (always allow)' : ''}`)
+      this.later(this.r(1400, 2600), () => this.useApproval(ap), true)
+      return clone(ap)
+    })
+  }
+  deny(id: string) {
+    return this.delay(() => {
+      const ap = this.decideApproval(id, 'denied')
+      const a = this.agents.get(ap.agent_id)
+      if (a) this.pushLog(a, 'WARN', `authorize: ${ap.id} denied by operator`)
+      return clone(ap)
+    })
+  }
+  listGoals(swarmId: string) {
+    return this.delay(() => {
+      this.mustSwarm(swarmId)
+      return clone([...this.goals.values()].filter((g) => g.swarm_id === swarmId))
+    })
+  }
+  createGoal(swarmId: string, body: CreateGoalBody) {
+    return this.delay(() => {
+      this.mustSwarm(swarmId)
+      if (!body.title?.trim()) throw new ApiError(400, 'invalid', 'Title is required')
+      if (body.parent_id) {
+        const p = this.goals.get(body.parent_id)
+        if (!p || p.swarm_id !== swarmId) throw new ApiError(400, 'invalid', 'Parent goal is not in this swarm')
+      }
+      const g: Goal = {
+        id: this.id('g_'),
+        swarm_id: swarmId,
+        parent_id: body.parent_id ?? null,
+        title: body.title.trim(),
+        detail: body.detail ?? '',
+        priority: clamp01(body.priority ?? 0.5),
+        status: 'open',
+        created_by: 'user:operator',
+        claimed_by: null,
+        result: null,
+        created_at: this.now(),
+        updated_at: this.now(),
+      }
+      this.goals.set(g.id, g)
+      this.emit({ type: 'goal.updated', at: g.created_at, goal: clone(g) })
+      // the swarm hears about it (hub envelope event: "goal") and an awake member picks it up
+      this.later(this.r(2500, 5000), () => {
+        const parent = g.parent_id ? this.goals.get(g.parent_id) : null
+        if (parent && parent.status !== 'claimed') return
+        const awake = (this.swarms.get(swarmId)?.member_ids ?? []).map((m) => this.agents.get(m)).filter((a): a is Agent => !!a && a.status === 'awake')
+        if (awake.length) this.claimGoal(g, this.pick(awake))
+      }, true)
+      return clone(g)
+    })
+  }
+  patchGoal(id: string, body: PatchGoalBody) {
+    return this.delay(() => {
+      const g = this.goals.get(id)
+      if (!g) throw new ApiError(404, 'not_found', 'No such goal')
+      if (body.title !== undefined && !body.title.trim()) throw new ApiError(400, 'invalid', 'Title is required')
+      if (body.title !== undefined) g.title = body.title.trim()
+      if (body.detail !== undefined) g.detail = body.detail
+      if (body.priority !== undefined) g.priority = clamp01(body.priority)
+      if (body.status !== undefined) {
+        g.status = body.status
+        if (body.status === 'open') {
+          g.claimed_by = null
+          g.result = null
+        }
+      }
+      this.emitGoal(g)
+      return clone(g)
+    })
+  }
+  listTraces(agentId: string, limit = 50) {
+    return this.delay(() => {
+      this.mustAgent(agentId)
+      return clone((this.traces.get(agentId) ?? []).slice(-limit).reverse())
+    })
+  }
+  listWakeups(agentId: string) {
+    return this.delay(() => {
+      this.mustAgent(agentId)
+      return clone([...this.wakeups.values()].filter((w) => w.agent_id === agentId))
+    })
+  }
+  private validateWakeup(w: Pick<Wakeup, 'cron' | 'at' | 'tz' | 'text'>) {
+    if (!w.text?.trim()) throw new ApiError(400, 'invalid', 'Tell the dot what to do when it wakes')
+    if (!!w.cron === !!w.at) throw new ApiError(400, 'invalid', 'Give exactly one of cron or at')
+    if (w.cron) {
+      const err = cronError(w.cron)
+      if (err) throw new ApiError(400, 'invalid', err)
+    }
+    if (w.at && Number.isNaN(Date.parse(w.at))) throw new ApiError(400, 'invalid', 'at must be an ISO time')
+    if (!isValidTz(w.tz)) throw new ApiError(400, 'invalid', `Unknown time zone ${w.tz}`)
+  }
+  createWakeup(agentId: string, body: CreateWakeupBody) {
+    return this.delay(() => {
+      this.mustAgent(agentId)
+      const w: Wakeup = {
+        id: this.id('w_'),
+        agent_id: agentId,
+        cron: body.cron?.trim() || null,
+        at: body.at || null,
+        tz: body.tz || 'UTC',
+        text: body.text?.trim() ?? '',
+        enabled: true,
+        next_run_at: null,
+        last_run_at: null,
+      }
+      this.validateWakeup(w)
+      if (w.at && Date.parse(w.at) <= Date.now()) throw new ApiError(400, 'invalid', 'That time has already passed')
+      w.next_run_at = this.computeNext(w)
+      this.wakeups.set(w.id, w)
+      this.emit({ type: 'wakeup.updated', at: this.now(), wakeup: clone(w) })
+      return clone(w)
+    })
+  }
+  patchWakeup(id: string, body: PatchWakeupBody) {
+    return this.delay(() => {
+      const w = this.wakeups.get(id)
+      if (!w) throw new ApiError(404, 'not_found', 'No such wakeup')
+      const next = { ...w, ...body }
+      if (body.cron) next.at = null
+      if (body.at) next.cron = null
+      this.validateWakeup(next)
+      Object.assign(w, next)
+      w.next_run_at = this.computeNext(w)
+      this.emit({ type: 'wakeup.updated', at: this.now(), wakeup: clone(w) })
+      return clone(w)
+    })
+  }
+  deleteWakeup(id: string) {
+    return this.delay(() => {
+      if (!this.wakeups.delete(id)) throw new ApiError(404, 'not_found', 'No such wakeup')
+      return { ok: true as const }
+    })
+  }
+  listMemory(agentId: string) {
+    return this.delay((): MemorySpace[] =>
+      [...this.memoryOf(agentId).entries()].map(([name, atoms]) => ({
+        name,
+        atoms: atoms.length,
+        bytes: atoms.reduce((n, t) => n + new TextEncoder().encode(t).length + 1, 0),
+      })),
+    )
+  }
+  listAtoms(agentId: string, space: string, opts: { q?: string; limit?: number } = {}) {
+    return this.delay((): MemoryAtom[] => {
+      const atoms = this.memoryOf(agentId).get(space)
+      if (!atoms) throw new ApiError(404, 'not_found', `No space ${space}`)
+      const q = opts.q?.trim().toLowerCase()
+      return atoms
+        .map((text, index) => ({ index, text }))
+        .filter((x) => !q || x.text.toLowerCase().includes(q))
+        .slice(0, opts.limit ?? 200)
+    })
+  }
+  retireAtom(agentId: string, space: string, atom: string) {
+    return this.delay(() => {
+      const a = this.mustAgent(agentId)
+      const atoms = this.memoryOf(agentId).get(space)
+      if (!atoms) throw new ApiError(404, 'not_found', `No space ${space}`)
+      if (!atoms.includes(atom)) throw new ApiError(404, 'not_found', 'No such atom')
+      // the agent drains GET /api/agent/control on its next loop
+      this.later(this.r(4000, 7000), () => {
+        const i = atoms.indexOf(atom)
+        if (i >= 0) atoms.splice(i, 1)
+        this.pushLog(a, 'INFO', `memory: retired 1 atom from ${space}`)
+      }, true)
+      return { queued: true as const }
+    })
+  }
+  resetMemory(agentId: string) {
+    return this.delay(() => {
+      const a = this.mustAgent(agentId)
+      const mem = this.memoryOf(agentId)
+      this.later(this.r(3000, 5000), () => {
+        for (const atoms of mem.values()) atoms.length = 0
+        this.pushLog(a, 'WARN', 'memory: reset; all private spaces cleared')
+      }, true)
+      return { queued: true as const }
+    })
+  }
+  stopAll() {
+    return this.delay(() => {
+      const list = [...this.agents.values()].filter((a) => a.status !== 'stopped')
+      // the hive stops everything at once; the events ripple out so the scene shows a wave
+      list.forEach((a, i) => {
+        a.status = 'stopped'
+        a.connected = false
+        a.last_active_at = this.now()
+        this.later(40 + i * 70, () => {
+          this.think(a, 'idle')
+          this.pushLog(a, 'WARN', 'supervisor: stop-all (kill switch)')
+          this.emit({ type: 'agent.updated', at: this.now(), agent: clone(a) })
+        }, true)
+      })
+      return { stopped: list.length }
+    })
   }
 
   connect() {

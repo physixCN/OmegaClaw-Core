@@ -3,8 +3,9 @@ import { useIsDesktop } from '../lib/hooks'
 import { navigate, useRoute, type Route } from '../lib/router'
 import { useHive } from '../store/store'
 import { Icon, type IconName } from '../ui/Icon'
-import { Kbd } from '../ui/primitives'
+import { CountBadge, Kbd } from '../ui/primitives'
 import { cx } from '../lib/cx'
+import { countPending } from '../store/reducer'
 
 interface Item {
   key: string
@@ -13,13 +14,21 @@ interface Item {
   route: Route
   match: Route['name'][]
   keys: string[]
+  badge?: boolean
 }
 
 const ITEMS: Item[] = [
   { key: 'hive', label: 'Hive', icon: 'hive', route: { name: 'hive' }, match: ['hive', 'dot'], keys: ['G', 'H'] },
   { key: 'swarms', label: 'Swarms', icon: 'swarms', route: { name: 'swarms' }, match: ['swarms', 'swarm'], keys: ['G', 'S'] },
+  { key: 'inbox', label: 'Inbox', icon: 'inbox', route: { name: 'approvals' }, match: ['approvals'], keys: ['G', 'I'], badge: true },
+  { key: 'goals', label: 'Goals', icon: 'target', route: { name: 'goals' }, match: ['goals'], keys: ['G', 'G'] },
   { key: 'usage', label: 'Usage', icon: 'chart', route: { name: 'usage' }, match: ['usage'], keys: ['G', 'U'] },
 ]
+const byKey = (k: string) => ITEMS.find((i) => i.key === k)!
+
+function usePending() {
+  return useHive((s) => countPending(s.approvals))
+}
 
 function CreateButton({ big }: { big?: boolean }) {
   const route = useRoute()
@@ -47,6 +56,7 @@ export function Nav() {
   const desktop = useIsDesktop()
   const route = useRoute()
   const setPalette = useHive((s) => s.setPalette)
+  const pending = usePending()
 
   if (desktop) {
     return (
@@ -58,7 +68,7 @@ export function Nav() {
           <CreateButton />
         </div>
         {ITEMS.slice(2).map((it) => (
-          <RailButton key={it.key} it={it} active={it.match.includes(route.name)} />
+          <RailButton key={it.key} it={it} active={it.match.includes(route.name)} badge={it.badge ? pending : 0} />
         ))}
       </nav>
     )
@@ -74,7 +84,8 @@ export function Nav() {
         <TabButton key={it.key} it={it} active={it.match.includes(route.name)} />
       ))}
       <CreateButton big />
-      <TabButton it={ITEMS[2]} active={ITEMS[2].match.includes(route.name)} />
+      <TabButton it={byKey('inbox')} active={route.name === 'approvals'} badge={pending} />
+      <TabButton it={byKey('usage')} active={route.name === 'usage'} />
       <button onClick={() => setPalette(true)} className="flex min-h-12 min-w-14 flex-col items-center justify-center gap-0.5 text-ink-3" aria-label="Search and commands">
         <Icon name="command" size={20} />
         <span className="text-[10px] font-medium">Jump</span>
@@ -83,26 +94,30 @@ export function Nav() {
   )
 }
 
-function TabButton({ it, active }: { it: Item; active: boolean }) {
+function TabButton({ it, active, badge = 0 }: { it: Item; active: boolean; badge?: number }) {
   return (
     <button
       onClick={() => navigate(it.route)}
       aria-current={active ? 'page' : undefined}
+      aria-label={badge ? `${it.label}, ${badge} waiting` : undefined}
       className={cx('relative flex min-h-12 min-w-14 flex-col items-center justify-center gap-0.5 transition-colors', active ? 'text-ink' : 'text-ink-3')}
     >
       {active && <m.span layoutId="tab-glow" className="absolute -top-1.5 h-0.5 w-6 rounded-full bg-accent" style={{ boxShadow: '0 0 12px #a493ff' }} />}
-      <Icon name={it.icon} size={21} />
+      <span className="relative">
+        <Icon name={it.icon} size={21} />
+        <CountBadge n={badge} className="absolute -top-1.5 -right-2.5" />
+      </span>
       <span className="text-[10px] font-medium">{it.label}</span>
     </button>
   )
 }
 
-function RailButton({ it, active }: { it: Item; active: boolean }) {
+function RailButton({ it, active, badge = 0 }: { it: Item; active: boolean; badge?: number }) {
   return (
     <div className="group relative">
       <button
         onClick={() => navigate(it.route)}
-        aria-label={it.label}
+        aria-label={badge ? `${it.label}, ${badge} waiting` : it.label}
         aria-current={active ? 'page' : undefined}
         className={cx('relative flex size-11 items-center justify-center rounded-xl transition-colors', active ? 'text-ink' : 'text-ink-3 hover:bg-white/[0.06] hover:text-ink')}
       >
@@ -114,6 +129,7 @@ function RailButton({ it, active }: { it: Item; active: boolean }) {
           />
         )}
         <Icon name={it.icon} size={20} className="relative" />
+        <CountBadge n={badge} className="absolute -top-0.5 -right-0.5" />
       </button>
       <div className="glass-strong pointer-events-none absolute top-1/2 left-full ml-3 flex -translate-y-1/2 items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100">
         {it.label}

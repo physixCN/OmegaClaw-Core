@@ -77,3 +77,56 @@ describe('store', () => {
     expect(s.focusBirth).toBe(created.id)
   })
 })
+
+describe('store · Phase 2', () => {
+  it('hydrates approvals and goals, and decides an approval', async () => {
+    const sim = fresh()
+    await useHive.getState().init(sim)
+    let s = useHive.getState()
+    expect(s.approvalsLoaded).toBe(true)
+    const pending = Object.values(s.approvals).filter((a) => a.status === 'pending')
+    expect(pending.length).toBeGreaterThanOrEqual(3)
+    for (const id of Object.keys(s.swarms)) expect(s.goalsLoaded[id]).toBe(true)
+    const p = useHive.getState().decide(pending[0].id, 'deny')
+    expect(useHive.getState().deciding[pending[0].id]).toBe('deny')
+    await p
+    s = useHive.getState()
+    expect(s.approvals[pending[0].id].status).toBe('denied')
+    expect(s.deciding[pending[0].id]).toBeUndefined()
+  })
+
+  it('patches goals optimistically and rolls back on failure', async () => {
+    const sim = fresh()
+    await useHive.getState().init(sim)
+    const g = Object.values(useHive.getState().goals).find((x) => x.status === 'open')!
+    vi.spyOn(sim, 'patchGoal').mockRejectedValueOnce(new ApiError(500, 'boom', 'Nope'))
+    const p = useHive.getState().patchGoal(g.id, { status: 'cancelled' })
+    expect(useHive.getState().goals[g.id].status).toBe('cancelled')
+    await p
+    expect(useHive.getState().goals[g.id].status).toBe('open')
+    expect(useHive.getState().toasts.at(-1)?.title).toMatch(/goal/)
+  })
+
+  it('loads wakeups, toggles them and deletes with rollback', async () => {
+    const sim = fresh()
+    await useHive.getState().init(sim)
+    await useHive.getState().loadWakeups('a_anvl09')
+    const ws = Object.values(useHive.getState().wakeups).filter((w) => w.agent_id === 'a_anvl09')
+    expect(ws.length).toBeGreaterThan(1)
+    const on = ws.find((w) => w.enabled)!
+    await useHive.getState().patchWakeup(on.id, { enabled: false })
+    expect(useHive.getState().wakeups[on.id]).toMatchObject({ enabled: false, next_run_at: null })
+    vi.spyOn(sim, 'deleteWakeup').mockRejectedValueOnce(new ApiError(500, 'boom', 'Nope'))
+    await useHive.getState().deleteWakeup(on.id)
+    expect(useHive.getState().wakeups[on.id]).toBeDefined()
+  })
+
+  it('stops the whole hive', async () => {
+    const sim = fresh()
+    await useHive.getState().init(sim)
+    const n = await useHive.getState().stopAll()
+    expect(n).toBeGreaterThan(0)
+    vi.advanceTimersByTime(3000)
+    expect(Object.values(useHive.getState().agents).every((a) => a.status === 'stopped')).toBe(true)
+  })
+})

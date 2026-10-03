@@ -1,4 +1,4 @@
-// Types mirroring hive/API.md (Phase 1). Keep this file in lockstep with the contract.
+// Types mirroring hive/API.md (Phase 1 + Phase 2). Keep this file in lockstep with the contract.
 
 export type AgentKind = 'omega' | 'iter' | 'module'
 export type AgentStatus = 'created' | 'starting' | 'awake' | 'asleep' | 'stopped' | 'error'
@@ -20,6 +20,8 @@ export interface Agent {
   last_error?: string | null
   last_active_at: string | null
   created_at: string
+  /** Phase 2: minutes of idleness before the hive puts the dot to sleep (0 = never). Absent on Phase 1 servers. */
+  idle_sleep_minutes?: number
 }
 
 export interface Swarm {
@@ -125,7 +127,7 @@ export interface CreateAgentBody {
 export type CreatedAgent = Agent & { token: string }
 
 export type PatchAgentBody = Partial<
-  Pick<Agent, 'name' | 'swarm_id' | 'model' | 'persona' | 'hue' | 'budget_usd'>
+  Pick<Agent, 'name' | 'swarm_id' | 'model' | 'persona' | 'hue' | 'budget_usd' | 'idle_sleep_minutes'>
 >
 
 export type AgentAction = 'start' | 'stop' | 'sleep' | 'wake'
@@ -133,6 +135,128 @@ export type AgentAction = 'start' | 'stop' | 'sleep' | 'wake'
 export interface ApiErrorBody {
   error: { code: string; message: string }
 }
+
+// ---- Phase 2: policy, approvals, goals, traces, wakeups, memory ----
+
+export type PolicyMode = 'allow' | 'ask' | 'deny'
+export type PolicyScope = 'hive' | `swarm:${string}` | `agent:${string}`
+
+export interface PolicyRule {
+  id: string
+  /** Most specific scope wins: agent > swarm > hive > defaults. */
+  scope: PolicyScope
+  /** Glob over skill names: "shell*", "write-file", "*". */
+  skill: string
+  mode: PolicyMode
+  note: string
+  created_at: string
+}
+
+export type ApprovalStatus = 'pending' | 'approved' | 'denied' | 'expired' | 'used'
+export type Risk = 'low' | 'medium' | 'high'
+
+export interface Approval {
+  id: string
+  agent_id: string
+  skill: string
+  /** Full MeTTa command text, e.g. (shell-confirm "ls /"). */
+  command: string
+  /** Why it needs a human: the rule note or "human-only". */
+  reason: string
+  risk: Risk
+  status: ApprovalStatus
+  decided_by: string | null
+  created_at: string
+  decided_at: string | null
+}
+
+export type GoalStatus = 'open' | 'claimed' | 'done' | 'failed' | 'cancelled'
+
+export interface Goal {
+  id: string
+  swarm_id: string
+  parent_id: string | null
+  title: string
+  detail: string
+  /** 0..1 */
+  priority: number
+  status: GoalStatus
+  /** "user:operator" | "agent:<id>" */
+  created_by: string
+  claimed_by: string | null
+  result: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type GateDecision = 'allow' | 'ask' | 'deny'
+
+export interface TraceCommand {
+  command: string
+  result: string
+  gated?: GateDecision
+}
+
+/** One loop iteration that called the model. */
+export interface Trace {
+  id: number
+  agent_id: string
+  iteration: number
+  /** The new message that triggered it (null for autonomous turns). */
+  input: string | null
+  /** Raw model output. */
+  response: string
+  commands: TraceCommand[]
+  llm_ms: number | null
+  tokens: number | null
+  created_at: string
+}
+
+export interface Wakeup {
+  id: string
+  agent_id: string
+  /** 5-field cron, e.g. "0 9 * * 1-5". Exactly one of cron / at is set. */
+  cron: string | null
+  /** One-shot ISO time. */
+  at: string | null
+  /** IANA zone, default "UTC". */
+  tz: string
+  text: string
+  enabled: boolean
+  next_run_at: string | null
+  last_run_at: string | null
+}
+
+export interface MemorySpace {
+  name: string
+  atoms: number
+  bytes: number
+}
+
+export interface MemoryAtom {
+  index: number
+  text: string
+}
+
+export interface CreatePolicyBody {
+  scope: PolicyScope
+  skill: string
+  mode: PolicyMode
+  note?: string
+}
+
+export interface CreateGoalBody {
+  title: string
+  detail?: string
+  priority?: number
+  parent_id?: string | null
+}
+
+export type PatchGoalBody = Partial<Pick<Goal, 'status' | 'priority' | 'title' | 'detail'>>
+
+export type CreateWakeupBody = { text: string; tz?: string } & ({ cron: string; at?: undefined } | { at: string; cron?: undefined })
+
+export type PatchWakeupBody = Partial<Pick<Wakeup, 'enabled' | 'cron' | 'at' | 'tz' | 'text'>>
 
 // ---- Live events (WS /api/events) ----
 
@@ -154,6 +278,14 @@ export type HiveEvent =
   | (EventBase<'belief.updated'> & { belief: Belief; outcome?: 'adopted' | 'revised' | 'chosen' })
   | (EventBase<'usage'> & { usage: Usage })
   | (EventBase<'log'> & { agent_id: string; line: string })
+  // Phase 2
+  | (EventBase<'approval.created'> & { approval: Approval })
+  | (EventBase<'approval.updated'> & { approval: Approval })
+  | (EventBase<'policy.updated'> & { rules: PolicyRule[] })
+  | (EventBase<'goal.updated'> & { goal: Goal })
+  | (EventBase<'agent.trace'> & { trace: Trace })
+  | (EventBase<'wakeup.updated'> & { wakeup: Wakeup })
+  | (EventBase<'wakeup.fired'> & { wakeup_id: string; agent_id: string })
 
 export type HiveEventType = HiveEvent['type']
 export type EventOf<T extends HiveEventType> = Extract<HiveEvent, { type: T }>

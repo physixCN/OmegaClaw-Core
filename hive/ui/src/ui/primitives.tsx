@@ -232,3 +232,134 @@ export function TruthBars({ f, c, compact }: { f: number; c: number; compact?: b
     </div>
   )
 }
+
+// ---------------------------------------------------------------- Phase 2 primitives
+
+/** A 44px-tall touch target wrapping a pill switch. */
+export function Switch({ checked, onChange, label, hue = 252, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; hue?: number; disabled?: boolean }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className="group inline-flex min-h-11 shrink-0 items-center disabled:opacity-45"
+    >
+      <span
+        className="relative inline-flex h-[26px] w-[44px] items-center rounded-full border transition-colors duration-200"
+        style={{
+          background: checked ? hsl(hue, 90, 64, 0.85) : 'rgb(255 255 255 / 0.06)',
+          borderColor: checked ? hsl(hue, 100, 80, 0.6) : 'var(--color-line-2)',
+          boxShadow: checked ? `0 0 16px ${hsl(hue, 100, 65, 0.45)}` : undefined,
+        }}
+      >
+        <m.span
+          className="absolute size-5 rounded-full bg-white shadow-[0_2px_6px_rgb(0_0_0/0.45)]"
+          initial={false}
+          animate={{ x: checked ? 20 : 2 }}
+          transition={{ type: 'spring', stiffness: 700, damping: 36 }}
+        />
+      </span>
+    </button>
+  )
+}
+
+const RISK: Record<'low' | 'medium' | 'high', { label: string; color: string; bg: string }> = {
+  low: { label: 'Low risk', color: '#5eead4', bg: 'rgb(94 234 212 / 0.1)' },
+  medium: { label: 'Medium risk', color: '#fbbf24', bg: 'rgb(251 191 36 / 0.1)' },
+  high: { label: 'High risk', color: '#fb7185', bg: 'rgb(251 113 133 / 0.12)' },
+}
+
+export function RiskChip({ risk, compact }: { risk: 'low' | 'medium' | 'high'; compact?: boolean }) {
+  const r = RISK[risk]
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap"
+      style={{ color: r.color, background: r.bg, borderColor: `color-mix(in srgb, ${r.color} 35%, transparent)` }}
+    >
+      <span className="flex items-end gap-[2px]" aria-hidden="true">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="w-[3px] rounded-[1px]"
+            style={{ height: 4 + i * 2.5, background: r.color, opacity: i <= ['low', 'medium', 'high'].indexOf(risk) ? 1 : 0.25 }}
+          />
+        ))}
+      </span>
+      {compact ? risk : r.label}
+    </span>
+  )
+}
+
+export const MODE_STYLE: Record<'allow' | 'ask' | 'deny', { color: string; bg: string; icon: IconName; label: string }> = {
+  allow: { color: '#4ade80', bg: 'rgb(74 222 128 / 0.1)', icon: 'check', label: 'Allow' },
+  ask: { color: '#fbbf24', bg: 'rgb(251 191 36 / 0.1)', icon: 'question', label: 'Ask' },
+  deny: { color: '#fb7185', bg: 'rgb(251 113 133 / 0.1)', icon: 'ban', label: 'Deny' },
+}
+
+/** allow / ask / deny: used for policy rules and per-command gate decisions. */
+export function ModeChip({ mode, className }: { mode: 'allow' | 'ask' | 'deny'; className?: string }) {
+  const s = MODE_STYLE[mode]
+  return (
+    <span
+      className={cx('inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold', className)}
+      style={{ color: s.color, background: s.bg, borderColor: `color-mix(in srgb, ${s.color} 30%, transparent)` }}
+    >
+      <Icon name={s.icon} size={11} strokeWidth={2.4} />
+      {s.label}
+    </span>
+  )
+}
+
+/** A thin ring showing done / total (e.g. subgoals). */
+export function ProgressRing({ value, total, size = 30, hue = 152, label }: { value: number; total: number; size?: number; hue?: number; label?: string }) {
+  const r = size / 2 - 2.5
+  const c = 2 * Math.PI * r
+  const pct = total ? value / total : 0
+  return (
+    <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }} role="img" aria-label={label ?? `${value} of ${total} done`}>
+      <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgb(255 255 255 / 0.1)" strokeWidth={2.5} />
+        <m.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={hsl(hue, 85, 62)}
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          initial={false}
+          animate={{ strokeDashoffset: c * (1 - pct) }}
+          transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+          style={{ filter: `drop-shadow(0 0 4px ${hsl(hue, 100, 60, 0.7)})` }}
+        />
+      </svg>
+      <span className="absolute font-mono text-[9px] font-semibold text-ink-2 tabular-nums">
+        {value}/{total}
+      </span>
+    </span>
+  )
+}
+
+/** A small glowing count (nav badges). Pops when the number changes. */
+export function CountBadge({ n, className }: { n: number; className?: string }) {
+  if (n <= 0) return null
+  return (
+    <m.span
+      key={n}
+      initial={{ scale: 0.4, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 700, damping: 22 }}
+      className={cx(
+        'pointer-events-none inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 font-mono text-[10px] leading-none font-bold text-[#1a1003] tabular-nums',
+        className,
+      )}
+      style={{ background: 'linear-gradient(180deg, #ffd88a, #fbbf24)', boxShadow: '0 0 0 2px rgb(8 8 28), 0 0 12px rgb(251 191 36 / 0.7)' }}
+      aria-label={`${n} pending`}
+    >
+      {n > 99 ? '99+' : n}
+    </m.span>
+  )
+}

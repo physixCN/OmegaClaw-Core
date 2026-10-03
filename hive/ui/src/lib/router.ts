@@ -1,12 +1,19 @@
 import { useSyncExternalStore } from 'react'
 
+export type DotTab = 'chat' | 'mind' | 'memory' | 'schedule' | 'model'
+export type ApprovalsTab = 'pending' | 'history' | 'rules'
+const DOT_TABS: DotTab[] = ['chat', 'mind', 'memory', 'schedule', 'model']
+const APPROVAL_TABS: ApprovalsTab[] = ['pending', 'history', 'rules']
+
 export type Route =
   | { name: 'hive' }
-  | { name: 'dot'; id: string }
+  | { name: 'dot'; id: string; tab?: DotTab }
   | { name: 'swarms' }
   | { name: 'swarm'; id: string; statement?: string }
   | { name: 'new'; swarm?: string }
   | { name: 'usage' }
+  | { name: 'approvals'; tab?: ApprovalsTab; focus?: string }
+  | { name: 'goals'; swarm?: string }
 
 export function parse(hash: string): Route {
   const raw = hash.replace(/^#/, '') || '/'
@@ -15,13 +22,17 @@ export function parse(hash: string): Route {
   const parts = path.split('/').filter(Boolean).map(decodeURIComponent)
   switch (parts[0]) {
     case 'dot':
-      return parts[1] ? { name: 'dot', id: parts[1] } : { name: 'hive' }
+      return parts[1] ? { name: 'dot', id: parts[1], tab: DOT_TABS.find((t) => t === parts[2]) } : { name: 'hive' }
     case 'swarms':
       return parts[1] ? { name: 'swarm', id: parts[1], statement: q.get('b') ?? undefined } : { name: 'swarms' }
     case 'new':
       return { name: 'new', swarm: q.get('swarm') ?? undefined }
     case 'usage':
       return { name: 'usage' }
+    case 'approvals':
+      return { name: 'approvals', tab: APPROVAL_TABS.find((t) => t === parts[1]), focus: q.get('id') ?? undefined }
+    case 'goals':
+      return { name: 'goals', swarm: parts[1] }
     default:
       return { name: 'hive' }
   }
@@ -32,7 +43,7 @@ export function href(r: Route): string {
     case 'hive':
       return '#/'
     case 'dot':
-      return `#/dot/${encodeURIComponent(r.id)}`
+      return `#/dot/${encodeURIComponent(r.id)}${r.tab && r.tab !== 'chat' ? `/${r.tab}` : ''}`
     case 'swarms':
       return '#/swarms'
     case 'swarm':
@@ -41,6 +52,10 @@ export function href(r: Route): string {
       return `#/new${r.swarm ? `?swarm=${encodeURIComponent(r.swarm)}` : ''}`
     case 'usage':
       return '#/usage'
+    case 'approvals':
+      return `#/approvals${r.tab && r.tab !== 'pending' ? `/${r.tab}` : ''}${r.focus ? `?id=${encodeURIComponent(r.focus)}` : ''}`
+    case 'goals':
+      return `#/goals${r.swarm ? `/${encodeURIComponent(r.swarm)}` : ''}`
   }
 }
 

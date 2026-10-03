@@ -1,21 +1,28 @@
 import type {
   Agent,
+  Approval,
   AssertionOutcome,
   Belief,
+  Goal,
   HiveEvent,
   HiveInfo,
   Message,
+  PolicyRule,
   Swarm,
   ThinkingPhase,
+  Trace,
   Usage,
+  Wakeup,
 } from '../api/types'
 
 export const LOG_CAP = 400
 export const USAGE_CAP = 20_000
 export const ACTIVITY_CAP = 40
 export const MESSAGE_CAP = 300
+export const TRACE_CAP = 120
+export const APPROVAL_CAP = 300
 
-export type ActivityKind = 'belief' | 'message' | 'status' | 'error' | 'birth'
+export type ActivityKind = 'belief' | 'message' | 'status' | 'error' | 'birth' | 'approval' | 'goal' | 'wakeup'
 
 export interface Activity {
   id: number
@@ -46,6 +53,18 @@ export interface HiveData {
   logs: Record<string, string[]>
   activity: Activity[]
   activitySeq: number
+  // ---- Phase 2
+  approvals: Record<string, Approval>
+  /** null until the rules have been fetched. */
+  policy: PolicyRule[] | null
+  /** Every goal of every loaded swarm, by id. */
+  goals: Record<string, Goal>
+  goalsLoaded: Record<string, true>
+  /** Model iterations per agent, oldest first, unique by id. */
+  traces: Record<string, Trace[]>
+  wakeups: Record<string, Wakeup>
+  /** Last time each wakeup fired (ms), for a pulse in the schedule. */
+  wakeFired: Record<string, number>
 }
 
 export const emptyData = (): HiveData => ({
@@ -61,6 +80,13 @@ export const emptyData = (): HiveData => ({
   logs: {},
   activity: [],
   activitySeq: 0,
+  approvals: {},
+  policy: null,
+  goals: {},
+  goalsLoaded: {},
+  traces: {},
+  wakeups: {},
+  wakeFired: {},
 })
 
 const pulseKey = (swarmId: string, statement: string) => `${swarmId}\u0000${statement}`
@@ -94,6 +120,46 @@ export function mergeMessages(list: Message[] | undefined, incoming: Message[]):
   for (const m of list ?? []) map.set(m.id, m)
   for (const m of incoming) map.set(m.id, m)
   return [...map.values()].sort((a, b) => a.created_at.localeCompare(b.created_at))
+}
+
+/** Insert or replace a trace, keeping the list ordered by id and capped. */
+export function upsertTrace(list: Trace[] | undefined, t: Trace): Trace[] {
+  const cur = list ?? []
+  const idx = cur.findIndex((x) => x.id === t.id)
+  if (idx >= 0) {
+    const next = cur.slice()
+    next[idx] = t
+    return next
+  }
+  const next = [...cur, t]
+  if (cur.length && cur[cur.length - 1].id > t.id) next.sort((a, b) => a.id - b.id)
+  return next.length > TRACE_CAP ? next.slice(next.length - TRACE_CAP) : next
+}
+
+export function mergeTraces(list: Trace[] | undefined, incoming: Trace[]): Trace[] {
+  const map = new Map<number, Trace>()
+  for (const t of list ?? []) map.set(t.id, t)
+  for (const t of incoming) map.set(t.id, t)
+  const out = [...map.values()].sort((a, b) => a.id - b.id)
+  return out.length > TRACE_CAP ? out.slice(out.length - TRACE_CAP) : out
+}
+
+function capApprovals(rec: Record<string, Approval>): Record<string, Approval> {
+  const keys = Object.keys(rec)
+  if (keys.length <= APPROVAL_CAP) return rec
+  // drop the oldest decided ones; pending items are never dropped
+  const decided = Object.values(rec)
+    .filter((a) => a.status !== 'pending')
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+  const next = { ...rec }
+  for (const a of decided.slice(0, keys.length - APPROVAL_CAP)) delete next[a.id]
+  return next
+}
+
+const GOAL_TEXT: Partial<Record<Goal['status'], string>> = {
+  claimed: 'claimed',
+  done: 'finished',
+  failed: 'gave up on',
 }
 
 const STATUS_TEXT: Partial<Record<Agent['status'], string>> = {
@@ -212,6 +278,46 @@ export function reduce(s: HiveData, e: HiveEvent): HiveData {
       return { ...s, logs: { ...s.logs, [e.agent_id]: next } }
     }
 
+    case 'approval.created':
+    case 'approval.updated': {
+      const a = e.approval
+      const prev = s.approvals[a.id]
+      const next = { ...s, approvals: capApprovals({ ...s.approvals, [a.id]: a }) }
+      if (prev || a.status !== 'pending') return next
+      return {
+        ...next,
+        ...pushActivity(s, { at: e.at, kind: 'approval', agent_id: a.agent_id, swarm_id: s.agents[a.agent_id]?.swarm_id ?? null, text: `asks to run ${a.skill}` }),
+      }
+    }
+
+    case 'policy.updated':
+      return { ...s, policy: e.rules }
+
+    case 'goal.updated': {
+      const g = e.goal
+      const prev = s.goals[g.id]
+      const next = { ...s, goals: { ...s.goals, [g.id]: g } }
+      const verb = prev?.status !== g.status ? GOAL_TEXT[g.status] : undefined
+      if (!verb || !g.claimed_by) return next
+      return {
+        ...next,
+        ...pushActivity(s, { at: e.at, kind: 'goal', agent_id: g.claimed_by, swarm_id: g.swarm_id, text: `${verb} “${g.title}”` }),
+      }
+    }
+
+    case 'agent.trace':
+      return { ...s, traces: { ...s.traces, [e.trace.agent_id]: upsertTrace(s.traces[e.trace.agent_id], e.trace) } }
+
+    case 'wakeup.updated':
+      return { ...s, wakeups: { ...s.wakeups, [e.wakeup.id]: e.wakeup } }
+
+    case 'wakeup.fired':
+      return {
+        ...s,
+        wakeFired: { ...s.wakeFired, [e.wakeup_id]: Date.parse(e.at) || Date.now() },
+        ...pushActivity(s, { at: e.at, kind: 'wakeup', agent_id: e.agent_id, swarm_id: s.agents[e.agent_id]?.swarm_id ?? null, text: 'woke on schedule' }),
+      }
+
     default:
       return s
   }
@@ -225,6 +331,38 @@ function omit<T>(rec: Record<string, T>, key: string): Record<string, T> {
 }
 
 // ---------------------------------------------------------------- derived
+
+export function pendingApprovals(approvals: Record<string, Approval>): Approval[] {
+  return Object.values(approvals)
+    .filter((a) => a.status === 'pending')
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+}
+
+export const countPending = (approvals: Record<string, Approval>): number => {
+  let n = 0
+  for (const id in approvals) if (approvals[id].status === 'pending') n++
+  return n
+}
+
+/** Claimed goals per agent (for the task glyphs orbiting dots in the scene). */
+export function claimedByAgent(goals: Record<string, Goal>): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const id in goals) {
+    const g = goals[id]
+    if (g.status === 'claimed' && g.claimed_by) out[g.claimed_by] = (out[g.claimed_by] ?? 0) + 1
+  }
+  return out
+}
+
+/** Pending approvals per agent (an amber "asking" halo in the scene). */
+export function askingByAgent(approvals: Record<string, Approval>): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const id in approvals) {
+    const a = approvals[id]
+    if (a.status === 'pending') out[a.agent_id] = (out[a.agent_id] ?? 0) + 1
+  }
+  return out
+}
 
 export interface HiveStats {
   agents: number

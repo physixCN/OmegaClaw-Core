@@ -12,11 +12,12 @@ import { MeTTa } from '../../ui/MeTTa'
 import { Button, EmptyState, ErrorState, IconButton, Orb, Segmented, Skeleton, StatusPill } from '../../ui/primitives'
 import { cx } from '../../lib/cx'
 import { Page } from '../../ui/Page'
+import { GoalsBoard } from '../goals/GoalsBoard'
 import { Constellation, ConstellationLegend } from './Constellation'
 import { Provenance } from './Provenance'
 
 type Tab = 'commons' | 'members' | 'vocab'
-type View = 'sky' | 'list'
+type View = 'sky' | 'list' | 'goals'
 
 const EMPTY: Record<string, Belief> = {}
 
@@ -40,6 +41,11 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
 
   const beliefs = useMemo(() => Object.values(beliefMap), [beliefMap])
   const members = useMemo(() => (swarm?.member_ids ?? []).map((m) => agents[m]).filter(Boolean) as Agent[], [swarm, agents])
+  const openGoals = useHive((s) => {
+    let n = 0
+    for (const g of Object.values(s.goals)) if (g.swarm_id === id && (g.status === 'open' || g.status === 'claimed')) n++
+    return n
+  })
 
   if (!swarm) return null
 
@@ -49,8 +55,8 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-2">
         <div className="flex items-baseline gap-2">
-          <h2 className="eyebrow">Commons</h2>
-          <span className="text-[12px] text-ink-3">{beliefs.length} beliefs</span>
+          <h2 className="eyebrow">{view === 'goals' ? 'Goals' : 'Commons'}</h2>
+          <span className="text-[12px] text-ink-3">{view === 'goals' ? `${openGoals} in flight` : `${beliefs.length} beliefs`}</span>
         </div>
         <Segmented<View>
           label="Commons view"
@@ -59,24 +65,29 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
           options={[
             { value: 'sky', label: 'Constellation' },
             { value: 'list', label: 'Table' },
+            { value: 'goals', label: 'Goals' },
           ]}
         />
       </div>
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-[20px] border border-line" style={{ background: `radial-gradient(70% 70% at 50% 50%, ${hsl(swarm.hue, 80, 30, 0.22)}, rgb(4 4 16 / 0.6))` }}>
-        {err && !beliefs.length ? (
-          <ErrorState title="Could not load the commons" body={err} onRetry={() => loadBeliefs(id, true).then(() => setErr(null), () => undefined)} />
-        ) : !loaded && !beliefs.length ? (
-          <div className="flex h-full items-center justify-center">
-            <div className="eyebrow animate-pulse">Charting the commons…</div>
-          </div>
-        ) : !beliefs.length ? (
-          <EmptyState icon="sparkles" title="An empty sky" body="No beliefs yet. When members publish, stars appear here." />
-        ) : view === 'sky' ? (
-          <Constellation beliefs={beliefs} hue={swarm.hue} selected={statement} onSelect={(s) => select(s)} pulses={pulses} swarmId={id} />
-        ) : (
-          <BeliefTable beliefs={beliefs} onSelect={(s) => select(s)} selected={statement} />
-        )}
-      </div>
+      {view === 'goals' ? (
+        <GoalsBoard swarmId={id} className="min-h-0 flex-1" />
+      ) : (
+        <div className="relative min-h-0 flex-1 overflow-hidden rounded-[20px] border border-line" style={{ background: `radial-gradient(70% 70% at 50% 50%, ${hsl(swarm.hue, 80, 30, 0.22)}, rgb(4 4 16 / 0.6))` }}>
+          {err && !beliefs.length ? (
+            <ErrorState title="Could not load the commons" body={err} onRetry={() => loadBeliefs(id, true).then(() => setErr(null), () => undefined)} />
+          ) : !loaded && !beliefs.length ? (
+            <div className="flex h-full items-center justify-center">
+              <div className="eyebrow animate-pulse">Charting the commons…</div>
+            </div>
+          ) : !beliefs.length ? (
+            <EmptyState icon="sparkles" title="An empty sky" body="No beliefs yet. When members publish, stars appear here." />
+          ) : view === 'sky' ? (
+            <Constellation beliefs={beliefs} hue={swarm.hue} selected={statement} onSelect={(s) => select(s)} pulses={pulses} swarmId={id} />
+          ) : (
+            <BeliefTable beliefs={beliefs} onSelect={(s) => select(s)} selected={statement} />
+          )}
+        </div>
+      )}
       {view === 'sky' && beliefs.length > 0 && <ConstellationLegend className="px-1 pt-2.5" />}
     </div>
   )

@@ -10,6 +10,19 @@ import type {
   Agent,
   AgentAction,
   ApiErrorBody,
+  Approval,
+  ApprovalStatus,
+  CreateGoalBody,
+  CreatePolicyBody,
+  CreateWakeupBody,
+  Goal,
+  MemoryAtom,
+  MemorySpace,
+  PatchGoalBody,
+  PatchWakeupBody,
+  PolicyRule,
+  Trace,
+  Wakeup,
   Belief,
   BeliefDetail,
   CreateAgentBody,
@@ -155,6 +168,40 @@ export class LiveClient implements HiveClient {
     const qs = q.toString()
     return this.request<Usage[]>('GET', `/api/usage${qs ? `?${qs}` : ''}`)
   }
+
+  // ---------- Phase 2 ----------
+
+  listPolicy = () => this.request<PolicyRule[]>('GET', '/api/policy')
+  createPolicy = (body: CreatePolicyBody) => this.request<PolicyRule>('POST', '/api/policy', body)
+  deletePolicy = (id: string) => this.request<{ ok: true }>('DELETE', `/api/policy/${enc(id)}`)
+  listApprovals = (status?: ApprovalStatus) =>
+    this.request<Approval[]>('GET', `/api/approvals${status ? `?status=${enc(status)}` : ''}`)
+  approve = (id: string, remember = false) =>
+    this.request<Approval>('POST', `/api/approvals/${enc(id)}/approve`, { remember })
+  deny = (id: string) => this.request<Approval>('POST', `/api/approvals/${enc(id)}/deny`, {})
+  listGoals = (swarmId: string) => this.request<Goal[]>('GET', `/api/swarms/${enc(swarmId)}/goals`)
+  createGoal = (swarmId: string, body: CreateGoalBody) =>
+    this.request<Goal>('POST', `/api/swarms/${enc(swarmId)}/goals`, body)
+  patchGoal = (id: string, body: PatchGoalBody) => this.request<Goal>('PATCH', `/api/goals/${enc(id)}`, body)
+  listTraces = (agentId: string, limit?: number) =>
+    this.request<Trace[]>('GET', `/api/agents/${enc(agentId)}/traces${limit ? `?limit=${limit}` : ''}`)
+  listWakeups = (agentId: string) => this.request<Wakeup[]>('GET', `/api/agents/${enc(agentId)}/wakeups`)
+  createWakeup = (agentId: string, body: CreateWakeupBody) =>
+    this.request<Wakeup>('POST', `/api/agents/${enc(agentId)}/wakeups`, body)
+  patchWakeup = (id: string, body: PatchWakeupBody) => this.request<Wakeup>('PATCH', `/api/wakeups/${enc(id)}`, body)
+  deleteWakeup = (id: string) => this.request<{ ok: true }>('DELETE', `/api/wakeups/${enc(id)}`)
+  listMemory = (agentId: string) => this.request<MemorySpace[]>('GET', `/api/agents/${enc(agentId)}/memory`)
+  listAtoms = (agentId: string, space: string, opts: { q?: string; limit?: number } = {}) => {
+    const q = new URLSearchParams()
+    if (opts.q) q.set('q', opts.q)
+    if (opts.limit) q.set('limit', String(opts.limit))
+    const qs = q.toString()
+    return this.request<MemoryAtom[]>('GET', `/api/agents/${enc(agentId)}/memory/${enc(space)}${qs ? `?${qs}` : ''}`)
+  }
+  retireAtom = (agentId: string, space: string, atom: string) =>
+    this.request<{ queued: true }>('POST', `/api/agents/${enc(agentId)}/memory/${enc(space)}/retire`, { atom })
+  resetMemory = (agentId: string) => this.request<{ queued: true }>('POST', `/api/agents/${enc(agentId)}/memory/reset`, {})
+  stopAll = () => this.request<{ stopped: number }>('POST', '/api/hive/stop-all', {})
 
   // ---------- WebSocket ----------
 

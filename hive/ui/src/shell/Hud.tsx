@@ -1,12 +1,13 @@
 import { animate, AnimatePresence, m, useMotionValue, useTransform } from 'framer-motion'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { hsl } from '../lib/color'
 import { compact, money } from '../lib/format'
-import { useIsDesktop } from '../lib/hooks'
-import { useRoute } from '../lib/router'
-import { computeStats } from '../store/reducer'
+import { useEscape, useIsDesktop } from '../lib/hooks'
+import { navigate, useRoute } from '../lib/router'
+import { computeStats, countPending } from '../store/reducer'
 import { useHive } from '../store/store'
-import { Icon } from '../ui/Icon'
-import { Kbd } from '../ui/primitives'
+import { Icon, type IconName } from '../ui/Icon'
+import { CountBadge, Kbd, Orb } from '../ui/primitives'
 import { cx } from '../lib/cx'
 
 function AnimatedNumber({ value, format }: { value: number; format: (n: number) => string }) {
@@ -112,30 +113,41 @@ export function TopBar() {
         <div className="pointer-events-auto w-[440px]">
           <Stats />
         </div>
-        <button
-          onClick={() => setPalette(true)}
+        <div
+          className="pointer-events-auto flex items-center gap-2"
           style={{ opacity: panel ? 0 : 1, pointerEvents: panel ? 'none' : undefined, transition: 'opacity 200ms' }}
-          tabIndex={panel ? -1 : undefined}
-          className="glass pointer-events-auto flex min-h-11 items-center gap-3 rounded-2xl px-3.5 text-sm text-ink-3 transition-colors hover:text-ink"
-          aria-label="Open command palette"
+          aria-hidden={panel || undefined}
         >
-          <Icon name="search" size={17} />
-          <span className="pr-6">Jump to…</span>
-          <span className="flex gap-1">
-            <Kbd>⌘</Kbd>
-            <Kbd>K</Kbd>
-          </span>
-        </button>
+          <InboxButton />
+          <button
+            onClick={() => setPalette(true)}
+            tabIndex={panel ? -1 : undefined}
+            className="glass flex min-h-11 items-center gap-3 rounded-2xl px-3.5 text-sm text-ink-3 transition-colors hover:text-ink"
+            aria-label="Open command palette"
+          >
+            <Icon name="search" size={17} />
+            <span className="pr-4">Jump to…</span>
+            <span className="flex gap-1">
+              <Kbd>⌘</Kbd>
+              <Kbd>K</Kbd>
+            </span>
+          </button>
+          <OverflowMenu />
+        </div>
       </header>
     )
   }
   return (
     <header className="pointer-events-none fixed top-0 right-0 left-0 z-20 px-3" style={{ paddingTop: 'calc(var(--sat) + 8px)' }}>
-      <div className="pointer-events-auto flex items-center justify-between">
+      <div className="pointer-events-auto flex items-center justify-between gap-2">
         <Brand />
-        <button onClick={() => setPalette(true)} className="glass flex size-11 items-center justify-center rounded-2xl text-ink-2" aria-label="Search and commands">
-          <Icon name="search" size={19} />
-        </button>
+        <div className="flex items-center gap-2">
+          <InboxButton compactMode />
+          <button onClick={() => setPalette(true)} className="glass flex size-11 items-center justify-center rounded-2xl text-ink-2" aria-label="Search and commands">
+            <Icon name="search" size={19} />
+          </button>
+          <OverflowMenu />
+        </div>
       </div>
       <div className="pointer-events-auto mt-2.5">
         <Stats />
@@ -158,21 +170,172 @@ export function Toasts() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
             transition={{ type: 'spring', stiffness: 500, damping: 34 }}
-            className="glass-strong pointer-events-auto flex max-w-sm items-start gap-3 rounded-2xl px-4 py-3"
+            className="glass-strong pointer-events-auto relative flex w-full max-w-sm items-start gap-3 overflow-hidden rounded-2xl px-4 py-3"
             role={t.tone === 'error' ? 'alert' : 'status'}
           >
-            <span className={cx('mt-0.5', t.tone === 'error' ? 'text-bad' : t.tone === 'success' ? 'text-good' : 'text-accent')}>
-              <Icon name={t.tone === 'error' ? 'alert' : t.tone === 'success' ? 'check' : 'info'} size={18} />
+            {t.hue !== undefined && (
+              <span className="pointer-events-none absolute inset-y-0 left-0 w-24" style={{ background: `radial-gradient(80% 90% at 0% 50%, ${hsl(t.hue, 90, 60, 0.22)}, transparent)` }} />
+            )}
+            <span className={cx('relative mt-0.5', t.tone === 'error' ? 'text-bad' : t.tone === 'success' ? 'text-good' : 'text-accent')}>
+              {t.hue !== undefined ? (
+                <span className="relative block">
+                  <Orb hue={t.hue} size={22} />
+                  {t.icon && (
+                    <span className="absolute -right-1.5 -bottom-1 flex size-4 items-center justify-center rounded-full bg-[#1b1406] text-warn ring-1 ring-warn/40">
+                      <Icon name={t.icon} size={10} strokeWidth={2.4} />
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <Icon name={t.icon ?? (t.tone === 'error' ? 'alert' : t.tone === 'success' ? 'check' : 'info')} size={18} />
+              )}
             </span>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">{t.title}</div>
-              {t.body && <div className="mt-0.5 text-[13px] text-ink-3">{t.body}</div>}
-            </div>
+            {t.action ? (
+              <button
+                className="relative min-w-0 flex-1 text-left"
+                onClick={() => {
+                  t.action!.run()
+                  dismiss(t.id)
+                }}
+              >
+                <span className="block text-sm font-medium">{t.title}</span>
+                {t.body && <span className="mt-0.5 block truncate font-mono text-[12px] text-ink-3">{t.body}</span>}
+                <span className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-warn">
+                  {t.action.label} <Icon name="chevron" size={13} strokeWidth={2.2} />
+                </span>
+              </button>
+            ) : (
+              <div className="relative min-w-0 flex-1">
+                <div className="text-sm font-medium">{t.title}</div>
+                {t.body && <div className="mt-0.5 text-[13px] text-ink-3">{t.body}</div>}
+              </div>
+            )}
             <button onClick={() => dismiss(t.id)} className="-m-2 flex size-9 items-center justify-center text-ink-3 hover:text-ink" aria-label="Dismiss">
               <Icon name="x" size={16} />
             </button>
           </m.div>
         ))}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+/** Pending approvals at a glance; tapping opens the inbox. Hidden on phones when nothing waits. */
+function InboxButton({ compactMode }: { compactMode?: boolean }) {
+  const pending = useHive((s) => countPending(s.approvals))
+  if (compactMode) {
+    return (
+      <AnimatePresence>
+        {pending > 0 && (
+          <m.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={() => navigate({ name: 'approvals' })}
+            className="glass relative flex h-11 items-center gap-1.5 rounded-2xl pr-3 pl-2.5 text-[13px] font-semibold text-warn"
+            aria-label={`Approvals inbox, ${pending} waiting`}
+          >
+            <span className="absolute inset-0 rounded-2xl border border-warn/30" style={{ boxShadow: '0 0 18px -4px rgb(251 191 36 / 0.55)' }} aria-hidden="true" />
+            <Icon name="shield" size={17} />
+            <span className="tabular-nums">{pending}</span>
+          </m.button>
+        )}
+      </AnimatePresence>
+    )
+  }
+  return (
+    <button
+      onClick={() => navigate({ name: 'approvals' })}
+      className={cx('glass relative flex size-11 items-center justify-center rounded-2xl transition-colors', pending ? 'text-warn' : 'text-ink-3 hover:text-ink')}
+      aria-label={pending ? `Approvals inbox, ${pending} waiting` : 'Approvals inbox'}
+      title="Approvals (G I)"
+    >
+      {pending > 0 && <span className="absolute inset-0 rounded-2xl border border-warn/30" style={{ boxShadow: '0 0 18px -4px rgb(251 191 36 / 0.55)' }} aria-hidden="true" />}
+      <Icon name="inbox" size={19} />
+      <CountBadge n={pending} className="absolute -top-1 -right-1" />
+    </button>
+  )
+}
+
+interface MenuItem {
+  label: string
+  icon: IconName
+  run: () => void
+  danger?: boolean
+  badge?: number
+  hint?: string
+}
+
+/** HUD overflow: secondary destinations and the global kill switch. */
+function OverflowMenu() {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const pending = useHive((s) => countPending(s.approvals))
+  const awake = useHive((s) => Object.values(s.agents).filter((a) => a.status !== 'stopped').length)
+  const setStopAll = useHive((s) => s.setStopAll)
+  useEscape(() => setOpen(false), open)
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    window.addEventListener('pointerdown', onDown)
+    return () => window.removeEventListener('pointerdown', onDown)
+  }, [open])
+  const go = (fn: () => void) => () => {
+    setOpen(false)
+    fn()
+  }
+  const items: (MenuItem | null)[] = [
+    { label: 'Approvals inbox', icon: 'inbox', run: go(() => navigate({ name: 'approvals' })), badge: pending },
+    { label: 'Policy rules', icon: 'rules', run: go(() => navigate({ name: 'approvals', tab: 'rules' })) },
+    { label: 'Goals board', icon: 'target', run: go(() => navigate({ name: 'goals' })) },
+    null,
+    { label: 'Stop all dots…', icon: 'power', run: go(() => setStopAll(true)), danger: true, hint: `${awake} running` },
+  ]
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="More"
+        className={cx('glass flex size-11 items-center justify-center rounded-2xl text-ink-2 transition-colors hover:text-ink', open && 'text-ink')}
+      >
+        <Icon name="more" size={22} strokeWidth={2.6} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <m.div
+            role="menu"
+            initial={{ opacity: 0, scale: 0.94, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: -4, transition: { duration: 0.12 } }}
+            transition={{ type: 'spring', stiffness: 600, damping: 36 }}
+            style={{ transformOrigin: 'top right' }}
+            className="glass-strong absolute top-full right-0 z-40 mt-2 w-60 rounded-2xl p-1.5"
+          >
+            {items.map((it, i) =>
+              it ? (
+                <button
+                  key={it.label}
+                  role="menuitem"
+                  onClick={it.run}
+                  className={cx(
+                    'flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[14px] transition-colors',
+                    it.danger ? 'text-bad hover:bg-bad/10' : 'text-ink-2 hover:bg-white/[0.06] hover:text-ink',
+                  )}
+                >
+                  <Icon name={it.icon} size={18} />
+                  <span className="flex-1">{it.label}</span>
+                  {it.badge ? <CountBadge n={it.badge} /> : it.hint ? <span className="text-[11px] text-ink-4">{it.hint}</span> : null}
+                </button>
+              ) : (
+                <div key={i} className="mx-2 my-1 h-px bg-line" />
+              ),
+            )}
+          </m.div>
+        )}
       </AnimatePresence>
     </div>
   )

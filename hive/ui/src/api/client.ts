@@ -1,18 +1,31 @@
 import type {
   Agent,
   AgentAction,
+  Approval,
+  ApprovalStatus,
   Belief,
   BeliefDetail,
   CreateAgentBody,
   CreatedAgent,
+  CreateGoalBody,
+  CreatePolicyBody,
   CreateSwarmBody,
+  CreateWakeupBody,
+  Goal,
   HiveEvent,
   HiveInfo,
+  MemoryAtom,
+  MemorySpace,
   Message,
   ModelOption,
   PatchAgentBody,
+  PatchGoalBody,
+  PatchWakeupBody,
+  PolicyRule,
   Swarm,
+  Trace,
   Usage,
+  Wakeup,
 } from './types'
 
 export type ConnectionState = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'unauthorized'
@@ -54,6 +67,32 @@ export interface HiveClient {
   getLogs(id: string, tail?: number): Promise<{ lines: string[] }>
 
   listUsage(opts?: { agent_id?: string; since?: string }): Promise<Usage[]>
+
+  // ---- Phase 2 ----
+  listPolicy(): Promise<PolicyRule[]>
+  createPolicy(body: CreatePolicyBody): Promise<PolicyRule>
+  deletePolicy(id: string): Promise<{ ok: true }>
+  /** Newest first. */
+  listApprovals(status?: ApprovalStatus): Promise<Approval[]>
+  /** `remember` also adds an `allow` rule for this agent and skill. */
+  approve(id: string, remember?: boolean): Promise<Approval>
+  deny(id: string): Promise<Approval>
+  listGoals(swarmId: string): Promise<Goal[]>
+  createGoal(swarmId: string, body: CreateGoalBody): Promise<Goal>
+  patchGoal(id: string, body: PatchGoalBody): Promise<Goal>
+  /** Newest first. */
+  listTraces(agentId: string, limit?: number): Promise<Trace[]>
+  listWakeups(agentId: string): Promise<Wakeup[]>
+  createWakeup(agentId: string, body: CreateWakeupBody): Promise<Wakeup>
+  patchWakeup(id: string, body: PatchWakeupBody): Promise<Wakeup>
+  deleteWakeup(id: string): Promise<{ ok: true }>
+  listMemory(agentId: string): Promise<MemorySpace[]>
+  listAtoms(agentId: string, space: string, opts?: { q?: string; limit?: number }): Promise<MemoryAtom[]>
+  /** Queued: the agent removes the atom on its next loop. */
+  retireAtom(agentId: string, space: string, atom: string): Promise<{ queued: true }>
+  resetMemory(agentId: string): Promise<{ queued: true }>
+  /** Global kill switch. */
+  stopAll(): Promise<{ stopped: number }>
 
   /** Open the live event stream. Safe to call more than once. */
   connect(): void
