@@ -155,3 +155,22 @@ def test_app_identity_is_validated_data(client, tmp_path, monkeypatch):
     assert unreadable["theme"]["ink"] == "#e8eaf6" and len(warnings) == 2
     listed = {p["id"]: p for p in client.get("/api/programs").json()}
     assert listed["contract-fixture"]["app"]["open_stage"] == "unfold"
+
+
+def test_retries_must_match_the_full_payload_and_never_revive_closed_requests(client, tmp_path, monkeypatch):
+    swarm, scientist, _ = setup(client, tmp_path, monkeypatch)
+    started = act(client, swarm, "request-analysis", request_id="req-6")
+    goal_id, binding = started["task"]["id"], started["detail"]["binding"]
+    call(client, scientist, "POST", f"/api/agent/goals/{goal_id}/claim")
+    long_text = "x" * 4100
+    body = {"status": "done", "result": long_text, "data": {"binding": binding}}
+    assert call(client, scientist, "POST", f"/api/agent/goals/{goal_id}/result", body).status_code == 200
+    # the stored text is truncated, so a retry cannot be proven identical: refused
+    assert call(client, scientist, "POST", f"/api/agent/goals/{goal_id}/result", body).status_code == 409
+    second = act(client, swarm, "request-analysis", request_id="req-7")
+    gid, b2 = second["task"]["id"], second["detail"]["binding"]
+    call(client, scientist, "POST", f"/api/agent/goals/{gid}/claim")
+    act(client, swarm, "cancel", goal_id=gid)
+    same = {"status": "done", "result": "r", "data": {"binding": b2}}
+    assert call(client, scientist, "POST", f"/api/agent/goals/{gid}/result", same).json()["error"]["code"] \
+        == "goal_cancelled"

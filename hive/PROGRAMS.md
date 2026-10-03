@@ -35,7 +35,10 @@ two.
 | Server host: discovery, manifest, capability-limited context, graph and result validation, routes below | **implemented** (`hive/core/programs.py`) and tested (`hive/tests/test_programs_api.py`) |
 | Standalone checker: `python -m hive.programs_check <dir>` | **implemented**. Needs no hive, no UI, no network |
 | Public fixture program | **implemented** (`hive/plugins/contract_fixture/`) |
-| Adaptive UI host: stages, morphing, trail, back, source and uncertainty chrome | **being built**. Layout is not part of the contract, so programs do not wait on it |
+| Adaptive UI host: stages, morphing, trail, back, sources and uncertainty chrome | **built** (`hive/ui/src/features/programs/`), tested in the UI suite and against a local hive with the public programs |
+| Scientist route, deadlines, idempotent retry, `proposal` field, manifest `app` block | **backend built and tested** (`hive/tests/test_scientist_route.py`) |
+| App morph into the manifest identity, the hive spine, the app switcher, the transport/review proposal badges | **pending UI implementation**; not tested, not claimed |
+| Live readiness with private apps (OmegaTruth, Atlas) | **not yet qualified.** Backend contract readiness is not live app readiness: that needs the owners' local synthetic acceptance run, reported separately from mock/echo or replay demos |
 | Deltas, program-owned tasks, out-of-process programs, rendering hints | **later** (v0.2 and after) |
 
 **What a program team can do now, independent of host layout:** write
@@ -313,8 +316,11 @@ Not in this route:
   `binding.share_ids` are revoked, the holder or assignee gets `[GOAL-EXPIRED g_…]` (event `goal_expired`),
   claims and results get 409 `goal_expired`, and `cancel-ack` acknowledges it. A lapsed *claim* lease is
   still separate: it re-opens the goal until 3 lapses.
-- **Idempotent retry.** Re-posting the *identical* result (same status, text and data) to a finished goal
-  returns 200 with the goal, so a lost response can be retried safely. A *different* result gets 409.
+- **Idempotent retry.** Re-posting the *identical* full payload (same status, the complete result text
+  of at most 4000 characters, and the same data) to a finished goal returns 200 with the goal, so a lost
+  response can be retried safely. Anything else is refused: a differing payload (409), a cancelled or
+  expired request (409 `goal_cancelled` / `goal_expired` / `not_claimed`), or a late result.
+  Applications keep their own `base_revision` checks and pending review regardless.
 - **Proposal state on items** (optional): `item.proposal = {goal_id, binding_digest, transport, review}`.
   - `transport` is `validated | stale | refused | expired | cancelled`. This is what the **hive** checked:
     binding and digest matched, or the request ended. The program copies it from the goal.

@@ -238,8 +238,9 @@ class Goals:
             if status == "done" and echoed != binding and (data or {}).get("binding_digest") != binding_digest(binding):
                 raise self.hive.error(409, "binding_mismatch",
                                       "a result for a bound goal must echo its binding (or binding_digest) exactly")
-        if goal["status"] in ("done", "failed") and goal["status"] == status \
-                and (goal.get("result") or "") == str(result or "").strip()[:4000] \
+        text_in = str(result or "").strip()
+        if goal["status"] in ("done", "failed") and goal["status"] == status and len(text_in) <= 4000 \
+                and (goal.get("result") or "") == text_in \
                 and (json.loads(goal["result_data"]) if goal.get("result_data") else None) == data:
             return self.view(goal)   # an identical retry (e.g. after a lost response) is accepted once more
         if goal["status"] not in ("claimed", "waiting"):
