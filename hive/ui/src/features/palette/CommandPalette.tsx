@@ -4,6 +4,7 @@ import { hsl } from '../../lib/color'
 import { useEscape, useIsDesktop } from '../../lib/hooks'
 import { navigate } from '../../lib/router'
 import { fuzzy } from '../../lib/fuzzy'
+import { countPending } from '../../store/reducer'
 import { useScene } from '../../scene/sceneStore'
 import { useHive } from '../../store/store'
 import { Icon, type IconName } from '../../ui/Icon'
@@ -30,6 +31,8 @@ export default function CommandPalette() {
   const agents = useHive((s) => s.agents)
   const swarms = useHive((s) => s.swarms)
   const act = useHive((s) => s.agentAction)
+  const pending = useHive((s) => countPending(s.approvals))
+  const setStopAll = useHive((s) => s.setStopAll)
   const desktop = useIsDesktop()
   const [q, setQ] = useState('')
   const [sel, setSel] = useState(0)
@@ -51,8 +54,12 @@ export default function CommandPalette() {
     const list: Cmd[] = [
       { id: 'nav-hive', group: 'Navigate', label: 'Go to the hive', icon: 'hive', keys: ['G', 'H'], run: go(() => navigate({ name: 'hive' })) },
       { id: 'nav-swarms', group: 'Navigate', label: 'Go to swarms', icon: 'swarms', keys: ['G', 'S'], run: go(() => navigate({ name: 'swarms' })) },
+      { id: 'nav-inbox', group: 'Navigate', label: 'Open the approvals inbox', icon: 'inbox', keys: ['G', 'I'], hint: pending ? `${pending} waiting` : undefined, keywords: 'approve deny pending gate', run: go(() => navigate({ name: 'approvals' })) },
+      { id: 'nav-goals', group: 'Navigate', label: 'Go to goals', icon: 'target', keys: ['G', 'G'], keywords: 'kanban tasks board work', run: go(() => navigate({ name: 'goals' })) },
       { id: 'nav-usage', group: 'Navigate', label: 'Go to usage', icon: 'chart', keys: ['G', 'U'], run: go(() => navigate({ name: 'usage' })) },
+      { id: 'nav-rules', group: 'Navigate', label: 'Edit policy rules', icon: 'rules', keywords: 'allow ask deny skills glob policy', searchOnly: true, run: go(() => navigate({ name: 'approvals', tab: 'rules' })) },
       { id: 'new', group: 'Actions', label: 'Create a new dot', icon: 'plus', keys: ['N'], keywords: 'add spawn birth', run: go(() => navigate({ name: 'new' })) },
+      { id: 'stop-all', group: 'Actions', label: 'Stop all dots…', icon: 'power', keywords: 'kill switch emergency halt stop-all panic', run: go(() => setStopAll(true)) },
       { id: 'recenter', group: 'Actions', label: 'Recenter the camera', icon: 'locate', keywords: 'overview fit zoom', run: go(() => (navigate({ name: 'hive' }), useScene.getState().engine?.overview())) },
     ]
     const sorted = Object.values(agents).sort((a, b) => a.name.localeCompare(b.name))
@@ -66,6 +73,7 @@ export default function CommandPalette() {
         lead: <Orb hue={a.hue} status={a.status} size={20} />,
         run: go(() => navigate({ name: 'dot', id: a.id })),
       })
+      list.push({ id: `mind-${a.id}`, group: 'Dots', label: `Watch ${a.name} think`, icon: 'mind', searchOnly: true, keywords: `${a.name} mind trace timeline`, run: go(() => navigate({ name: 'dot', id: a.id, tab: 'mind' })) })
       if (a.status === 'awake' || a.status === 'starting')
         list.push({ id: `sleep-${a.id}`, group: 'Actions', label: `Sleep ${a.name}`, icon: 'moon', searchOnly: true, run: go(() => void act(a.id, 'sleep')) })
       if (a.status === 'asleep')
@@ -85,7 +93,7 @@ export default function CommandPalette() {
     }
     return list
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agents, swarms])
+  }, [agents, swarms, pending])
 
   const results = useMemo(() => {
     const query = q.trim()

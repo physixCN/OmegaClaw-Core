@@ -4,6 +4,7 @@ import type { AgentStatus, ThinkingPhase } from '../api/types'
 import { hsl } from '../lib/color'
 import { cx } from '../lib/cx'
 import { Icon, type IconName } from './Icon'
+import { MODE_STYLE } from './modes'
 
 
 type BtnVariant = 'primary' | 'ghost' | 'subtle' | 'danger'
@@ -302,11 +303,6 @@ export function RiskChip({ risk, compact }: { risk: 'low' | 'medium' | 'high'; c
   )
 }
 
-export const MODE_STYLE: Record<'allow' | 'ask' | 'deny', { color: string; bg: string; icon: IconName; label: string }> = {
-  allow: { color: '#4ade80', bg: 'rgb(74 222 128 / 0.1)', icon: 'check', label: 'Allow' },
-  ask: { color: '#fbbf24', bg: 'rgb(251 191 36 / 0.1)', icon: 'question', label: 'Ask' },
-  deny: { color: '#fb7185', bg: 'rgb(251 113 133 / 0.1)', icon: 'ban', label: 'Deny' },
-}
 
 /** allow / ask / deny: used for policy rules and per-command gate decisions. */
 export function ModeChip({ mode, className }: { mode: 'allow' | 'ask' | 'deny'; className?: string }) {

@@ -5,6 +5,7 @@ import { navigate, useRoute } from './lib/router'
 import { HiveScene } from './scene/HiveScene'
 import { useScene } from './scene/sceneStore'
 import { ActivityTicker, BootScreen, DotDirectory, EmptyHive, Login, SceneControls } from './shell/Ambient'
+import { useApprovalToasts } from './shell/approvalToasts'
 import { Toasts, TopBar } from './shell/Hud'
 import { Nav } from './shell/Nav'
 import { useShortcuts } from './shell/shortcuts'
@@ -17,6 +18,9 @@ const CreateFlow = lazy(() => import('./features/create/CreateFlow'))
 const TokenReveal = lazy(() => import('./features/create/TokenReveal'))
 const UsageView = lazy(() => import('./features/usage/UsageView'))
 const CommandPalette = lazy(() => import('./features/palette/CommandPalette'))
+const ApprovalsView = lazy(() => import('./features/approvals/ApprovalsView'))
+const GoalsPage = lazy(() => import('./features/goals/GoalsPage'))
+const StopAll = lazy(() => import('./features/hive/StopAll'))
 
 /**
  * Each lazy view gets its own Suspense boundary: a shared one would re-suspend (and hide)
@@ -38,6 +42,8 @@ function prefetch() {
     void import('./features/swarm/SwarmsIndex')
     void import('./features/usage/UsageView')
     void import('./features/create/TokenReveal')
+    void import('./features/approvals/ApprovalsView')
+    void import('./features/goals/GoalsPage')
   }
   if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 4000 })
   else setTimeout(go, 2500)
@@ -50,12 +56,14 @@ export function App() {
   const connection = useHive((s) => s.connection)
   const paletteOpen = useHive((s) => s.paletteOpen)
   const reveal = useHive((s) => s.reveal)
+  const stopAllOpen = useHive((s) => s.stopAllOpen)
   const hydrate = useHive((s) => s.hydrate)
   const route = useRoute()
   const setDimmed = useScene((s) => s.setDimmed)
   useShortcuts()
+  useApprovalToasts()
 
-  const page = route.name === 'swarms' || route.name === 'swarm' || route.name === 'usage'
+  const page = route.name === 'swarms' || route.name === 'swarm' || route.name === 'usage' || route.name === 'approvals' || route.name === 'goals'
   useEffect(() => setDimmed(page), [page, setDimmed])
   // keep the camera centred in the space the HUD leaves free
   const desktop = useIsDesktop()
@@ -93,7 +101,7 @@ export function App() {
             <AnimatePresence>
               {route.name === 'dot' && (
                 <Lazy key="dot">
-                  <DotPanel id={route.id} />
+                  <DotPanel id={route.id} tab={route.tab} />
                 </Lazy>
               )}
               {route.name === 'new' && (
@@ -118,11 +126,28 @@ export function App() {
                   <UsageView />
                 </Lazy>
               )}
+              {route.name === 'approvals' && (
+                <Lazy key="approvals">
+                  <ApprovalsView />
+                </Lazy>
+              )}
+              {route.name === 'goals' && (
+                <Lazy key="goals">
+                  <GoalsPage swarm={route.swarm} />
+                </Lazy>
+              )}
             </AnimatePresence>
             <AnimatePresence>
               {reveal && (
                 <Lazy key="reveal">
                   <TokenReveal />
+                </Lazy>
+              )}
+            </AnimatePresence>
+            <AnimatePresence>
+              {stopAllOpen && (
+                <Lazy key="stop-all">
+                  <StopAll />
                 </Lazy>
               )}
             </AnimatePresence>

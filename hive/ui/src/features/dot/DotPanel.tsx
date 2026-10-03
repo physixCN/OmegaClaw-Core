@@ -4,7 +4,7 @@ import type { Agent, AgentAction, ModelOption } from '../../api/types'
 import { hsl } from '../../lib/color'
 import { money } from '../../lib/format'
 import { useIsDesktop } from '../../lib/hooks'
-import { navigate } from '../../lib/router'
+import { navigate, type DotTab } from '../../lib/router'
 import { useScene } from '../../scene/sceneStore'
 import { useHive } from '../../store/store'
 import { Icon, type IconName } from '../../ui/Icon'
@@ -12,17 +12,34 @@ import { Button, EmptyState, IconButton, Meter, Orb, Segmented, StatusPill } fro
 import { cx } from '../../lib/cx'
 import { Sheet } from '../../ui/Sheet'
 import { Chat } from './Chat'
+import { MemoryInspector } from './MemoryInspector'
+import { MindTimeline } from './MindTimeline'
+import { Schedule } from './Schedule'
 
-type Tab = 'chat' | 'mind'
+type Tab = DotTab
 
-export default function DotPanel({ id }: { id: string }) {
+const TAB_ORDER: Tab[] = ['chat', 'mind', 'memory', 'schedule', 'model']
+
+export default function DotPanel({ id, tab: routeTab }: { id: string; tab?: DotTab }) {
   const agent = useHive((s) => s.agents[id])
   const ready = useHive((s) => s.ready)
   const close = () => navigate({ name: 'hive' })
-  const [tab, setTab] = useState<Tab>('chat')
+  const tab: Tab = routeTab ?? 'chat'
+  const setTab = (t: Tab) => navigate({ name: 'dot', id, tab: t }, { replace: true })
+  // slide direction follows the tab order
+  const [prevTab, setPrevTab] = useState(tab)
+  const [dir, setDir] = useState(1)
+  if (prevTab !== tab) {
+    setDir(TAB_ORDER.indexOf(tab) > TAB_ORDER.indexOf(prevTab) ? 1 : -1)
+    setPrevTab(tab)
+  }
   const bodyRef = useRef<HTMLDivElement>(null)
   const desktop = useIsDesktop()
   const setAnchor = useScene((s) => s.setChatAnchor)
+  const loadWakeups = useHive((s) => s.loadWakeups)
+  useEffect(() => {
+    loadWakeups(id).catch(() => undefined)
+  }, [id, loadWakeups])
 
   // tell the scene where "the chat" is so message light can fly to it
   useEffect(() => {
@@ -60,16 +77,29 @@ export default function DotPanel({ id }: { id: string }) {
   return (
     <Sheet label={`${agent.name} panel`} onClose={close} header={<PanelHeader agent={agent} onClose={close} tab={tab} setTab={setTab} />} initialSnap={desktop ? 'full' : 'peek'} peekHeight="66dvh">
       <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col">
-        <AnimatePresence mode="wait" initial={false}>
-          {tab === 'chat' ? (
-            <m.div key="chat" className="flex min-h-0 flex-1 flex-col" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.16 }}>
+        <AnimatePresence mode="wait" initial={false} custom={dir}>
+          <m.div
+            key={tab}
+            custom={dir}
+            className={cx('flex min-h-0 flex-1 flex-col', tab !== 'chat' && tab !== 'mind' && 'thin-scroll overflow-y-auto')}
+            variants={{ in: (d: number) => ({ opacity: 0, x: 14 * d }), on: { opacity: 1, x: 0 }, out: (d: number) => ({ opacity: 0, x: -14 * d }) }}
+            initial="in"
+            animate="on"
+            exit="out"
+            transition={{ duration: 0.16 }}
+          >
+            {tab === 'chat' ? (
               <Chat key={agent.id} agent={agent} />
-            </m.div>
-          ) : (
-            <m.div key="mind" className="thin-scroll min-h-0 flex-1 overflow-y-auto" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.16 }}>
-              <Mind key={agent.id} agent={agent} />
-            </m.div>
-          )}
+            ) : tab === 'mind' ? (
+              <MindTimeline key={agent.id} agent={agent} />
+            ) : tab === 'memory' ? (
+              <MemoryInspector key={agent.id} agent={agent} />
+            ) : tab === 'schedule' ? (
+              <Schedule key={agent.id} agent={agent} />
+            ) : (
+              <ModelSettings key={agent.id} agent={agent} />
+            )}
+          </m.div>
         </AnimatePresence>
         <LogTail agent={agent} />
       </div>
@@ -79,6 +109,11 @@ export default function DotPanel({ id }: { id: string }) {
 
 function PanelHeader({ agent, onClose, tab, setTab }: { agent: Agent; onClose: () => void; tab: Tab; setTab: (t: Tab) => void }) {
   const thinking = useHive((s) => s.thinking[agent.id])
+  const wakeups = useHive((s) => {
+    let n = 0
+    for (const w of Object.values(s.wakeups)) if (w.agent_id === agent.id && w.enabled) n++
+    return n
+  })
   const swarm = useHive((s) => (agent.swarm_id ? s.swarms[agent.swarm_id] : undefined))
   return (
     <div className="relative shrink-0 px-4 pt-1 md:pt-4">
@@ -112,13 +147,21 @@ function PanelHeader({ agent, onClose, tab, setTab }: { agent: Agent; onClose: (
         <Budget agent={agent} />
       </div>
       <Segmented<Tab>
+        dense
         label="Panel section"
         value={tab}
         onChange={setTab}
         className="mt-2.5 mb-1.5 w-full"
         options={[
           { value: 'chat', label: 'Chat' },
-          { value: 'mind', label: 'Mind & model' },
+          {
+            value: 'mind',
+            label: 'Mind',
+            badge: thinking && thinking !== 'idle' ? <span className="size-1.5 animate-pulse rounded-full" style={{ background: hsl(thinking === 'skills' ? agent.hue + 55 : agent.hue, 100, 72), boxShadow: `0 0 6px ${hsl(agent.hue, 100, 65)}` }} aria-label="thinking" /> : undefined,
+          },
+          { value: 'memory', label: 'Memory' },
+          { value: 'schedule', label: 'Schedule', badge: wakeups ? <span className="font-mono text-[10px] text-ink-4">{wakeups}</span> : undefined },
+          { value: 'model', label: 'Model' },
         ]}
       />
     </div>
@@ -183,7 +226,7 @@ function Budget({ agent }: { agent: Agent }) {
   )
 }
 
-function Mind({ agent }: { agent: Agent }) {
+function ModelSettings({ agent }: { agent: Agent }) {
   const models = useHive((s) => s.models)
   const patch = useHive((s) => s.patchAgent)
   const toast = useHive((s) => s.toast)

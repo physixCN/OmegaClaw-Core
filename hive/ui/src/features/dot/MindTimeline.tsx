@@ -8,8 +8,9 @@ import { useNow, useReducedMotion } from '../../lib/hooks'
 import { navigate } from '../../lib/router'
 import { useHive } from '../../store/store'
 import { Icon, type IconName } from '../../ui/Icon'
+import { MODE_STYLE } from '../../ui/modes'
 import { MeTTa } from '../../ui/MeTTa'
-import { EmptyState, ErrorState, IconButton, MODE_STYLE, Segmented, Skeleton } from '../../ui/primitives'
+import { EmptyState, ErrorState, IconButton, Segmented, Skeleton } from '../../ui/primitives'
 
 type Filter = 'all' | 'skills' | 'errors'
 const EMPTY: Trace[] = []

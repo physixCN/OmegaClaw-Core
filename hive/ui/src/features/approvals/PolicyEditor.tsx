@@ -8,7 +8,8 @@ import { useIsDesktop, useNow } from '../../lib/hooks'
 import { DEFAULT_POLICY, globMatch, resolvePolicy, scopeId, scopeKind } from '../../lib/policy'
 import { useHive } from '../../store/store'
 import { Icon } from '../../ui/Icon'
-import { Button, EmptyState, ErrorState, IconButton, MODE_STYLE, ModeChip, Orb, Segmented, Skeleton } from '../../ui/primitives'
+import { MODE_STYLE } from '../../ui/modes'
+import { Button, EmptyState, ErrorState, IconButton, ModeChip, Orb, Segmented, Skeleton } from '../../ui/primitives'
 
 /** Skills the UI knows about, for glob previews and the tester. */
 const KNOWN = [
