@@ -1,5 +1,5 @@
 import { AnimatePresence, m } from 'framer-motion'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Agent, AgentAction, ModelOption } from '../../api/types'
 import { hsl } from '../../lib/color'
 import { money } from '../../lib/format'
@@ -17,12 +17,16 @@ import { MemoryInspector } from './MemoryInspector'
 import { MindTimeline } from './MindTimeline'
 import { Schedule } from './Schedule'
 import { LabGuards } from '../../shell/LabBadge'
+import { OpenIn } from '../programs/OpenIn'
+import { sessionKey } from '../../store/programSession'
+
+const ProgramHost = lazy(() => import('../programs/ProgramHost'))
 
 type Tab = DotTab
 
 const TAB_ORDER: Tab[] = ['chat', 'mind', 'memory', 'schedule', 'model']
 
-export default function DotPanel({ id, tab: routeTab }: { id: string; tab?: DotTab }) {
+export default function DotPanel({ id, tab: routeTab, program }: { id: string; tab?: DotTab; program?: string }) {
   const agent = useHive((s) => s.agents[id])
   const ready = useHive((s) => s.ready)
   const close = () => navigate({ name: 'hive' })
@@ -75,6 +79,8 @@ export default function DotPanel({ id, tab: routeTab }: { id: string; tab?: DotT
       </Sheet>
     )
   }
+
+  if (program) return <DotProgram agent={agent} programId={program} onClose={close} />
 
   return (
     <Sheet label={`${agent.name} panel`} onClose={close} header={<PanelHeader agent={agent} onClose={close} tab={tab} setTab={setTab} />} initialSnap={desktop ? 'full' : 'peek'} peekHeight="66dvh">
@@ -142,6 +148,7 @@ function PanelHeader({ agent, onClose, tab, setTab }: { agent: Agent; onClose: (
             <span className="truncate font-mono text-[11px]">{agent.model}</span>
           </div>
         </div>
+        <OpenIn iconOnly onPick={(pid) => navigate({ name: 'dot', id: agent.id, program: pid })} />
         <IconButton icon="x" label="Close panel" onClick={onClose} className="-mr-2" />
       </div>
       <div className="mt-3 flex items-stretch gap-2">
@@ -168,6 +175,44 @@ function PanelHeader({ agent, onClose, tab, setTab }: { agent: Agent; onClose: (
         ]}
       />
     </div>
+  )
+}
+
+/** A dot hosting a program in its own panel space, over its swarm. */
+function DotProgram({ agent, programId, onClose }: { agent: Agent; programId: string; onClose: () => void }) {
+  const program = useHive((s) => s.programs?.find((p) => p.id === programId))
+  const desktop = useIsDesktop()
+  const back = () => navigate({ name: 'dot', id: agent.id })
+  const swarmId = agent.swarm_id
+  const escape = () => {
+    if (!swarmId || !useHive.getState().programBack(sessionKey(programId, swarmId))) back()
+  }
+  const header = (
+    <div className="relative shrink-0 px-4 pt-1 pb-1 md:pt-4">
+      <div className="pointer-events-none absolute inset-x-0 -top-10 h-32 opacity-60" style={{ background: `radial-gradient(60% 100% at 20% 0%, ${hsl(agent.hue, 90, 55, 0.24)}, transparent)` }} />
+      <div className="relative flex items-center gap-2.5">
+        <IconButton icon="back" label={`Back to ${agent.name}`} onClick={back} className="-ml-2" />
+        <Orb hue={agent.hue} status={agent.status} size={30} />
+        <div className="min-w-0 flex-1">
+          <div className="eyebrow truncate">{agent.name} · program</div>
+          <h2 className="truncate font-display text-[18px] leading-tight font-semibold tracking-tight">{program?.name ?? programId}</h2>
+        </div>
+        <IconButton icon="x" label="Close panel" onClick={onClose} className="-mr-2" />
+      </div>
+    </div>
+  )
+  return (
+    <Sheet label={`${program?.name ?? programId} in ${agent.name}'s panel`} onClose={onClose} onEscape={escape} header={header} width={480} initialSnap="full" peekHeight="80dvh">
+      <div className="flex min-h-0 flex-1 flex-col" style={{ height: desktop ? undefined : '78dvh' }}>
+        {swarmId ? (
+          <Suspense fallback={<div className="eyebrow flex flex-1 animate-pulse items-center justify-center">Opening…</div>}>
+            <ProgramHost programId={programId} swarmId={swarmId} variant="panel" onExit={back} />
+          </Suspense>
+        ) : (
+          <EmptyState icon="swarms" title={`${agent.name} is a wanderer`} body="Programs work inside one swarm. Move this dot into a swarm to host a program here." action={<Button onClick={back}>Back</Button>} />
+        )}
+      </div>
+    </Sheet>
   )
 }
 

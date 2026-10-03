@@ -15,3 +15,6 @@
 (SkillSignature hive-exhibit (Arg text to) (Arg number minutes) (Arg rest-text text))
 (SkillSignature hive-exhibit-space (Arg text to) (Arg text space) (Arg number minutes) (Arg rest-text filter))
 (SkillSignature hive-shared-page (Arg text share) (Arg number offset) (Arg rest-text filter))
+(SkillSignature hive-goal-get (Arg text goal))
+(SkillSignature hive-goal-propose (Arg text goal) (Arg rest-text proposal))
+(SkillSignature hive-goal-cancel-ack (Arg text goal))

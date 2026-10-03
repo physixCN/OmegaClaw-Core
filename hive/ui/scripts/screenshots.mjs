@@ -15,7 +15,7 @@ const PORT = Number(process.env.SHOTS_PORT) || (await new Promise((resolve) => {
 }))
 const BASE = `http://localhost:${PORT}/?sim=1`
 const OUT = new URL('../screenshots/', import.meta.url).pathname
-const only = process.argv[2] // optional: "mobile" | "desktop" | "lab" (only the Lab, both sizes)
+const only = process.argv[2] // optional: "mobile" | "desktop" | "lab" | "programs" (only that feature, both sizes)
 
 await mkdir(OUT, { recursive: true })
 
@@ -102,6 +102,152 @@ async function lab(page, shot, go, mobile) {
   await sleep(1500)
   await dismiss()
   await shot('19m-dot-lab-guards')
+}
+
+/** Dot programs: the index, the four stages of the fixture, the morph, sources, a correction, a task, a stale notice. */
+async function programs(page, shot, go, mobile) {
+  const node = (re) => page.getByRole('button', { name: re }).first()
+  const dismiss = async () => {
+    for (const b of await page.getByRole('button', { name: 'Dismiss' }).all()) await b.click().catch(() => undefined)
+  }
+  const drawer = async (open) => {
+    if (!mobile) return
+    const t = page.locator('section[aria-label="Inspector"] > button[aria-expanded]').first()
+    if ((await t.getAttribute('aria-expanded')) !== String(open)) await t.click()
+    await sleep(500)
+  }
+  const tool = (name) => page.getByRole('toolbar').getByRole('button', { name, exact: true }).first()
+  await go('#/programs')
+  await sleep(1600)
+  await dismiss()
+  await shot('20-programs')
+  await go('#/program/contract-fixture/s_lyra')
+  await sleep(2200)
+  await dismiss()
+  await shot('21-program-unfold')
+  // pick the claim and unfold it: items move to their new rings; catch the morph mid-flight
+  await node(/^Claim: The footbridge/).click()
+  await sleep(300)
+  await drawer(true)
+  await tool('Unfold').click()
+  await drawer(false)
+  await sleep(mobile ? 160 : 220)
+  await shot('21m-program-morph')
+  await sleep(1600)
+  await shot('21b-program-unfold-claim')
+  // the sources rail: two council sources share one origin
+  await drawer(true)
+  await shot('22-program-sources')
+  const open = page.getByRole('button', { name: /^Open source Council inspection report/ }).first()
+  await open.click()
+  await sleep(900)
+  await shot('22b-program-source-opened')
+  await drawer(false)
+  // map: follow the counterevidence, then the rival hypothesis
+  await node(/^Evidence: Engineer reports/).click()
+  await sleep(300)
+  await drawer(true)
+  await tool('Follow').click()
+  await drawer(false)
+  await sleep(1800)
+  await shot('23-program-map')
+  await node(/^Hypothesis: The rating was reduced/).click()
+  await sleep(300)
+  await drawer(true)
+  await tool('Follow').click()
+  await drawer(false)
+  await sleep(1800)
+  await shot('23b-program-map-grown')
+  // compare the claim with the rival hypothesis
+  await node(/^Claim: The footbridge/).click()
+  await sleep(250)
+  if (mobile) {
+    await drawer(true)
+    await page.getByRole('button', { name: /Select more/ }).click()
+    await drawer(false)
+    await node(/^Hypothesis: The rating was reduced/).click()
+  } else {
+    await node(/^Hypothesis: The rating was reduced/).click({ modifiers: ['Shift'] })
+  }
+  await sleep(300)
+  await drawer(true)
+  await page.getByRole('button', { name: /^Compare 2$/ }).click()
+  await drawer(false)
+  await sleep(2000)
+  await dismiss()
+  await shot('24-program-compare')
+  // detail: open the inspection evidence, correct it (needs_input, then the retry)
+  await node(/^Evidence: Inspection report lists/).dblclick()
+  await sleep(1600)
+  await shot('25-program-detail')
+  await page.getByRole('toolbar', { name: 'Actions for this item' }).getByRole('button', { name: 'Correct' }).click()
+  await sleep(900)
+  await page.locator('form textarea').first().fill('Inspection report lists a 5 t rating, valid until the 2025 flood')
+  await page.locator('form input, form textarea').nth(1).fill('the rating expired with the flood damage')
+  await sleep(300)
+  await shot('25b-program-needs-input')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await sleep(1600)
+  const scrollDetail = async (y) => {
+    await page.evaluate((top) => {
+      const el = [...document.querySelectorAll('.overflow-y-auto')].find((x) => x.querySelector('[aria-label="Revisions"]'))
+      if (el) el.scrollTop = top
+    }, y)
+    await sleep(500)
+  }
+  await scrollDetail(mobile ? 820 : 520)
+  await shot('26-program-corrected')
+  await scrollDetail(0)
+  await page.getByRole('button', { name: /The footbridge is rated for 5 t.*Open it\.$/ }).first().click()
+  await sleep(1600)
+  await dismiss()
+  await shot('26b-program-affected')
+  // a long action becomes a swarm goal
+  await go('#/program/contract-fixture/s_lyra')
+  await page.getByRole('radio', { name: 'Unfold' }).click()
+  await sleep(1400)
+  await node(/^Gap: No inspection/).click()
+  await sleep(300)
+  await drawer(true)
+  await tool('Investigate').click()
+  await sleep(1400)
+  await drawer(false)
+  await shot('27-program-task')
+  // someone else corrects behind our back: our next action is stale and reconciles
+  await page.evaluate(async () => {
+    const sim = window.__hiveSim
+    const v = await sim.programView('contract-fixture', { swarm_id: 's_lyra' })
+    await sim.programAct('contract-fixture', { swarm_id: 's_lyra', action: 'correct', items: ['e2'], base_revision: v.revision, params: { text: 'Press release repeats the 5 t rating (pre-flood)', note: 'dated' } })
+  })
+  await node(/^Claim: The footbridge/).click()
+  await sleep(300)
+  await drawer(true)
+  await tool('Challenge').click()
+  await drawer(false)
+  await sleep(1500)
+  await shot('28-program-stale')
+  // the same program in a dot's own panel
+  await go('#/dot/a_vega01/program/commons-explorer')
+  await sleep(2600)
+  await dismiss()
+  await shot('29-program-in-dot')
+}
+
+async function runPrograms(name, viewport, opts) {
+  const ctx = await browser.newContext({ viewport, ...opts })
+  const page = await ctx.newPage()
+  page.on('console', (m) => m.type() === 'error' && errors.push(`[${name}] console: ${m.text()}`))
+  page.on('pageerror', (e) => errors.push(`[${name}] pageerror: ${e.message}`))
+  const shot = async (label) => {
+    const path = `${OUT}${label}-${name}.png`
+    await page.screenshot({ path })
+    console.log('saved', path)
+  }
+  await page.goto(`${BASE}#/`)
+  await page.waitForSelector('canvas')
+  await sleep(2500)
+  await programs(page, shot, (h) => page.evaluate((x) => (window.location.hash = x), h), viewport.width < 768)
+  await ctx.close()
 }
 
 async function runLab(name, viewport, opts) {
@@ -339,16 +485,20 @@ async function run(name, viewport, opts) {
   await sleep(300)
 
   await lab(page, shot, go, mobile)
+  await programs(page, shot, go, mobile)
 
   await ctx.close()
 }
 
 try {
-  if (only === 'lab') {
+  if (only === 'programs') {
+    await runPrograms('mobile', { width: 390, height: 844 }, { deviceScaleFactor: 2, isMobile: true, hasTouch: true })
+    await runPrograms('desktop', { width: 1440, height: 900 }, { deviceScaleFactor: 1 })
+  } else if (only === 'lab') {
     await runLab('mobile', { width: 390, height: 844 }, { deviceScaleFactor: 2, isMobile: true, hasTouch: true })
     await runLab('desktop', { width: 1440, height: 900 }, { deviceScaleFactor: 1 })
   } else if (only !== 'desktop') await run('mobile', { width: 390, height: 844 }, { deviceScaleFactor: 2, isMobile: true, hasTouch: true })
-  if (only !== 'mobile' && only !== 'lab') await run('desktop', { width: 1440, height: 900 }, { deviceScaleFactor: 1 })
+  if (only !== 'mobile' && only !== 'lab' && only !== 'programs') await run('desktop', { width: 1440, height: 900 }, { deviceScaleFactor: 1 })
   if (!only) {
     // prefers-reduced-motion: the scene should be calm (no dust storm, no glitch jitter)
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' })

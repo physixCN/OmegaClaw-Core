@@ -16,6 +16,7 @@ import { Page } from '../../ui/Page'
 import { GoalsBoard } from '../goals/GoalsBoard'
 import { Constellation, ConstellationLegend } from './Constellation'
 import { Provenance } from './Provenance'
+import { OpenIn } from '../programs/OpenIn'
 
 type Tab = 'commons' | 'members' | 'vocab'
 type View = 'sky' | 'list' | 'goals'
@@ -108,10 +109,13 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
         onClose={() => navigate({ name: 'hive' })}
         onBack={() => navigate({ name: 'swarms' })}
         actions={
-          <div className={statement ? 'hidden' : 'hidden sm:block'}>
-            <Button variant="subtle" icon="plus" onClick={() => navigate({ name: 'new', swarm: id })}>
-              New dot here
-            </Button>
+          <div className="flex items-center gap-2">
+            <OpenIn onPick={(pid) => navigate({ name: 'program', id: pid, swarm: id })} iconOnly={!desktop} />
+            <div className={statement ? 'hidden' : 'hidden sm:block'}>
+              <Button variant="subtle" icon="plus" onClick={() => navigate({ name: 'new', swarm: id })}>
+                New dot here
+              </Button>
+            </div>
           </div>
         }
       >

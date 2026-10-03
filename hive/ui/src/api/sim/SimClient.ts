@@ -25,6 +25,8 @@ import type {
   PatchGoalBody,
   PatchWakeupBody,
   PolicyRule,
+  ProgramActBody,
+  ProgramViewBody,
   Swarm,
   ThinkingPhase,
   Trace,
@@ -37,6 +39,7 @@ import { cronError, isValidTz, nextRun } from '../../lib/cron'
 import { commandSkill, resolvePolicy, skillRisk } from '../../lib/policy'
 import { LOG_TEMPLATES, NAME_IDEAS, SEED_AGENTS, SEED_SWARMS, SIM_MODELS, SKILLS, type SeedAgent } from './data'
 import { SimLab, type LabRecord } from './lab'
+import { SimPrograms } from './programs'
 import { overlaps, revise, round3, unionCapped } from './nal'
 import { generateReply, PEER_LINES, PEER_REPLIES } from './replies'
 import {
@@ -105,6 +108,7 @@ export class SimClient implements HiveClient {
   readonly rng: () => number
   private opts: Required<Omit<SimOptions, 'labRecord' | 'labReplayMs'>>
   readonly lab: SimLab
+  readonly programsHost: SimPrograms
 
   readonly agents = new Map<string, Agent>()
   readonly swarms = new Map<string, Swarm>()
@@ -147,6 +151,17 @@ export class SimClient implements HiveClient {
       minReplayMs: options.labReplayMs ? Math.min(2500, options.labReplayMs / 2) : undefined,
     })
     this.seed()
+    this.programsHost = new SimPrograms({
+      swarm: (id) => this.mustSwarm(id),
+      beliefs: (id) => [...(this.beliefs.get(this.mustSwarm(id).id)?.values() ?? [])].map(stripDetail),
+      belief: (id, statement) => {
+        const b = this.beliefs.get(id)?.get(statement)
+        return b ? clone(b) : null
+      },
+      agents: () => [...this.agents.values()].map((a) => clone(a)),
+      createGoal: (swarmId, title, detail, by) => Promise.resolve(this.makeGoal(swarmId, { title, detail }, by)),
+      emit: (program) => this.emit({ type: 'program.updated', at: this.now(), program }),
+    })
   }
 
   // ------------------------------------------------------------------ helpers
@@ -1563,40 +1578,41 @@ export class SimClient implements HiveClient {
     })
   }
   createGoal(swarmId: string, body: CreateGoalBody) {
-    return this.delay(() => {
-      this.mustSwarm(swarmId)
-      if (!body.title?.trim()) throw new ApiError(400, 'invalid', 'Title is required')
-      if (body.parent_id) {
-        const p = this.goals.get(body.parent_id)
-        if (!p || p.swarm_id !== swarmId) throw new ApiError(400, 'invalid', 'Parent goal is not in this swarm')
-      }
-      const g: Goal = {
-        id: this.id('g_'),
-        swarm_id: swarmId,
-        parent_id: body.parent_id ?? null,
-        title: body.title.trim(),
-        detail: body.detail ?? '',
-        priority: clamp01(body.priority ?? 0.5),
-        status: 'open',
-        created_by: 'user:operator',
-        claimed_by: null,
-        result: null,
-        created_at: this.now(),
-        updated_at: this.now(),
-        lease_until: null,
-        attempts: 0,
-      }
-      this.goals.set(g.id, g)
-      this.emit({ type: 'goal.updated', at: g.created_at, goal: clone(g) })
-      // the swarm hears about it (hub envelope event: "goal") and an awake member picks it up
-      this.later(this.r(2500, 5000), () => {
-        const parent = g.parent_id ? this.goals.get(g.parent_id) : null
-        if (parent && parent.status !== 'claimed') return
-        const awake = (this.swarms.get(swarmId)?.member_ids ?? []).map((m) => this.agents.get(m)).filter((a): a is Agent => !!a && a.status === 'awake')
-        if (awake.length) this.claimGoal(g, this.pick(awake))
-      }, true)
-      return clone(g)
-    })
+    return this.delay(() => this.makeGoal(swarmId, body, 'user:operator'))
+  }
+  private makeGoal(swarmId: string, body: CreateGoalBody, createdBy: string): Goal {
+    this.mustSwarm(swarmId)
+    if (!body.title?.trim()) throw new ApiError(400, 'invalid', 'Title is required')
+    if (body.parent_id) {
+      const p = this.goals.get(body.parent_id)
+      if (!p || p.swarm_id !== swarmId) throw new ApiError(400, 'invalid', 'Parent goal is not in this swarm')
+    }
+    const g: Goal = {
+      id: this.id('g_'),
+      swarm_id: swarmId,
+      parent_id: body.parent_id ?? null,
+      title: body.title.trim(),
+      detail: body.detail ?? '',
+      priority: clamp01(body.priority ?? 0.5),
+      status: 'open',
+      created_by: createdBy,
+      claimed_by: null,
+      result: null,
+      created_at: this.now(),
+      updated_at: this.now(),
+      lease_until: null,
+      attempts: 0,
+    }
+    this.goals.set(g.id, g)
+    this.emit({ type: 'goal.updated', at: g.created_at, goal: clone(g) })
+    // the swarm hears about it (hub envelope event: "goal") and an awake member picks it up
+    this.later(this.r(2500, 5000), () => {
+      const parent = g.parent_id ? this.goals.get(g.parent_id) : null
+      if (parent && parent.status !== 'claimed') return
+      const awake = (this.swarms.get(swarmId)?.member_ids ?? []).map((m) => this.agents.get(m)).filter((a): a is Agent => !!a && a.status === 'awake')
+      if (awake.length) this.claimGoal(g, this.pick(awake))
+    }, true)
+    return clone(g)
   }
   patchGoal(id: string, body: PatchGoalBody) {
     return this.delay(() => {
@@ -1746,6 +1762,30 @@ export class SimClient implements HiveClient {
       })
       return { stopped: list.length }
     })
+  }
+
+  // ------------------------------------------------------------------ Dot programs
+
+  programs() {
+    return this.delay(() => this.programsHost.list())
+  }
+  program(id: string) {
+    return this.delay(() => this.programsHost.detail(id))
+  }
+  programView(id: string, body: ProgramViewBody) {
+    return this.delay(() => this.programsHost.view(id, body.swarm_id, body.focus, body.stage))
+  }
+  programAct(id: string, body: ProgramActBody) {
+    return this.delay(() => this.programsHost.act(id, body.swarm_id, body.action, body.items, body.params ?? {}, body.base_revision)).then((p) => p)
+  }
+  programEnable(id: string) {
+    return this.delay(() => this.programsHost.setEnabled(id, true))
+  }
+  programDisable(id: string) {
+    return this.delay(() => this.programsHost.setEnabled(id, false))
+  }
+  programsReload() {
+    return this.delay(() => this.programsHost.reload())
   }
 
   // ------------------------------------------------------------------ Lab (recorded results)

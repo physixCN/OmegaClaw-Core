@@ -17,9 +17,26 @@ import type {
   PatchAgentBody,
   PatchGoalBody,
   PatchWakeupBody,
+  ProgramDetail,
   Wakeup,
 } from '../api/types'
 import type { IconName } from '../ui/Icon'
+import {
+  applyResult,
+  backStep,
+  currentStep,
+  goTo,
+  jumpTo,
+  loadTrail,
+  newSession,
+  notice,
+  pushStep,
+  receiveView,
+  saveTrail,
+  sessionKey,
+  type ProgramSession,
+  type TrailStep,
+} from './programSession'
 import { emptyData, isTerminal, mergeMessages, mergeTraces, reduce, upsertCase, upsertMessage, type HiveData } from './reducer'
 
 export interface PendingMessage {
@@ -83,6 +100,12 @@ export interface UIState {
   labQueue: string[]
   /** Runs started or watched in this session (they toast when they finish). */
   labWatched: Record<string, true>
+  // ---- Dot programs
+  programsError: string | null
+  /** GET /api/programs/{id}, with describe(). */
+  programDetails: Record<string, ProgramDetail>
+  /** Open sessions by sessionKey(program, swarm): graph, trail, selection, notices, tasks. Kept when you leave. */
+  programSessions: Record<string, ProgramSession>
 }
 
 export interface Actions {
@@ -131,6 +154,24 @@ export interface Actions {
   /** Queue every runnable suite (tests first) and run them one at a time. */
   runAllLab(): Promise<void>
   stopLabQueue(): void
+  // ---- Dot programs
+  loadPrograms(): Promise<void>
+  loadProgram(id: string): Promise<ProgramDetail | null>
+  setProgramEnabled(id: string, enabled: boolean): Promise<void>
+  reloadPrograms(): Promise<void>
+  /** Open (or return to) a program in a swarm: the trail is restored and the view refreshed. */
+  openProgram(programId: string, swarmId: string): Promise<void>
+  programRefresh(key: string): Promise<void>
+  /** Go somewhere new (a trail step is added). */
+  programGo(key: string, step: TrailStep): void
+  /** Back one step. False when already at the first step. */
+  programBack(key: string): boolean
+  programJump(key: string, index: number): void
+  programSelect(key: string, ids: string[]): void
+  /** Run a program action on items; base_revision is always the revision on screen. */
+  programAct(key: string, action: string, items: string[], params?: Record<string, unknown>): Promise<void>
+  programDismiss(key: string, what: 'notice' | 'input' | 'source' | 'suggestion'): void
+  programCancelTask(key: string, taskId: string): Promise<void>
 }
 
 export type Store = HiveData & UIState & Actions
@@ -174,6 +215,9 @@ export const useHive = create<Store>()((set, get) => ({
   labRunLog: {},
   labQueue: [],
   labWatched: {},
+  programsError: null,
+  programDetails: {},
+  programSessions: {},
 
   apply(e) {
     set((s) => {
@@ -219,7 +263,7 @@ export const useHive = create<Store>()((set, get) => ({
       // Commons are small in Phase 1: load all of them so the scene can show belief motes.
       await Promise.all(swarms.map((s) => get().loadBeliefs(s.id)))
       // Phase 2 surfaces are optional: a Phase 1 server simply leaves them empty.
-      await Promise.allSettled([get().loadApprovals(), ...swarms.map((s) => get().loadGoals(s.id)), get().loadLab()])
+      await Promise.allSettled([get().loadApprovals(), ...swarms.map((s) => get().loadGoals(s.id)), get().loadLab(), get().loadPrograms()])
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         set({ ready: false, bootError: null })
@@ -634,7 +678,161 @@ export const useHive = create<Store>()((set, get) => ({
   dismissToast(id) {
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }))
   },
+
+  // ------------------------------------------------------------ Dot programs
+
+  async loadPrograms() {
+    const client = get().client
+    if (!client) return
+    try {
+      const list = await client.programs()
+      set({ programs: list, programsError: null })
+    } catch (err) {
+      set({ programsError: errText(err) })
+      throw err
+    }
+  },
+
+  async loadProgram(id) {
+    const client = get().client
+    if (!client) return null
+    try {
+      const d = await client.program(id)
+      set((s) => ({ programDetails: { ...s.programDetails, [id]: d } }))
+      return d
+    } catch (err) {
+      get().toast({ tone: 'error', title: 'Could not load the program', body: errText(err) })
+      return null
+    }
+  },
+
+  async setProgramEnabled(id, enabled) {
+    const client = get().client
+    const before = get().programs
+    if (!client) return
+    set((s) => ({ programs: s.programs?.map((p) => (p.id === id ? { ...p, enabled: enabled && !p.error } : p)) ?? null }))
+    try {
+      const p = enabled ? await client.programEnable(id) : await client.programDisable(id)
+      set((s) => ({ programs: s.programs?.map((x) => (x.id === p.id ? p : x)) ?? [p] }))
+      if (enabled) {
+        // sessions that hit "disabled" can try again
+        for (const k of Object.keys(get().programSessions)) if (get().programSessions[k].programId === id && get().programSessions[k].error) void get().programRefresh(k)
+      }
+    } catch (err) {
+      set({ programs: before })
+      get().toast({ tone: 'error', title: enabled ? 'Could not enable the program' : 'Could not disable the program', body: errText(err) })
+    }
+  },
+
+  async reloadPrograms() {
+    const client = get().client
+    if (!client) return
+    try {
+      const list = await client.programsReload()
+      set({ programs: list, programDetails: {}, programsError: null })
+      get().toast({ tone: 'success', icon: 'reset', title: 'Programs reloaded', body: `${list.length} found, ${list.filter((p) => p.error).length} with errors` })
+    } catch (err) {
+      get().toast({ tone: 'error', title: 'Could not reload programs', body: errText(err) })
+    }
+  },
+
+  async openProgram(programId, swarmId) {
+    const key = sessionKey(programId, swarmId)
+    if (!get().programSessions[key]) {
+      set((s) => ({ programSessions: { ...s.programSessions, [key]: newSession(programId, swarmId, loadTrail(key) ?? undefined) } }))
+    }
+    if (!get().programDetails[programId]) void get().loadProgram(programId)
+    await get().programRefresh(key)
+  },
+
+  async programRefresh(key) {
+    const client = get().client
+    const s0 = get().programSessions[key]
+    if (!client || !s0) return
+    const seq = (viewSeq.get(key) ?? 0) + 1
+    viewSeq.set(key, seq)
+    const step = currentStep(s0)
+    patchSession(key, (s) => ({ ...s, loading: true }))
+    try {
+      const graph = await client.programView(s0.programId, { swarm_id: s0.swarmId, focus: step.focus, stage: step.stage })
+      if (viewSeq.get(key) !== seq) return
+      patchSession(key, (s) => receiveView(s, graph))
+    } catch (err) {
+      if (viewSeq.get(key) !== seq) return
+      const code = err instanceof ApiError ? err.code : 'error'
+      patchSession(key, (s) => ({ ...s, loading: false, error: { code, message: errText(err) } }))
+    }
+  },
+
+  programGo(key, step) {
+    if (!get().programSessions[key]) return
+    patchSession(key, (s) => goTo(s, pushStep(s.trail, step)))
+    void get().programRefresh(key)
+  },
+
+  programBack(key) {
+    const s0 = get().programSessions[key]
+    if (!s0 || s0.trail.length <= 1) return false
+    patchSession(key, (s) => goTo(s, backStep(s.trail)))
+    void get().programRefresh(key)
+    return true
+  },
+
+  programJump(key, index) {
+    const s0 = get().programSessions[key]
+    if (!s0 || index >= s0.trail.length - 1) return
+    patchSession(key, (s) => goTo(s, jumpTo(s.trail, index)))
+    void get().programRefresh(key)
+  },
+
+  programSelect(key, ids) {
+    patchSession(key, (s) => ({ ...s, selection: [...new Set(ids)] }))
+  },
+
+  async programAct(key, action, items, params = {}) {
+    const client = get().client
+    const s0 = get().programSessions[key]
+    if (!client || !s0 || s0.busy) return
+    const def = get().programDetails[s0.programId]?.describe?.actions.find((a) => a.id === action)
+    patchSession(key, (s) => ({ ...s, busy: action, notice: null }))
+    try {
+      const r = await client.programAct(s0.programId, { swarm_id: s0.swarmId, action, items, params, base_revision: s0.graph?.revision ?? null })
+      let refresh = false
+      patchSession(key, (s) => {
+        const out = applyResult(s, r, { action, items, params, def })
+        refresh = out.refresh
+        return out.session
+      })
+      if (r.status === 'started') void get().loadGoals(s0.swarmId, true).catch(() => undefined)
+      if (refresh) void get().programRefresh(key)
+    } catch (err) {
+      const label = def?.label ?? action
+      const code = err instanceof ApiError ? ` (${err.code})` : ''
+      patchSession(key, (s) => ({ ...s, busy: null, notice: notice({ kind: 'error', tone: 'bad', title: `${label} failed${code}`, body: errText(err) }) }))
+    }
+  },
+
+  programDismiss(key, what) {
+    patchSession(key, (s) => (what === 'notice' ? { ...s, notice: null } : what === 'input' ? { ...s, input: null } : what === 'source' ? { ...s, sourceDetail: null } : { ...s, suggestion: null }))
+  },
+
+  async programCancelTask(key, taskId) {
+    await get().patchGoal(taskId, { status: 'cancelled' })
+    patchSession(key, (s) => ({ ...s, tasks: s.tasks.map((t) => (t.id === taskId ? { ...t, status: get().goals[taskId]?.status ?? 'cancelled' } : t)) }))
+  },
 }))
+
+const viewSeq = new Map<string, number>()
+
+/** Update one program session; the trail is persisted when it changes. */
+function patchSession(key: string, fn: (s: ProgramSession) => ProgramSession) {
+  const before = useHive.getState().programSessions[key]
+  if (!before) return
+  const after = fn(before)
+  if (after === before) return
+  useHive.setState((st) => ({ programSessions: { ...st.programSessions, [key]: after } }))
+  if (after.trail !== before.trail) saveTrail(key, after.trail)
+}
 
 const labRefetch = new Map<string, ReturnType<typeof setTimeout>>()
 

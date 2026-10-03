@@ -14,6 +14,7 @@ export function Page({
   children,
   className,
   label,
+  onEscape,
 }: {
   title: ReactNode
   eyebrow?: ReactNode
@@ -23,9 +24,11 @@ export function Page({
   children: ReactNode
   className?: string
   label: string
+  /** What Esc does when it should differ from Back/Close (e.g. back one step in a trail). */
+  onEscape?: () => void
 }) {
   const reduced = useReducedMotion()
-  useEscape(onBack ?? onClose)
+  useEscape(onEscape ?? onBack ?? onClose)
   return (
     <m.section
       role="dialog"

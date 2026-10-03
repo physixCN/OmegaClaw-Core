@@ -9,4 +9,6 @@ interface ImportMeta {
 
 interface Window {
   __hiveScene?: { screenPos(id: string): { x: number; y: number; r: number } | null; focus(id: string): void }
+  /** Sim mode only: the in-browser hive, to act as another client. */
+  __hiveSim?: import('./api/client').HiveClient
 }

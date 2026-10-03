@@ -1,4 +1,5 @@
 import type {
+  ActionResult,
   Agent,
   AgentAction,
   Approval,
@@ -27,10 +28,15 @@ import type {
   PatchGoalBody,
   PatchWakeupBody,
   PolicyRule,
+  Program,
+  ProgramActBody,
+  ProgramDetail,
+  ProgramViewBody,
   Swarm,
   Trace,
   Usage,
   Wakeup,
+  WorkGraph,
 } from './types'
 
 export type ConnectionState = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'unauthorized'
@@ -110,6 +116,16 @@ export interface HiveClient {
   getLabHistory(suite: string, limit?: number): Promise<LabHistory>
   /** Health per dimension from the latest finished run of every suite. */
   getLabScorecard(): Promise<LabScorecardEntry[]>
+
+  // ---- Dot programs (PROGRAMS.md) ----
+  programs(): Promise<Program[]>
+  program(id: string): Promise<ProgramDetail>
+  /** Always a full snapshot, validated by the hive. */
+  programView(id: string, body: ProgramViewBody): Promise<WorkGraph>
+  programAct(id: string, body: ProgramActBody): Promise<ActionResult>
+  programEnable(id: string): Promise<Program>
+  programDisable(id: string): Promise<Program>
+  programsReload(): Promise<Program[]>
 
   /** Open the live event stream. Safe to call more than once. */
   connect(): void

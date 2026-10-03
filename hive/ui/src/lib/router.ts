@@ -7,7 +7,7 @@ const APPROVAL_TABS: ApprovalsTab[] = ['pending', 'history', 'rules']
 
 export type Route =
   | { name: 'hive' }
-  | { name: 'dot'; id: string; tab?: DotTab }
+  | { name: 'dot'; id: string; tab?: DotTab; program?: string }
   | { name: 'swarms' }
   | { name: 'swarm'; id: string; statement?: string }
   | { name: 'new'; swarm?: string }
@@ -15,6 +15,8 @@ export type Route =
   | { name: 'approvals'; tab?: ApprovalsTab; focus?: string }
   | { name: 'goals'; swarm?: string }
   | { name: 'lab'; suite?: string; run?: string; tab?: LabTab; dimension?: string }
+  | { name: 'programs' }
+  | { name: 'program'; id: string; swarm?: string }
 
 export type LabTab = 'run' | 'history'
 
@@ -25,7 +27,12 @@ export function parse(hash: string): Route {
   const parts = path.split('/').filter(Boolean).map(decodeURIComponent)
   switch (parts[0]) {
     case 'dot':
+      if (parts[1] && parts[2] === 'program' && parts[3]) return { name: 'dot', id: parts[1], program: parts[3] }
       return parts[1] ? { name: 'dot', id: parts[1], tab: DOT_TABS.find((t) => t === parts[2]) } : { name: 'hive' }
+    case 'programs':
+      return { name: 'programs' }
+    case 'program':
+      return parts[1] ? { name: 'program', id: parts[1], swarm: parts[2] } : { name: 'programs' }
     case 'swarms':
       return parts[1] ? { name: 'swarm', id: parts[1], statement: q.get('b') ?? undefined } : { name: 'swarms' }
     case 'new':
@@ -50,7 +57,12 @@ export function href(r: Route): string {
     case 'hive':
       return '#/'
     case 'dot':
+      if (r.program) return `#/dot/${encodeURIComponent(r.id)}/program/${encodeURIComponent(r.program)}`
       return `#/dot/${encodeURIComponent(r.id)}${r.tab && r.tab !== 'chat' ? `/${r.tab}` : ''}`
+    case 'programs':
+      return '#/programs'
+    case 'program':
+      return `#/program/${encodeURIComponent(r.id)}${r.swarm ? `/${encodeURIComponent(r.swarm)}` : ''}`
     case 'swarms':
       return '#/swarms'
     case 'swarm':

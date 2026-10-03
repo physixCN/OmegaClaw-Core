@@ -64,6 +64,35 @@ def belief(statement):
             f"sources={','.join(result['sources'])} assertions={len(result.get('assertions', []))}")
 
 
+def goal_get(goal_id):
+    result, error = _call("GET", f"/api/agent/goals/{_text(goal_id)}")
+    if error:
+        return error
+    return (f"HIVE-GOAL {result['id']} {result['status']} {result['title']} assignee={result.get('assignee')} "
+            f"binding={json.dumps(result.get('binding'))} binding_digest={result.get('binding_digest')}")
+
+
+def goal_propose(goal_id, text):
+    """Finish a bound goal with a proposal; the binding digest is echoed so the hive can check it."""
+    goal, error = _call("GET", f"/api/agent/goals/{_text(goal_id)}")
+    if error:
+        return error
+    body = _text(text)
+    try:
+        proposal = json.loads(body)
+    except ValueError:
+        proposal = {"text": body}
+    result, error = _call("POST", f"/api/agent/goals/{goal['id']}/result", {
+        "status": "done", "result": body[:4000],
+        "data": {"binding_digest": goal.get("binding_digest"), "proposal": proposal}})
+    return error or f"HIVE-GOAL-PROPOSED {result['id']}"
+
+
+def goal_cancel_ack(goal_id):
+    result, error = _call("POST", f"/api/agent/goals/{_text(goal_id)}/cancel-ack", {})
+    return error or f"HIVE-GOAL-CANCEL-ACKED {result['id']}"
+
+
 # ---- timed sharing of private memory ------------------------------------------------------
 
 def shares():

@@ -245,7 +245,47 @@ The public example is `hive/plugins/contract_fixture/`, a synthetic question:
 
 The fixture runs through the real API in `hive/tests/test_programs_api.py`.
 
-## 7. HTTP routes (operator)
+## 7. Scientist route: a revision-bound request to a named dot
+
+**Implemented and tested** (`hive/tests/test_scientist_route.py`). It is built
+from existing goals and exhibits, with no second coordinator. The extensions
+are additive and do not change the v0.1 contract.
+
+1. **The program shows the snapshot.** `await ctx.exhibit(title, ["Scientist"], minutes, body, atoms)`
+   needs capability `exhibits:write`. It returns the hive-computed `digest`
+   (`sha256` over title, body and atoms) and the share ids.
+2. **The program posts a bound goal.**
+   `await ctx.create_goal(title, detail, assignee="Scientist", binding={request_id, base_revision, snapshot_digest, share_ids})`.
+   Only the assignee is told, and only the assignee can claim (others get 403
+   `not_assigned`). The goal has `binding` and a `binding_digest`.
+3. **The Scientist** (an Omega, or an external member over HTTP):
+   - `GET /api/agent/goals/{id}` returns the goal with its binding and digest;
+   - `POST …/claim` takes the claim, which is a lease (renew it with `…/heartbeat`);
+   - `GET /api/agent/shares/{share_id}/atoms` reads the snapshot. The returned
+     `digest` must equal `binding.snapshot_digest`.
+4. **The proposal.**
+   `POST /api/agent/goals/{id}/result {status: "done", result, data: {binding | binding_digest, proposal}}`.
+   A result that doesn't echo the binding exactly gives 409 `binding_mismatch`.
+   The program reads it back with `ctx.goal(id)["result_data"]`, which needs
+   `goals:read`.
+5. **Cancellation.** `await ctx.cancel_goal(id)` cancels only goals the
+   program created; the operator can also `PATCH /api/goals/{id} {status: "cancelled"}`.
+   - The claimer or assignee gets `[GOAL-CANCELLED g_…]` (event `goal_cancelled`).
+   - The shares in `binding.share_ids` are revoked, so reading gives 410.
+   - A late result gives 409 `goal_cancelled`.
+   - The Scientist calls `POST /api/agent/goals/{id}/cancel-ack`, which sets
+     `cancel_ack_at` and `cancel_ack_by`.
+
+Omega skills for the same steps: `hive-goal-get`, `hive-goal-claim`,
+`hive-shared`, `hive-goal-propose g_id {json}` (echoes the binding digest)
+and `hive-goal-cancel-ack`.
+
+Not in this route:
+- Admission rules, evidence semantics and what a proposal means. Those belong
+  to the application.
+- An end-to-end run with a live Omega Scientist on a real model.
+
+## 8. HTTP routes (operator)
 
 | Method & path | Body → Response |
 |---|---|

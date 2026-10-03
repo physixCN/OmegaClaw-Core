@@ -36,6 +36,7 @@ export default function CommandPalette() {
   const labSuites = useHive((s) => s.labSuites)
   const startLab = useHive((s) => s.startLab)
   const runAllLab = useHive((s) => s.runAllLab)
+  const programs = useHive((s) => s.programs)
   const desktop = useIsDesktop()
   const [q, setQ] = useState('')
   const [sel, setSel] = useState(0)
@@ -61,6 +62,7 @@ export default function CommandPalette() {
       { id: 'nav-goals', group: 'Navigate', label: 'Go to goals', icon: 'target', keys: ['G', 'G'], keywords: 'kanban tasks board work', run: go(() => navigate({ name: 'goals' })) },
       { id: 'nav-usage', group: 'Navigate', label: 'Go to usage', icon: 'chart', keys: ['G', 'U'], run: go(() => navigate({ name: 'usage' })) },
       { id: 'nav-lab', group: 'Navigate', label: 'Open the Lab', icon: 'flask', keys: ['G', 'L'], keywords: 'tests benchmarks bench ci suites health', run: go(() => navigate({ name: 'lab' })) },
+      { id: 'nav-programs', group: 'Navigate', label: 'Open programs', icon: 'apps', keys: ['G', 'P'], keywords: 'dot programs plugins apps unfold map compare evidence', run: go(() => navigate({ name: 'programs' })) },
       { id: 'nav-rules', group: 'Navigate', label: 'Edit policy rules', icon: 'rules', keywords: 'allow ask deny skills glob policy', searchOnly: true, run: go(() => navigate({ name: 'approvals', tab: 'rules' })) },
       { id: 'new', group: 'Actions', label: 'Create a new dot', icon: 'plus', keys: ['N'], keywords: 'add spawn birth', run: go(() => navigate({ name: 'new' })) },
       { id: 'stop-all', group: 'Actions', label: 'Stop all dots…', icon: 'power', keywords: 'kill switch emergency halt stop-all panic', run: go(() => setStopAll(true)) },
@@ -82,6 +84,12 @@ export default function CommandPalette() {
         }),
       })
       list.push({ id: `lab-history-${x.id}`, group: 'Navigate', label: `${x.title} history`, icon: 'history', searchOnly: true, keywords: `lab trend ${x.id} ${x.kind}`, run: go(() => navigate({ name: 'lab', suite: x.id, tab: 'history' })) })
+    }
+    for (const p of programs ?? []) {
+      if (!p.enabled) continue
+      list.push({ id: `program-${p.id}`, group: 'Navigate', label: `Open ${p.name}`, icon: 'apps', hint: 'program', keywords: `program ${p.id} ${p.description}`, run: go(() => navigate({ name: 'program', id: p.id })) })
+      for (const s of Object.values(swarms))
+        list.push({ id: `program-${p.id}-${s.id}`, group: 'Navigate', label: `Open ${p.name} in ${s.name}`, icon: 'apps', searchOnly: true, keywords: `program ${p.id} ${s.name}`, run: go(() => navigate({ name: 'program', id: p.id, swarm: s.id })) })
     }
     if (labSuites?.length) list.push({ id: 'lab-run-all', group: 'Actions', label: 'Run every test and benchmark', icon: 'flask', searchOnly: true, keywords: 'lab run all everything suites ci', run: go(() => (void runAllLab(), navigate({ name: 'lab' }))) })
     const sorted = Object.values(agents).sort((a, b) => a.name.localeCompare(b.name))
@@ -115,7 +123,7 @@ export default function CommandPalette() {
     }
     return list
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agents, swarms, pending, labSuites])
+  }, [agents, swarms, pending, labSuites, programs])
 
   const results = useMemo(() => {
     const query = q.trim()

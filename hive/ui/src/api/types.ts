@@ -400,6 +400,174 @@ export interface LabHistory {
   metrics: LabHistoryMetric[]
 }
 
+// ---- Dot programs (hive/PROGRAMS.md, contract 0.1) ----
+
+export type ProgramStage = 'unfold' | 'map' | 'compare' | 'detail'
+export const PROGRAM_STAGES: ProgramStage[] = ['unfold', 'map', 'compare', 'detail']
+export type ProgramRole = 'question' | 'claim' | 'evidence' | 'hypothesis' | 'assessment' | 'explanation' | 'gap' | 'source' | 'other'
+export type Polarity = 'support' | 'oppose' | 'qualify' | 'neutral'
+
+export interface ProgramKind {
+  id: string
+  label?: string
+  role: ProgramRole
+}
+export interface ProgramRelation {
+  id: string
+  label?: string
+  polarity: Polarity
+}
+export interface ProgramAction {
+  id: string
+  label?: string
+  /** Kinds the action applies to; absent means any. */
+  applies_to?: string[]
+  /** The stage the action leads to, as a hint ("detail?"). */
+  stage?: string
+  /** Param name -> what it means. */
+  params?: Record<string, string>
+}
+export interface ProgramDescription {
+  contract: string
+  kinds: ProgramKind[]
+  relations: ProgramRelation[]
+  actions: ProgramAction[]
+}
+
+/** GET /api/programs */
+export interface Program {
+  id: string
+  name: string
+  version: string
+  description: string
+  icon: string
+  capabilities: string[]
+  /** "built-in" or "plugin-dir" */
+  source: string
+  enabled: boolean
+  error: string | null
+}
+/** GET /api/programs/{id} */
+export interface ProgramDetail extends Program {
+  describe: ProgramDescription | null
+}
+
+export interface NalUncertainty {
+  method: 'nal'
+  f: number
+  c: number
+}
+export interface PlnUncertainty {
+  method: 'pln'
+  strength: number
+  confidence: number
+}
+export interface QualitativeUncertainty {
+  method: 'qualitative'
+  status: string
+}
+/** Any other method: shown by its label and method name, never converted. */
+export interface OtherUncertainty {
+  method: string
+  label?: string
+  [key: string]: unknown
+}
+/** Labelled with its method. Missing means unassessed, which is not zero. */
+export type Uncertainty = NalUncertainty | PlnUncertainty | QualitativeUncertainty | OtherUncertainty
+
+export type SourceStatus = 'retrieved' | 'inspected' | 'cited' | 'unavailable'
+export interface WorkSource {
+  id: string
+  label: string
+  kind?: string
+  url?: string
+  local_ref?: string
+  date?: string
+  locator?: string
+  status?: SourceStatus | string
+  /** Shared by sources with a common origin: they are not independent. */
+  origin?: string
+  [key: string]: unknown
+}
+
+export type ItemStatus = 'current' | 'corrected' | 'superseded' | 'retracted'
+export interface ItemRevision {
+  revision: string
+  label?: string
+  note?: string
+  at?: string
+}
+export interface WorkItem {
+  id: string
+  kind: string
+  label: string
+  text?: string
+  status?: ItemStatus | string
+  flags?: string[]
+  uncertainty?: Uncertainty | null
+  sources?: WorkSource[]
+  revisions?: ItemRevision[]
+  at?: string
+  weight?: number
+  meta?: Record<string, unknown>
+  atom?: string
+}
+export interface WorkLink {
+  id: string
+  from: string
+  to: string
+  rel: string
+  weight?: number
+}
+export interface WorkGroup {
+  id: string
+  label?: string
+  items: string[]
+}
+/** A full snapshot (v0.1 has no deltas). */
+export interface WorkGraph {
+  contract?: string
+  program?: string
+  stage?: ProgramStage
+  revision: string
+  focus?: string | null
+  title?: string
+  suggested_stage?: ProgramStage | null
+  items: WorkItem[]
+  links: WorkLink[]
+  groups: WorkGroup[]
+  notes: string[]
+}
+
+export type ActionStatus = 'done' | 'started' | 'needs_input' | 'stale' | 'refused' | 'error'
+export interface ProgramTask {
+  /** A swarm goal id in v0.1. */
+  id: string
+  kind: 'goal' | string
+  status: string
+}
+export interface ActionResult {
+  status: ActionStatus
+  graph?: WorkGraph | null
+  task?: ProgramTask
+  needs?: Record<string, string>
+  detail?: { sources?: WorkSource[]; [key: string]: unknown }
+  message?: string
+}
+
+export interface ProgramViewBody {
+  swarm_id: string
+  focus?: string | null
+  stage?: ProgramStage
+}
+export interface ProgramActBody {
+  swarm_id: string
+  action: string
+  items: string[]
+  params?: Record<string, unknown>
+  base_revision?: string | null
+}
+
 // ---- Live events (WS /api/events) ----
 
 export type ThinkingPhase = 'llm' | 'skills' | 'idle'
@@ -432,6 +600,8 @@ export type HiveEvent =
   | (EventBase<'lab.run'> & { run: LabRunSummary })
   | (EventBase<'lab.case'> & { case: LabCase })
   | (EventBase<'lab.log'> & { run_id: string; text: string })
+  // Programs
+  | (EventBase<'program.updated'> & { program: Program })
 
 export type HiveEventType = HiveEvent['type']
 export type EventOf<T extends HiveEventType> = Extract<HiveEvent, { type: T }>

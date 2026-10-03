@@ -441,12 +441,16 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
         operator(request)
         data = await body(request)
         return await hive.goals.create(swarm_id, data.get("title", ""), data.get("detail", ""),
-                                       data.get("priority", 0.5), data.get("parent_id"))
+                                       data.get("priority", 0.5), data.get("parent_id"),
+                                       assignee=data.get("assignee"), binding=data.get("binding"))
 
     @app.patch("/api/goals/{goal_id}")
     async def update_goal(goal_id: str, request: Request):
         operator(request)
-        return hive.goals.update(goal_id, await body(request))
+        goal = hive.goals.update(goal_id, await body(request))
+        if goal["status"] == "cancelled":
+            await hive.goals.notify_cancelled(goal_id)
+        return goal
 
     # ---- phase 2: traces, wakeups, memory ------------------------------------------------------
 
@@ -556,9 +560,17 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
     async def agent_result(goal_id: str, request: Request):
         agent = agent_from(request)
         data = await body(request)
-        goal = hive.goals.result(agent, goal_id, data.get("status", "done"), data.get("result", ""))
+        goal = hive.goals.result(agent, goal_id, data.get("status", "done"), data.get("result", ""), data.get("data"))
         await hive.goals.notify_parent(goal)
         return goal
+
+    @app.get("/api/agent/goals/{goal_id}")
+    async def agent_goal(goal_id: str, request: Request):
+        return hive.goals.for_agent(agent_from(request), goal_id)
+
+    @app.post("/api/agent/goals/{goal_id}/cancel-ack")
+    async def agent_goal_cancel_ack(goal_id: str, request: Request):
+        return hive.goals.cancel_ack(agent_from(request), goal_id)
 
     # ---- timed sharing of private memory between dots ---------------------------------------------
 

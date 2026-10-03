@@ -24,7 +24,7 @@ ITEM_STATUSES = {"current", "corrected", "superseded", "retracted"}
 SOURCE_STATUSES = {"retrieved", "inspected", "cited", "unavailable"}
 RESULT_STATUSES = {"done", "started", "needs_input", "stale", "refused", "error"}
 MAX_ITEMS, MAX_LINKS = 400, 1200
-CAPABILITIES = {"commons:read", "goals:read", "goals:write"}
+CAPABILITIES = {"commons:read", "goals:read", "goals:write", "exhibits:write"}
 
 
 class ProgramContext:
@@ -62,10 +62,35 @@ class ProgramContext:
         self._need("goals:read")
         return self._hive.goals.list(self.swarm_id)
 
-    async def create_goal(self, title, detail=""):
+    def goal(self, goal_id):
+        self._need("goals:read")
+        goal = self._hive.goals.view(self._hive.goals.get(goal_id))
+        if goal["swarm_id"] != self.swarm_id:
+            raise self._hive.error(403, "forbidden", "goal is in another swarm")
+        return goal
+
+    async def create_goal(self, title, detail="", assignee=None, binding=None, priority=0.5):
+        """Post a goal; with assignee only that dot may claim it, with binding its result must echo it."""
         self._need("goals:write")
-        return await self._hive.goals.create(self.swarm_id, title, detail,
-                                             created_by=f"program:{self._program['id']}")
+        return await self._hive.goals.create(self.swarm_id, title, detail, priority,
+                                             created_by=f"program:{self._program['id']}",
+                                             assignee=assignee, binding=binding)
+
+    async def cancel_goal(self, goal_id):
+        self._need("goals:write")
+        goal = self.goal(goal_id) if "goals:read" in self._program["capabilities"] else \
+            self._hive.goals.view(self._hive.goals.get(goal_id))
+        if goal["swarm_id"] != self.swarm_id or goal["created_by"] != f"program:{self._program['id']}":
+            raise self._hive.error(403, "forbidden", "a program can only cancel goals it created")
+        self._hive.goals.update(goal_id, {"status": "cancelled"})
+        await self._hive.goals.notify_cancelled(goal_id)
+        return self._hive.goals.view(self._hive.goals.get(goal_id))
+
+    async def exhibit(self, title, to, minutes=30, body="", atoms=None):
+        """Show a snapshot to named dots for a while; returns its content digest and share ids."""
+        self._need("exhibits:write")
+        return await self._hive.shares.program_exhibit(self._program["id"], self.swarm_id, title, to, minutes,
+                                                       body, atoms)
 
 
 class Programs:

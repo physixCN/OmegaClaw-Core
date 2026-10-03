@@ -22,6 +22,8 @@ const ApprovalsView = lazy(() => import('./features/approvals/ApprovalsView'))
 const GoalsPage = lazy(() => import('./features/goals/GoalsPage'))
 const StopAll = lazy(() => import('./features/hive/StopAll'))
 const LabView = lazy(() => import('./features/lab/LabView'))
+const ProgramsIndex = lazy(() => import('./features/programs/ProgramsIndex'))
+const ProgramPage = lazy(() => import('./features/programs/ProgramPage'))
 
 /**
  * Each lazy view gets its own Suspense boundary: a shared one would re-suspend (and hide)
@@ -46,6 +48,7 @@ function prefetch() {
     void import('./features/approvals/ApprovalsView')
     void import('./features/goals/GoalsPage')
     void import('./features/lab/LabView')
+    void import('./features/programs/ProgramsIndex')
   }
   if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 4000 })
   else setTimeout(go, 2500)
@@ -65,7 +68,7 @@ export function App() {
   useShortcuts()
   useApprovalToasts()
 
-  const page = route.name === 'swarms' || route.name === 'swarm' || route.name === 'usage' || route.name === 'approvals' || route.name === 'goals' || route.name === 'lab'
+  const page = route.name === 'swarms' || route.name === 'swarm' || route.name === 'usage' || route.name === 'approvals' || route.name === 'goals' || route.name === 'lab' || route.name === 'programs' || route.name === 'program'
   useEffect(() => setDimmed(page), [page, setDimmed])
   // keep the camera centred in the space the HUD leaves free
   const desktop = useIsDesktop()
@@ -103,7 +106,7 @@ export function App() {
             <AnimatePresence>
               {route.name === 'dot' && (
                 <Lazy key="dot">
-                  <DotPanel id={route.id} tab={route.tab} />
+                  <DotPanel id={route.id} tab={route.tab} program={route.program} />
                 </Lazy>
               )}
               {route.name === 'new' && (
@@ -136,6 +139,16 @@ export function App() {
               {route.name === 'lab' && (
                 <Lazy key="lab">
                   <LabView />
+                </Lazy>
+              )}
+              {route.name === 'programs' && (
+                <Lazy key="programs">
+                  <ProgramsIndex />
+                </Lazy>
+              )}
+              {route.name === 'program' && (
+                <Lazy key={`program-${route.id}`}>
+                  <ProgramPage id={route.id} swarm={route.swarm} />
                 </Lazy>
               )}
               {route.name === 'goals' && (

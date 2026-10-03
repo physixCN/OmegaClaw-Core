@@ -7,6 +7,12 @@ import {
   type HiveClient,
 } from './client'
 import type {
+  ActionResult,
+  Program,
+  ProgramActBody,
+  ProgramDetail,
+  ProgramViewBody,
+  WorkGraph,
   Agent,
   AgentAction,
   ApiErrorBody,
@@ -224,6 +230,16 @@ export class LiveClient implements HiveClient {
   getLabScorecard = () => this.request<LabScorecardEntry[]>('GET', '/api/lab/scorecard')
   getLabHistory = (suite: string, limit = 30) =>
     this.request<LabHistory>('GET', `/api/lab/history/${enc(suite)}?limit=${limit}`)
+
+  // ---------- Dot programs ----------
+
+  programs = () => this.request<Program[]>('GET', '/api/programs')
+  program = (id: string) => this.request<ProgramDetail>('GET', `/api/programs/${enc(id)}`)
+  programView = (id: string, body: ProgramViewBody) => this.request<WorkGraph>('POST', `/api/programs/${enc(id)}/view`, body)
+  programAct = (id: string, body: ProgramActBody) => this.request<ActionResult>('POST', `/api/programs/${enc(id)}/act`, body)
+  programEnable = (id: string) => this.request<Program>('POST', `/api/programs/${enc(id)}/enable`, {})
+  programDisable = (id: string) => this.request<Program>('POST', `/api/programs/${enc(id)}/disable`, {})
+  programsReload = () => this.request<Program[]>('POST', '/api/programs/reload', {})
 
   // ---------- WebSocket ----------
 

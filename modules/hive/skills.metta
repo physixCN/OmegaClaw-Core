@@ -22,6 +22,15 @@
 (= (hive-goal-create $parent $title)
    (py-call (hive_commons.goal_create $parent $title)))
 
+(= (hive-goal-get $id)
+   (py-call (hive_commons.goal_get $id)))
+
+(= (hive-goal-propose $id $text)
+   (py-call (hive_commons.goal_propose $id $text)))
+
+(= (hive-goal-cancel-ack $id)
+   (py-call (hive_commons.goal_cancel_ack $id)))
+
 ; ---- timed sharing: show spaces and work to other dots for a while ----
 
 (= (hive-shares)

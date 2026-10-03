@@ -17,6 +17,7 @@ revoke them at any time. Sharing never crosses swarms (federation comes later).
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 import re
 
@@ -33,7 +34,8 @@ CREATE INDEX IF NOT EXISTS shares_owner ON shares(owner_id, status);
 CREATE INDEX IF NOT EXISTS shares_grantee ON shares(grantee_id, status);
 CREATE TABLE IF NOT EXISTS exhibits (
   id TEXT PRIMARY KEY, swarm_id TEXT NOT NULL, owner_id TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
-  atoms TEXT NOT NULL, source TEXT, bytes INTEGER NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL
+  atoms TEXT NOT NULL, source TEXT, bytes INTEGER NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL,
+  digest TEXT
 );
 CREATE TABLE IF NOT EXISTS share_reads (
   id INTEGER PRIMARY KEY AUTOINCREMENT, share_id TEXT NOT NULL, reader_id TEXT NOT NULL, q TEXT,
@@ -56,6 +58,12 @@ def _canon(skill, *args):
     return "(" + skill + "".join(f' "{c}"' for c in clean) + ")"
 
 
+def exhibit_digest(title, body, atoms):
+    """sha256 over the exhibit's exact content, so a reader can bind its work to what it read."""
+    payload = json.dumps({"title": title, "body": body, "atoms": atoms}, sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(payload.encode()).hexdigest()
+
+
 def _at(minutes):
     moment = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=minutes)
     return moment.isoformat(timespec="milliseconds").replace("+00:00", "Z")
@@ -66,6 +74,8 @@ class Shares:
         self.hive = hive
         self.db = hive.db
         self.db._conn.executescript(SCHEMA)
+        if "digest" not in {r[1] for r in self.db._conn.execute("PRAGMA table_info(exhibits)")}:
+            self.db._conn.execute("ALTER TABLE exhibits ADD COLUMN digest TEXT")
 
     # ---- helpers --------------------------------------------------------------------------------
 
@@ -107,7 +117,7 @@ class Shares:
     def view(self, row):
         names = {r["id"]: r["name"] for r in self.db.all("SELECT id, name FROM agents WHERE id IN (?, ?)",
                                                          (row["owner_id"], row["grantee_id"]))}
-        out = dict(row, owner_name=names.get(row["owner_id"]), grantee_name=names.get(row["grantee_id"]))
+        out = dict(row, owner_name=names.get(row["owner_id"], row["owner_id"]), grantee_name=names.get(row["grantee_id"]))
         if row["exhibit_id"]:
             ex = self.db.one("SELECT title, bytes, atoms FROM exhibits WHERE id = ?", (row["exhibit_id"],))
             if ex:
@@ -252,20 +262,43 @@ class Shares:
             readers = [self._member(agent["swarm_id"], n, agent["id"]) for n in names if str(n).strip()]
         if not readers:
             raise self.hive.error(400, "bad_request", "name at least one dot, or 'swarm'")
+        return await self._publish(agent["id"], agent["name"], agent["swarm_id"], title, readers, minutes, body,
+                                   items, source, size)
+
+    async def program_exhibit(self, program_id, swarm_id, title, to, minutes=None, body="", atoms=None):
+        """An exhibit owned by a dot program (e.g. a revision-bound snapshot for a named Scientist)."""
+        title = str(title or "").strip()[:200]
+        items = [str(a) for a in (atoms or []) if str(a).strip()]
+        body = str(body or "")
+        size = len(body.encode()) + sum(len(a.encode()) for a in items)
+        if not title or (not body.strip() and not items):
+            raise self.hive.error(400, "bad_request", "an exhibit needs a title and text or atoms")
+        if size > MAX_EXHIBIT_BYTES or len(items) > MAX_EXHIBIT_ATOMS:
+            raise self.hive.error(413, "too_large", "exhibit too large")
+        names = to if isinstance(to, list) else re.split(r"[,\s]+", str(to or ""))
+        readers = [self._member(swarm_id, n, None) for n in names if str(n).strip()]
+        if not readers:
+            raise self.hive.error(400, "bad_request", "name at least one dot")
+        return await self._publish(f"program:{program_id}", program_id, swarm_id, title, readers,
+                                   self._minutes(minutes), body, items, f"program {program_id}", size)
+
+    async def _publish(self, owner_id, owner_name, swarm_id, title, readers, minutes, body, items, source, size):
         exhibit_id = new_id("ex")
-        self.db.insert("exhibits", {"id": exhibit_id, "swarm_id": agent["swarm_id"], "owner_id": agent["id"],
+        digest = exhibit_digest(title, body, items)
+        self.db.insert("exhibits", {"id": exhibit_id, "swarm_id": swarm_id, "owner_id": owner_id,
                                     "title": title, "body": body, "atoms": json.dumps(items), "source": source,
-                                    "bytes": size, "created_at": now(), "expires_at": _at(minutes)})
+                                    "bytes": size, "created_at": now(), "expires_at": _at(minutes), "digest": digest})
         shares = []
         for reader in readers:
-            share_id = self._insert(kind="exhibit", swarm_id=agent["swarm_id"], owner_id=agent["id"],
+            share_id = self._insert(kind="exhibit", swarm_id=swarm_id, owner_id=owner_id,
                                     grantee_id=reader["id"], exhibit_id=exhibit_id, minutes=minutes, status="active",
                                     initiated_by="owner", decided_at=now(), expires_at=_at(minutes))
-            await self._tell(reader["id"], f"[EXHIBIT {share_id}] {agent['name']} shares '{title}' ({len(items)} "
+            await self._tell(reader["id"], f"[EXHIBIT {share_id}] {owner_name} shares '{title}' ({len(items)} "
                                            f"atoms, {size // 1024 or 1} KB) for {minutes:g} min. Read it with "
                                            f"hive-shared {share_id} *.", share_id, "exhibit")
             shares.append(self._emit(share_id))
-        return {"exhibit_id": exhibit_id, "title": title, "atoms": len(items), "bytes": size, "shares": shares}
+        return {"exhibit_id": exhibit_id, "title": title, "atoms": len(items), "bytes": size, "digest": digest,
+                "shares": shares}
 
     # ---- reading --------------------------------------------------------------------------------
 
@@ -288,7 +321,7 @@ class Shares:
         if share["kind"] == "exhibit":
             ex = self.db.one("SELECT * FROM exhibits WHERE id = ?", (share["exhibit_id"],))
             atoms = [a for a in json.loads(ex["atoms"]) if not q or q.lower() in a.lower()]
-            result = {"kind": "exhibit", "title": ex["title"], "source": ex["source"],
+            result = {"kind": "exhibit", "title": ex["title"], "source": ex["source"], "digest": ex["digest"],
                       # the text body comes whole, on the first page only
                       "body": ex["body"] if offset == 0 and not q else "",
                       "body_bytes": len(ex["body"].encode())}

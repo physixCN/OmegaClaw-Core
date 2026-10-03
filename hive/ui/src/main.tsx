@@ -18,5 +18,9 @@ createRoot(document.getElementById('root')!).render(
 )
 
 createClient()
-  .then((client) => useHive.getState().init(client))
+  .then((client) => {
+    // the simulator is reachable from the console (and the screenshot script) to play "someone else"
+    if (client.mode === 'sim') window.__hiveSim = client
+    return useHive.getState().init(client)
+  })
   .catch((err: unknown) => useHive.setState({ bootError: err instanceof Error ? err.message : String(err) }))

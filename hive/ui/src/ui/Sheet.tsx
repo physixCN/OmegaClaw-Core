@@ -19,6 +19,7 @@ export function Sheet({
   peekHeight = '52dvh',
   header,
   className,
+  onEscape,
 }: {
   label: string
   onClose: () => void
@@ -28,6 +29,8 @@ export function Sheet({
   peekHeight?: string
   header?: ReactNode
   className?: string
+  /** What Esc does when it should differ from closing (e.g. back one step inside the panel). */
+  onEscape?: () => void
 }) {
   const desktop = useIsDesktop()
   const reduced = useReducedMotion()
@@ -37,7 +40,7 @@ export function Sheet({
   const [snap, setSnap] = useState<Snap>(initialSnap)
   const drag = useDragControls()
 
-  useEscape(onClose)
+  useEscape(onEscape ?? onClose)
 
   const reportRef = useRef<() => void>(() => undefined)
   useEffect(() => {

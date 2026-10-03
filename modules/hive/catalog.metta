@@ -17,3 +17,6 @@
 (SkillHelp "hive-exhibit-space" "hive-exhibit-space swarm world 60 orbit - show the matching atoms of one of your spaces as a snapshot")
 (SkillCatalog "Hive sharing: hive-share-request dot space minutes reason | hive-share-grant sh_id | hive-shared sh_id filter | hive-exhibit dots minutes title | text")
 (SkillHelp "hive-shared-page" "hive-shared-page sh_id 120 * - continue a share that was too long to show at once, from that atom")
+(SkillHelp "hive-goal-get" "hive-goal-get g_id - read a goal, its assignee and the request it is bound to")
+(SkillHelp "hive-goal-propose" "hive-goal-propose g_id {json} - finish a goal you claimed with a proposal bound to its request")
+(SkillHelp "hive-goal-cancel-ack" "hive-goal-cancel-ack g_id - acknowledge that a cancelled goal has stopped")

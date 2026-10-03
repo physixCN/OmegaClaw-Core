@@ -24,6 +24,7 @@ const ITEMS: Item[] = [
   { key: 'goals', label: 'Goals', icon: 'target', route: { name: 'goals' }, match: ['goals'], keys: ['G', 'G'] },
   { key: 'usage', label: 'Usage', icon: 'chart', route: { name: 'usage' }, match: ['usage'], keys: ['G', 'U'] },
   { key: 'lab', label: 'Lab', icon: 'flask', route: { name: 'lab' }, match: ['lab'], keys: ['G', 'L'] },
+  { key: 'programs', label: 'Programs', icon: 'apps', route: { name: 'programs' }, match: ['programs', 'program'], keys: ['G', 'P'] },
 ]
 const byKey = (k: string) => ITEMS.find((i) => i.key === k)!
 

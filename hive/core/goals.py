@@ -14,6 +14,7 @@ Anti-drift rules (docs/omegadots/DRIFT.md):
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 
 from .db import new_id, now
@@ -23,6 +24,14 @@ UNFINISHED = ("open", "claimed", "waiting", "stalled")
 MAX_ATTEMPTS = 3
 MAX_DEPTH = 4
 MAX_CHILDREN = 12
+MAX_BINDING_BYTES = 16 * 1024
+MAX_RESULT_DATA_BYTES = 256 * 1024
+BINDING_KEYS = ("request_id", "base_revision", "snapshot_digest")
+
+
+def binding_digest(binding):
+    """A stable digest of a goal's binding, so a proposal can prove which request it answers."""
+    return "sha256:" + hashlib.sha256(json.dumps(binding, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 def _later(minutes):
@@ -41,12 +50,26 @@ class Goals:
             raise self.hive.error(404, "not_found", f"no goal {goal_id}")
         return row
 
+    @staticmethod
+    def view(row):
+        out = dict(row)
+        for key in ("binding", "result_data"):
+            out[key] = json.loads(row[key]) if row.get(key) else None
+        out["binding_digest"] = binding_digest(out["binding"]) if out["binding"] else None
+        return out
+
     def list(self, swarm_id, status=None):
         sql, params = "SELECT * FROM goals WHERE swarm_id = ?", [swarm_id]
         if status:
             sql += " AND status = ?"
             params.append(status)
-        return self.db.all(sql + " ORDER BY priority DESC, created_at", params)
+        return [self.view(r) for r in self.db.all(sql + " ORDER BY priority DESC, created_at", params)]
+
+    def for_agent(self, agent, goal_id):
+        goal = self.get(goal_id)
+        if goal["swarm_id"] != agent["swarm_id"]:
+            raise self.hive.error(403, "forbidden", "goal is in another swarm")
+        return self.view(goal)
 
     def depth(self, goal):
         depth = 0
@@ -56,14 +79,27 @@ class Goals:
         return depth
 
     def _emit(self, goal_id):
-        goal = self.get(goal_id)
+        goal = self.view(self.get(goal_id))
         self.hive.events.publish("goal.updated", goal=goal)
         return goal
 
-    async def create(self, swarm_id, title, detail="", priority=0.5, parent_id=None, created_by="user:operator"):
+    async def create(self, swarm_id, title, detail="", priority=0.5, parent_id=None, created_by="user:operator",
+                     assignee=None, binding=None):
         self.hive.swarm(swarm_id)
         if not str(title).strip():
             raise self.hive.error(400, "bad_request", "title is required")
+        assignee_id = None
+        if assignee:
+            rows = self.db.all("SELECT id, name FROM agents WHERE swarm_id = ? AND deleted = 0", (swarm_id,))
+            match = [r for r in rows if r["id"] == assignee] or [r for r in rows if r["name"].lower() == str(assignee).lower()]
+            if not match:
+                raise self.hive.error(404, "not_found", f"no dot {assignee!r} in this swarm to assign")
+            assignee_id = match[0]["id"]
+        if binding is not None:
+            if not isinstance(binding, dict):
+                raise self.hive.error(400, "bad_request", "binding must be an object")
+            if len(json.dumps(binding)) > MAX_BINDING_BYTES:
+                raise self.hive.error(413, "too_large", "a binding is limited to 16 KB")
         if parent_id:
             parent = self.get(parent_id)
             if parent["swarm_id"] != swarm_id:
@@ -81,6 +117,7 @@ class Goals:
                "title": str(title).strip()[:300], "detail": str(detail or "")[:4000],
                "priority": max(0.0, min(1.0, float(priority if priority is not None else 0.5))),
                "status": "open", "created_by": created_by, "claimed_by": None, "result": None,
+               "assignee": assignee_id, "binding": json.dumps(binding) if binding is not None else None,
                "created_at": stamp, "updated_at": stamp}
         self.db.insert("goals", row)
         goal = self._emit(row["id"])
@@ -88,13 +125,17 @@ class Goals:
         return goal
 
     async def announce(self, goal):
-        """Tell the swarm's awake members, except whoever posted it."""
+        """Tell the swarm's awake members (or only the assignee), except whoever posted it."""
         author = goal["created_by"].removeprefix("agent:")
         envelope_text = (f"New goal {goal['id']} (priority {goal['priority']:.2f}): {goal['title']}"
                          + (f" - {goal['detail']}" if goal["detail"] else ""))
-        for member in self.db.all("SELECT id, status FROM agents WHERE swarm_id = ? AND deleted = 0",
+        if goal.get("assignee"):
+            envelope_text = f"Assigned to you: {envelope_text}"
+        for member in self.db.all("SELECT id, status, kind FROM agents WHERE swarm_id = ? AND deleted = 0",
                                   (goal["swarm_id"],)):
-            if member["id"] == author or member["status"] not in ("awake", "starting"):
+            if goal.get("assignee") and member["id"] != goal["assignee"]:
+                continue
+            if member["id"] == author or (member["kind"] != "module" and member["status"] not in ("awake", "starting")):
                 continue
             await self.hive.send_to_agent(member["id"], envelope_text, sender="hive:goals",
                                           extra={"event": "goal", "goal_id": goal["id"]})
@@ -119,10 +160,39 @@ class Goals:
             self.db.update("goals", goal["id"], values)
         return self._emit(goal_id)
 
+    async def notify_cancelled(self, goal_id):
+        """Tell whoever holds (or was assigned) a cancelled goal, so it stops and acknowledges."""
+        goal = self.get(goal_id)
+        if goal["status"] != "cancelled":
+            return
+        binding = json.loads(goal["binding"]) if goal.get("binding") else {}
+        for share_id in binding.get("share_ids") or []:
+            try:
+                await self.hive.shares.revoke(share_id)   # the snapshot stops being readable
+            except Exception as exc:  # already closed shares are fine
+                if getattr(exc, "status", None) not in (404, 409):
+                    raise
+        for agent_id in {goal["claimed_by"], goal.get("assignee")} - {None}:
+            await self.hive.send_to_agent(agent_id, f"[GOAL-CANCELLED {goal_id}] {goal['title']} - stop and "
+                                                    f"acknowledge with cancel-ack", sender="hive:goals",
+                                          extra={"event": "goal_cancelled", "goal_id": goal_id})
+
+    def cancel_ack(self, agent, goal_id):
+        goal = self.get(goal_id)
+        if goal["status"] != "cancelled":
+            raise self.hive.error(409, "not_cancelled", f"goal is {goal['status']}")
+        if agent["id"] not in (goal["claimed_by"], goal.get("assignee")):
+            raise self.hive.error(403, "forbidden", "only the holder or assignee acknowledges a cancellation")
+        if not goal.get("cancel_ack_at"):
+            self.db.update("goals", goal_id, {"cancel_ack_at": now(), "cancel_ack_by": agent["id"]})
+        return self._emit(goal_id)
+
     def claim(self, agent, goal_id):
         goal = self.get(goal_id)
         if goal["swarm_id"] != agent["swarm_id"]:
             raise self.hive.error(403, "forbidden", "goal is in another swarm")
+        if goal.get("assignee") and goal["assignee"] != agent["id"]:
+            raise self.hive.error(403, "not_assigned", "this goal is assigned to another dot")
         # One conditional UPDATE, so two dots claiming at once cannot both win.
         cursor = self.db.execute(
             "UPDATE goals SET status = 'claimed', claimed_by = ?, lease_until = ?, attempts = attempts + 1, "
@@ -143,10 +213,23 @@ class Goals:
                                           "lease_until": _later(self.hive.settings.goal_lease_minutes)})
         return self._emit(goal_id)
 
-    def result(self, agent, goal_id, status, result):
+    def result(self, agent, goal_id, status, result, data=None):
         goal = self.get(goal_id)
+        if goal["status"] == "cancelled":
+            raise self.hive.error(409, "goal_cancelled", "this goal was cancelled; acknowledge with cancel-ack")
         if goal["claimed_by"] != agent["id"]:
             raise self.hive.error(403, "forbidden", "only the dot that claimed a goal can finish it")
+        if data is not None:
+            if not isinstance(data, dict):
+                raise self.hive.error(400, "bad_request", "data must be an object")
+            if len(json.dumps(data)) > MAX_RESULT_DATA_BYTES:
+                raise self.hive.error(413, "too_large", "result data is limited to 256 KB")
+        if goal.get("binding"):
+            binding = json.loads(goal["binding"])
+            echoed = (data or {}).get("binding")
+            if status == "done" and echoed != binding and (data or {}).get("binding_digest") != binding_digest(binding):
+                raise self.hive.error(409, "binding_mismatch",
+                                      "a result for a bound goal must echo its binding (or binding_digest) exactly")
         if goal["status"] not in ("claimed", "waiting"):
             raise self.hive.error(409, "not_claimed", f"goal is {goal['status']}")
         if status not in ("done", "failed", "waiting"):
@@ -155,6 +238,8 @@ class Goals:
         if status == "done" and not text:
             raise self.hive.error(400, "no_result", "say what was done: a goal is not done without a result")
         values = {"status": status, "result": text[:4000], "updated_at": now()}
+        if data is not None:
+            values["result_data"] = json.dumps(data)
         if status == "waiting":
             values["lease_until"] = None
         self.db.update("goals", goal_id, values)

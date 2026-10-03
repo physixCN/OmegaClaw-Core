@@ -13,6 +13,7 @@ import type {
   LabSuite,
   Message,
   PolicyRule,
+  Program,
   Swarm,
   ThinkingPhase,
   Trace,
@@ -84,6 +85,9 @@ export interface HiveData {
   labHistory: Record<string, LabHistory>
   /** Per-dimension health (GET /api/lab/scorecard); null until fetched or on older servers. */
   labScorecard: LabScorecardEntry[] | null
+  // ---- Dot programs
+  /** null until GET /api/programs answered (or on a hive without programs). */
+  programs: Program[] | null
 }
 
 export const emptyData = (): HiveData => ({
@@ -112,6 +116,7 @@ export const emptyData = (): HiveData => ({
   labLogs: {},
   labHistory: {},
   labScorecard: null,
+  programs: null,
 })
 
 const pulseKey = (swarmId: string, statement: string) => `${swarmId}\u0000${statement}`
@@ -362,6 +367,13 @@ export function reduce(s: HiveData, e: HiveEvent): HiveData {
       const cur = s.labLogs[e.run_id] ?? []
       const next = cur.length >= LAB_LOG_CAP ? [...cur.slice(cur.length - LAB_LOG_CAP + 1), e.text] : [...cur, e.text]
       return { ...s, labLogs: { ...s.labLogs, [e.run_id]: next } }
+    }
+
+    case 'program.updated': {
+      const list = s.programs ?? []
+      const has = list.some((p) => p.id === e.program.id)
+      const programs = has ? list.map((p) => (p.id === e.program.id ? e.program : p)) : [...list, e.program].sort((a, b) => a.name.localeCompare(b.name))
+      return { ...s, programs }
     }
 
     default:
