@@ -186,6 +186,10 @@ model's opinion:
   corroborated.
 - Provenance-preserving compaction: summaries link to the atoms and trace
   spans they replace.
+- Corrections that propagate: retracting or correcting a source re-revises
+  or flags every belief derived from it, and keeps the correction history.
+- Challenger roles: an agent whose job is counterevidence and the strongest
+  alternative; challenges stay attached to the claim they test.
 
 **P1: the agent loop and goals**
 - Loop detectors over traces: hash outbound sends and stop near-duplicate

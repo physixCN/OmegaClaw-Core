@@ -485,6 +485,21 @@ handle drift. DRIFT.md has the evidence and the full list.
       on traces, independent auditor agent, persona and policy anchors.
 - [ ] Long-horizon evals: goal-drift pressure tests, long simulations and
       poisoning red-team runs.
+- [ ] Evidence-first commons for investigative apps (a general platform
+      feature; applications stay in their own private repos):
+      - source lineage that survives chat and republishing (a belief quoted
+        in a message keeps its sources);
+      - challenger roles: an agent assigned to find counterevidence and the
+        strongest alternative for a claim, with its results kept beside the
+        claim;
+      - explicit uncertainty on every claim shown to people (truth value,
+        evidence count, open challenges);
+      - factual claims and value judgments as different atom types;
+      - retraction and correction atoms that propagate along provenance, so
+        dependent beliefs are re-revised or flagged and the correction
+        history stays visible;
+      - the same evidence thresholds whatever the claim's subject or source
+        group.
 - **Accept:** in a 24-hour mixed-swarm soak with mock and local models, no goal
   is held past its lease, no belief's confidence rises from echoes, spend
   stays inside the caps, the drift monitor flags an injected loop and an
