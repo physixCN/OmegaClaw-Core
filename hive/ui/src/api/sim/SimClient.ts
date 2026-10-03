@@ -18,7 +18,7 @@ import type {
   TruthValue,
   Usage,
 } from '../types'
-import { LOG_TEMPLATES, SEED_AGENTS, SEED_SWARMS, SIM_MODELS, SKILLS, type SeedAgent } from './data'
+import { LOG_TEMPLATES, NAME_IDEAS, SEED_AGENTS, SEED_SWARMS, SIM_MODELS, SKILLS, type SeedAgent } from './data'
 import { overlaps, revise, round3, unionCapped } from './nal'
 import { generateReply, PEER_LINES, PEER_REPLIES } from './replies'
 
@@ -32,6 +32,8 @@ export interface SimOptions {
   latency?: boolean
   /** Days of usage history to synthesise. */
   historyDays?: number
+  /** Extra generated dots on top of the seeded cast (stress testing). */
+  extraDots?: number
 }
 
 type Voice = SeedAgent['voice']
@@ -82,7 +84,7 @@ export class SimClient implements HiveClient {
   private state: ConnectionState = 'idle'
 
   constructor(options: SimOptions = {}) {
-    this.opts = { seed: 7, autoStart: true, speed: 1, latency: true, historyDays: 30, ...options }
+    this.opts = { seed: 7, autoStart: true, speed: 1, latency: true, historyDays: 30, extraDots: 0, ...options }
     this.rng = mulberry32(this.opts.seed)
     this.seed()
   }
@@ -195,6 +197,33 @@ export class SimClient implements HiveClient {
       this.messages.set(a.id, [])
       this.logs.set(a.id, [])
     })
+
+    // Optional crowd for stress tests.
+    const swarmIds = SEED_SWARMS.map((s) => s.id)
+    for (let i = 0; i < this.opts.extraDots; i++) {
+      const id = `a_x${String(i).padStart(4, '0')}`
+      const a: Agent = {
+        id,
+        name: `${NAME_IDEAS[i % NAME_IDEAS.length]}${i >= NAME_IDEAS.length ? `-${Math.floor(i / NAME_IDEAS.length) + 1}` : ''}`,
+        kind: i % 4 === 0 ? 'iter' : 'omega',
+        swarm_id: i % 7 === 6 ? null : swarmIds[i % swarmIds.length],
+        model: 'anthropic/claude-haiku-5',
+        persona: 'A generated dot for load testing.',
+        hue: Math.floor(this.r(0, 360)),
+        status: this.rng() < 0.7 ? 'awake' : 'asleep',
+        driver: 'local',
+        budget_usd: 0,
+        spent_usd: 0,
+        connected: true,
+        last_active_at: null,
+        created_at: iso(origin + this.r(10, 40) * day),
+      }
+      this.agents.set(id, a)
+      this.voices.set(id, 'terse')
+      if (a.swarm_id) this.swarms.get(a.swarm_id)!.member_ids.push(id)
+      this.messages.set(id, [])
+      this.logs.set(id, [])
+    }
 
     // Belief histories: replay assertions through the same merge rules used live.
     for (const s of SEED_SWARMS) {

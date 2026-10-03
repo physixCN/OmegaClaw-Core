@@ -209,6 +209,8 @@ export class HiveEngine {
   private frameAcc = 0
   private fpsCap = 0
   private perf: number[] = []
+  private fpsFrames = 0
+  private fpsAt = 0
   private synced = false
   private reduced = false
   private dimmed = false
@@ -233,6 +235,9 @@ export class HiveEngine {
   private tracked = new Map<HTMLElement, string>()
 
   private stars: { far: SpriteCanvas; near: SpriteCanvas; farPat: CanvasPattern | null; nearPat: CanvasPattern | null }
+  /** Half-resolution cache of everything behind the dots (gradient, far stars, nebulae, vignette). */
+  private bg: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; key: string; farPat: CanvasPattern | null } | null = null
+  private perfAt = 0
   private twinkles: { x: number; y: number; p: number; s: number }[] = []
 
   constructor(canvas: HTMLCanvasElement, cb: EngineCallbacks, opts: { reducedMotion?: boolean } = {}) {
@@ -247,7 +252,12 @@ export class HiveEngine {
     const near = starTile(29, 640, 70, 1.6)
     this.stars = { far, near, farPat: ctx.createPattern(far, 'repeat'), nearPat: ctx.createPattern(near, 'repeat') }
     for (let i = 0; i < 46; i++) this.twinkles.push({ x: Math.random(), y: Math.random(), p: Math.random() * TAU, s: 0.5 + Math.random() * 1.5 })
-    this.maxDpr = Math.min(2, window.devicePixelRatio || 1)
+    // Glows are soft by nature: phones do not need their full 3x backing store.
+    const coarse = window.matchMedia?.('(pointer: coarse)').matches
+    this.maxDpr = Math.min(coarse ? 1.5 : 2, window.devicePixelRatio || 1)
+    const bgc = document.createElement('canvas')
+    const bgctx = bgc.getContext('2d', { alpha: false })
+    if (bgctx) this.bg = { canvas: bgc, ctx: bgctx, key: '', farPat: bgctx.createPattern(far, 'repeat') }
     this.resize()
     this.seedDust()
     this.bindInput()
@@ -891,20 +901,33 @@ export class HiveEngine {
     }
     dt = Math.min(dt, 0.1)
     this.time += dt
+    // expose measured fps for perf checks (read by tests and the README numbers)
+    this.fpsFrames++
+    if (now - this.fpsAt > 1000) {
+      this.canvas.dataset.fps = String(Math.round((this.fpsFrames * 1000) / (now - this.fpsAt)))
+      this.canvas.dataset.dpr = String(this.dpr)
+      this.canvas.dataset.particles = String(this.particles.length)
+      this.fpsFrames = 0
+      this.fpsAt = now
+    }
     this.adapt(dt)
     this.update(dt)
     this.render()
   }
 
-  /** Adaptive resolution: if frames are consistently slow, render fewer pixels. */
+  /** Adaptive resolution: if frames are consistently slow (judged over ~1s), render fewer pixels. */
   private adapt(dt: number) {
     if (this.fpsCap) return
     this.perf.push(dt)
-    if (this.perf.length < 90) return
-    const avg = this.perf.reduce((a, b) => a + b, 0) / this.perf.length
+    const now = performance.now()
+    if (!this.perfAt) this.perfAt = now
+    if (now - this.perfAt < 1200 || this.perf.length < 8) return
+    const sorted = [...this.perf].sort((a, b) => a - b)
+    const median = sorted[Math.floor(sorted.length / 2)]
     this.perf.length = 0
-    if (avg > 0.024 && this.maxDpr > 1) {
-      this.maxDpr = Math.max(1, this.maxDpr - 0.5)
+    this.perfAt = now
+    if (median > 0.021 && this.maxDpr > 1) {
+      this.maxDpr = Math.max(1, Math.round((this.maxDpr - 0.25) * 4) / 4)
       this.resize()
     }
   }
@@ -1057,17 +1080,9 @@ export class HiveEngine {
     ctx.globalCompositeOperation = 'source-over'
     ctx.globalAlpha = 1
 
-    // ---- deep space backdrop
-    const bg = ctx.createLinearGradient(0, 0, 0, h)
-    bg.addColorStop(0, '#05051a')
-    bg.addColorStop(0.55, '#070620')
-    bg.addColorStop(1, '#030311')
-    ctx.fillStyle = bg
-    ctx.fillRect(0, 0, w, h)
-
-    // ---- star layers (parallax)
-    this.drawStars(this.stars.farPat, 512, 0.04, 0.9)
-    this.drawStars(this.stars.nearPat, 640, 0.1, 0.8)
+    // ---- deep space backdrop (cached at half resolution, redrawn only when the camera moves)
+    this.drawBackdrop()
+    this.drawStars(ctx, this.stars.nearPat, 640, 0.1, 0.8)
 
     ctx.globalCompositeOperation = 'lighter'
     // twinkles
@@ -1079,16 +1094,6 @@ export class HiveEngine {
       ctx.drawImage(glowSprite(225, 60), x - 5, y - 5, 10, 10)
     }
 
-    // ---- nebulae around each swarm
-    for (const c of this.cores.values()) {
-      const s = this.toScreen(c.x * 0.85 + this.cam.x * 0.15, c.y * 0.85 + this.cam.y * 0.15)
-      const R = 620 * Math.pow(z, 0.75)
-      ctx.globalAlpha = 0.85
-      ctx.drawImage(nebulaSprite(c.hue), s.x - R, s.y - R * 0.8, R * 2, R * 1.6)
-      ctx.globalAlpha = 0.5
-      const R2 = R * 0.6
-      ctx.drawImage(nebulaSprite(c.hue + 40), s.x - R2 + R * 0.25, s.y - R2 * 0.9 - R * 0.12, R2 * 2, R2 * 1.8)
-    }
 
     // ---- dust (screen space with parallax)
     for (const m of this.dust) {
@@ -1128,22 +1133,72 @@ export class HiveEngine {
     ctx.globalCompositeOperation = 'source-over'
     this.drawLabels(sorted)
 
-    // ---- vignette & fog
     ctx.globalAlpha = 1
-    const vg = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.78)
-    vg.addColorStop(0, 'rgba(2,2,10,0)')
-    vg.addColorStop(1, 'rgba(2,2,10,0.72)')
-    ctx.fillStyle = vg
-    ctx.fillRect(0, 0, w, h)
     if (this.dimmed) {
       ctx.fillStyle = 'rgba(3,3,14,0.45)'
       ctx.fillRect(0, 0, w, h)
     }
   }
 
-  private drawStars(pat: CanvasPattern | null, size: number, parallax: number, alpha: number) {
+  private drawBackdrop() {
+    const { w, h } = this
+    const bg = this.bg
+    const scale = 0.5
+    const key = bg
+      ? [Math.round(this.cam.x * 2), Math.round(this.cam.y * 2), Math.round(this.cam.z * 400), Math.round(this.center.x), Math.round(this.center.y), w, h, this.cores.size]
+          .concat([...this.cores.values()].map((c) => Math.round(c.x) + Math.round(c.y) * 7 + c.hue))
+          .join(',')
+      : ''
+    if (bg && bg.key === key) {
+      this.ctx.drawImage(bg.canvas, 0, 0, w, h)
+      return
+    }
+    let ctx: CanvasRenderingContext2D = this.ctx
+    if (bg) {
+      const cw = Math.max(1, Math.round(w * scale))
+      const ch = Math.max(1, Math.round(h * scale))
+      if (bg.canvas.width !== cw || bg.canvas.height !== ch) {
+        bg.canvas.width = cw
+        bg.canvas.height = ch
+      }
+      ctx = bg.ctx
+      ctx.setTransform(scale, 0, 0, scale, 0, 0)
+    }
+    const z = this.cam.z
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.globalAlpha = 1
+    const grad = ctx.createLinearGradient(0, 0, 0, h)
+    grad.addColorStop(0, '#05051a')
+    grad.addColorStop(0.55, '#070620')
+    grad.addColorStop(1, '#030311')
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, w, h)
+    this.drawStars(ctx, bg ? bg.farPat : this.stars.farPat, 512, 0.04, 0.9)
+    ctx.globalCompositeOperation = 'lighter'
+    for (const c of this.cores.values()) {
+      const s = this.toScreen(c.x * 0.85 + this.cam.x * 0.15, c.y * 0.85 + this.cam.y * 0.15)
+      const R = 620 * Math.pow(z, 0.75)
+      ctx.globalAlpha = 0.85
+      ctx.drawImage(nebulaSprite(c.hue), s.x - R, s.y - R * 0.8, R * 2, R * 1.6)
+      ctx.globalAlpha = 0.5
+      const R2 = R * 0.6
+      ctx.drawImage(nebulaSprite(c.hue + 40), s.x - R2 + R * 0.25, s.y - R2 * 0.9 - R * 0.12, R2 * 2, R2 * 1.8)
+    }
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.globalAlpha = 1
+    const vg = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.78)
+    vg.addColorStop(0, 'rgba(2,2,10,0)')
+    vg.addColorStop(1, 'rgba(2,2,10,0.72)')
+    ctx.fillStyle = vg
+    ctx.fillRect(0, 0, w, h)
+    if (bg) {
+      bg.key = key
+      this.ctx.drawImage(bg.canvas, 0, 0, w, h)
+    }
+  }
+
+  private drawStars(ctx: CanvasRenderingContext2D, pat: CanvasPattern | null, size: number, parallax: number, alpha: number) {
     if (!pat) return
-    const ctx = this.ctx
     const ox = -((this.cam.x * parallax) % size)
     const oy = -((this.cam.y * parallax) % size)
     ctx.save()

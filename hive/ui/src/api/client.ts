@@ -105,7 +105,11 @@ export function wantsSim(): boolean {
 export async function createClient(): Promise<HiveClient> {
   if (wantsSim()) {
     const { SimClient } = await import('./sim/SimClient')
-    return new SimClient()
+    const q = new URLSearchParams(window.location.search)
+    return new SimClient({
+      extraDots: Math.min(200, Number(q.get('dots')) || 0),
+      speed: Math.min(10, Number(q.get('speed')) || 1),
+    })
   }
   const { LiveClient } = await import('./live')
   return new LiveClient(import.meta.env.VITE_HIVE_URL as string)
