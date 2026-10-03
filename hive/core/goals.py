@@ -84,7 +84,7 @@ class Goals:
         return goal
 
     async def create(self, swarm_id, title, detail="", priority=0.5, parent_id=None, created_by="user:operator",
-                     assignee=None, binding=None):
+                     assignee=None, binding=None, deadline_minutes=None):
         self.hive.swarm(swarm_id)
         if not str(title).strip():
             raise self.hive.error(400, "bad_request", "title is required")
@@ -118,6 +118,7 @@ class Goals:
                "priority": max(0.0, min(1.0, float(priority if priority is not None else 0.5))),
                "status": "open", "created_by": created_by, "claimed_by": None, "result": None,
                "assignee": assignee_id, "binding": json.dumps(binding) if binding is not None else None,
+               "deadline_at": _later(float(deadline_minutes)) if deadline_minutes else None,
                "created_at": stamp, "updated_at": stamp}
         self.db.insert("goals", row)
         goal = self._emit(row["id"])
@@ -165,6 +166,10 @@ class Goals:
         goal = self.get(goal_id)
         if goal["status"] != "cancelled":
             return
+        await self._close_bound(goal, "GOAL-CANCELLED", "goal_cancelled")
+
+    async def _close_bound(self, goal, tag, event):
+        """Revoke a bound goal's snapshot shares and tell its holder or assignee to stop."""
         binding = json.loads(goal["binding"]) if goal.get("binding") else {}
         for share_id in binding.get("share_ids") or []:
             try:
@@ -173,13 +178,14 @@ class Goals:
                 if getattr(exc, "status", None) not in (404, 409):
                     raise
         for agent_id in {goal["claimed_by"], goal.get("assignee")} - {None}:
-            await self.hive.send_to_agent(agent_id, f"[GOAL-CANCELLED {goal_id}] {goal['title']} - stop and "
+            await self.hive.send_to_agent(agent_id, f"[{tag} {goal['id']}] {goal['title']} - stop and "
                                                     f"acknowledge with cancel-ack", sender="hive:goals",
-                                          extra={"event": "goal_cancelled", "goal_id": goal_id})
+                                          extra={"event": event, "goal_id": goal["id"]})
 
     def cancel_ack(self, agent, goal_id):
         goal = self.get(goal_id)
-        if goal["status"] != "cancelled":
+        expired = goal["status"] == "failed" and goal.get("deadline_at") and goal["deadline_at"] < now()
+        if goal["status"] != "cancelled" and not expired:
             raise self.hive.error(409, "not_cancelled", f"goal is {goal['status']}")
         if agent["id"] not in (goal["claimed_by"], goal.get("assignee")):
             raise self.hive.error(403, "forbidden", "only the holder or assignee acknowledges a cancellation")
@@ -217,6 +223,8 @@ class Goals:
         goal = self.get(goal_id)
         if goal["status"] == "cancelled":
             raise self.hive.error(409, "goal_cancelled", "this goal was cancelled; acknowledge with cancel-ack")
+        if goal.get("deadline_at") and goal["deadline_at"] < now() and goal["status"] not in ("done", "failed"):
+            raise self.hive.error(409, "goal_expired", "this goal's deadline has passed")
         if goal["claimed_by"] != agent["id"]:
             raise self.hive.error(403, "forbidden", "only the dot that claimed a goal can finish it")
         if data is not None:
@@ -230,6 +238,10 @@ class Goals:
             if status == "done" and echoed != binding and (data or {}).get("binding_digest") != binding_digest(binding):
                 raise self.hive.error(409, "binding_mismatch",
                                       "a result for a bound goal must echo its binding (or binding_digest) exactly")
+        if goal["status"] in ("done", "failed") and goal["status"] == status \
+                and (goal.get("result") or "") == str(result or "").strip()[:4000] \
+                and (json.loads(goal["result_data"]) if goal.get("result_data") else None) == data:
+            return self.view(goal)   # an identical retry (e.g. after a lost response) is accepted once more
         if goal["status"] not in ("claimed", "waiting"):
             raise self.hive.error(409, "not_claimed", f"goal is {goal['status']}")
         if status not in ("done", "failed", "waiting"):
@@ -249,6 +261,15 @@ class Goals:
         """Release claims whose lease lapsed; stall goals that keep lapsing."""
         moment = moment or now()
         released = []
+        # A deadline is a hard time budget: past it the goal fails, its snapshot shares are revoked and the
+        # holder is told, whatever state it is in.
+        for goal in self.db.all("SELECT * FROM goals WHERE deadline_at IS NOT NULL AND deadline_at < ? "
+                                "AND status IN ('open', 'claimed', 'waiting', 'stalled')", (moment,)):
+            self.db.update("goals", goal["id"], {"status": "failed", "lease_until": None, "updated_at": now(),
+                                                 "result": "deadline passed before a result arrived"})
+            await self._close_bound(goal, "GOAL-EXPIRED", "goal_expired")
+            self._emit(goal["id"])
+            released.append(goal["id"])
         for goal in self.db.all("SELECT * FROM goals WHERE status = 'claimed' AND lease_until IS NOT NULL "
                                 "AND lease_until < ?", (moment,)):
             if goal["attempts"] >= MAX_ATTEMPTS:

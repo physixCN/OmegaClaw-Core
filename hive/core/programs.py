@@ -23,6 +23,58 @@ POLARITIES = {"support", "oppose", "qualify", "neutral"}
 ITEM_STATUSES = {"current", "corrected", "superseded", "retracted"}
 SOURCE_STATUSES = {"retrieved", "inspected", "cited", "unavailable"}
 RESULT_STATUSES = {"done", "started", "needs_input", "stale", "refused", "error"}
+TYPE_PAIRINGS = {"editorial", "technical", "humanist", "mono"}
+MOTIFS = {"none", "constellation", "strata", "lattice", "grain", "rings"}
+DENSITIES = {"airy", "regular", "dense"}
+TRANSPORT = {"validated", "stale", "refused", "expired", "cancelled"}
+REVIEW = {"pending", "accepted", "rejected", "superseded"}
+DEFAULT_THEME = {"accent": "#8b9cff", "accent_2": "#f2c46b", "surface": "#0b0d1a", "ink": "#e8eaf6",
+                 "type": "humanist", "motif": "none", "density": "regular"}
+
+
+def _luminance(hex_color):
+    h = hex_color.lstrip("#")
+    r, g, b = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in (r, g, b)]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def contrast(a, b):
+    la, lb = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+def check_app(app):
+    """The optional manifest `app` block: identity for the dot-to-app morph. Data only; the host renders it.
+
+    Returns (app, warnings). Bad values fall back to defaults with a warning instead of failing the load,
+    and colours that would be unreadable are replaced: the host owns legibility.
+    """
+    app = dict(app or {})
+    warnings = []
+    theme = dict(DEFAULT_THEME)
+    for key, value in (app.get("theme") or {}).items():
+        if key in ("accent", "accent_2", "surface", "ink"):
+            if isinstance(value, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+                theme[key] = value.lower()
+            else:
+                warnings.append(f"theme.{key} must be #rrggbb")
+        elif key == "type" and value in TYPE_PAIRINGS or key == "motif" and value in MOTIFS \
+                or key == "density" and value in DENSITIES:
+            theme[key] = value
+        else:
+            warnings.append(f"theme.{key}={value!r} is not supported")
+    if contrast(theme["ink"], theme["surface"]) < 7.0:
+        warnings.append("ink on surface is below 7:1; using the default ink and surface")
+        theme["ink"], theme["surface"] = DEFAULT_THEME["ink"], DEFAULT_THEME["surface"]
+    for key in ("accent", "accent_2"):
+        if contrast(theme[key], theme["surface"]) < 3.0:
+            warnings.append(f"{key} on surface is below 3:1; using the default {key}")
+            theme[key] = DEFAULT_THEME[key]
+    out = {"theme": theme, "home": app.get("home") if isinstance(app.get("home"), str) else None,
+           "open_stage": app.get("open_stage") if app.get("open_stage") in STAGES else "unfold",
+           "tagline": str(app.get("tagline") or "")[:140]}
+    return out, warnings
 MAX_ITEMS, MAX_LINKS = 400, 1200
 CAPABILITIES = {"commons:read", "goals:read", "goals:write", "exhibits:write"}
 
@@ -69,12 +121,13 @@ class ProgramContext:
             raise self._hive.error(403, "forbidden", "goal is in another swarm")
         return goal
 
-    async def create_goal(self, title, detail="", assignee=None, binding=None, priority=0.5):
-        """Post a goal; with assignee only that dot may claim it, with binding its result must echo it."""
+    async def create_goal(self, title, detail="", assignee=None, binding=None, priority=0.5, deadline_minutes=None):
+        """Post a goal; with assignee only that dot may claim it, with binding its result must echo it,
+        with deadline_minutes it fails (and its snapshot shares are revoked) when time runs out."""
         self._need("goals:write")
         return await self._hive.goals.create(self.swarm_id, title, detail, priority,
                                              created_by=f"program:{self._program['id']}",
-                                             assignee=assignee, binding=binding)
+                                             assignee=assignee, binding=binding, deadline_minutes=deadline_minutes)
 
     async def cancel_goal(self, goal_id):
         self._need("goals:write")
@@ -136,6 +189,7 @@ class Programs:
             if unknown:
                 raise ValueError(f"unknown capabilities: {', '.join(sorted(unknown))}")
             entry["capabilities"] = caps
+            entry["app"], entry["app_warnings"] = check_app(manifest.get("app"))
             module_path = folder / manifest.get("module", "program.py")
             spec = importlib.util.spec_from_file_location(f"hive_program_{entry['id'].replace('-', '_')}", module_path)
             module = importlib.util.module_from_spec(spec)
@@ -169,7 +223,8 @@ class Programs:
         return {"id": entry["id"], "name": entry["name"], "version": entry["version"],
                 "description": entry["description"], "icon": entry["icon"], "capabilities": entry["capabilities"],
                 "source": entry["source"], "enabled": entry["id"] not in self.disabled and not entry["error"],
-                "error": entry["error"]}
+                "error": entry["error"], "app": entry.get("app") or check_app(None)[0],
+                "app_warnings": entry.get("app_warnings", [])}
 
     def list(self):
         return [self.view_of(e) for e in sorted(self.programs.values(), key=lambda e: e["name"])]
@@ -292,6 +347,12 @@ def validate_graph(program_id, describe, graph, stage, fail):
                 bad(f"source {source['id']} has status {source.get('status')!r}; use one of {sorted(SOURCE_STATUSES)}")
         item.setdefault("label", item["id"])
         item.setdefault("flags", [])
+        proposal = item.get("proposal")
+        if proposal is not None:
+            if not isinstance(proposal, dict) or proposal.get("transport") not in TRANSPORT \
+                    or proposal.get("review") not in REVIEW:
+                bad(f"item {item['id']}: proposal needs transport in {sorted(TRANSPORT)} "
+                    f"and review in {sorted(REVIEW)}")
     link_ids = set()
     for link in links:
         if link.get("from") not in ids or link.get("to") not in ids:

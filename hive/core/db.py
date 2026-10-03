@@ -103,7 +103,7 @@ class Database:
             goal_columns = {r[1] for r in self._conn.execute("PRAGMA table_info(goals)")}
             for column, ddl in (("lease_until", "TEXT"), ("attempts", "INTEGER NOT NULL DEFAULT 0"),
                                 ("assignee", "TEXT"), ("binding", "TEXT"), ("result_data", "TEXT"),
-                                ("cancel_ack_at", "TEXT"), ("cancel_ack_by", "TEXT")):
+                                ("cancel_ack_at", "TEXT"), ("cancel_ack_by", "TEXT"), ("deadline_at", "TEXT")):
                 if column not in goal_columns:
                     self._conn.execute(f"ALTER TABLE goals ADD COLUMN {column} {ddl}")
             approval_columns = {r[1] for r in self._conn.execute("PRAGMA table_info(approvals)")}

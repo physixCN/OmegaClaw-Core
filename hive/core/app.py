@@ -442,7 +442,8 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
         data = await body(request)
         return await hive.goals.create(swarm_id, data.get("title", ""), data.get("detail", ""),
                                        data.get("priority", 0.5), data.get("parent_id"),
-                                       assignee=data.get("assignee"), binding=data.get("binding"))
+                                       assignee=data.get("assignee"), binding=data.get("binding"),
+                                       deadline_minutes=data.get("deadline_minutes"))
 
     @app.patch("/api/goals/{goal_id}")
     async def update_goal(goal_id: str, request: Request):

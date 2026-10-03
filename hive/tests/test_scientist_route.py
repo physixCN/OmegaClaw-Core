@@ -119,3 +119,39 @@ def test_cancellation_revokes_the_snapshot_and_is_acknowledged(client, tmp_path,
         "title": "manual", "assignee": "Scientist", "binding": {"request_id": "req-3"}}).json()
     client.patch(f"/api/goals/{operator_cancel['id']}", json={"status": "cancelled"})
     assert call(client, scientist, "POST", f"/api/agent/goals/{operator_cancel['id']}/cancel-ack").status_code == 200
+
+
+def test_identical_retry_is_accepted_and_deadlines_close_bound_goals(client, tmp_path, monkeypatch):
+    import asyncio
+    swarm, scientist, _ = setup(client, tmp_path, monkeypatch)
+    started = act(client, swarm, "request-analysis", request_id="req-4")
+    goal_id, binding = started["task"]["id"], started["detail"]["binding"]
+    call(client, scientist, "POST", f"/api/agent/goals/{goal_id}/claim")
+    body = {"status": "done", "result": "p", "data": {"binding": binding, "proposal": {"x": 1}}}
+    assert call(client, scientist, "POST", f"/api/agent/goals/{goal_id}/result", body).status_code == 200
+    assert call(client, scientist, "POST", f"/api/agent/goals/{goal_id}/result", body).status_code == 200  # retry
+    changed = dict(body, data={"binding": binding, "proposal": {"x": 2}})
+    assert call(client, scientist, "POST", f"/api/agent/goals/{goal_id}/result", changed).status_code == 409
+    timed = client.post(f"/api/swarms/{swarm['id']}/goals", json={
+        "title": "timed", "assignee": "Scientist", "deadline_minutes": 5,
+        "binding": {"request_id": "req-5", "share_ids": binding["share_ids"]}}).json()
+    hive = client.app.state.hive
+    hive.db.update("goals", timed["id"], {"deadline_at": "2000-01-01T00:00:00.000Z"})
+    assert timed["id"] in asyncio.run(hive.goals.expire())
+    late = call(client, scientist, "POST", f"/api/agent/goals/{timed['id']}/claim")
+    assert late.status_code == 409
+    inbox = [json.loads(m["text"]) for m in call(client, scientist, "GET", "/api/agent/inbox").json()["messages"]]
+    assert inbox[-1]["event"] == "goal_expired"
+    assert call(client, scientist, "POST", f"/api/agent/goals/{timed['id']}/cancel-ack").status_code == 200
+
+
+def test_app_identity_is_validated_data(client, tmp_path, monkeypatch):
+    from hive.core.programs import check_app
+    app, warnings = check_app({"theme": {"accent": "#ff7a59", "surface": "#101418", "ink": "#f4efe6",
+                                         "type": "editorial", "motif": "strata"}, "home": "q1",
+                                "open_stage": "map", "tagline": "Evidence, mapped."})
+    assert not warnings and app["theme"]["motif"] == "strata" and app["open_stage"] == "map"
+    unreadable, warnings = check_app({"theme": {"ink": "#222222", "surface": "#111111", "font": "Comic"}})
+    assert unreadable["theme"]["ink"] == "#e8eaf6" and len(warnings) == 2
+    listed = {p["id"]: p for p in client.get("/api/programs").json()}
+    assert listed["contract-fixture"]["app"]["open_stage"] == "unfold"

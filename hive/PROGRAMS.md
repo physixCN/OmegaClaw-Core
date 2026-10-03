@@ -306,6 +306,80 @@ Not in this route:
   to the application.
 - An end-to-end run with a live Omega Scientist on a real model.
 
+### 7b. Additions after 9a16f50 (additive; v0.1 programs are unaffected)
+
+- **Deadlines.** `ctx.create_goal(..., deadline_minutes=N)` (operator: `deadline_minutes`) is a hard time
+  budget. Past it, the goal becomes `failed` ("deadline passed before a result arrived"), its
+  `binding.share_ids` are revoked, the holder or assignee gets `[GOAL-EXPIRED g_…]` (event `goal_expired`),
+  claims and results get 409 `goal_expired`, and `cancel-ack` acknowledges it. A lapsed *claim* lease is
+  still separate: it re-opens the goal until 3 lapses.
+- **Idempotent retry.** Re-posting the *identical* result (same status, text and data) to a finished goal
+  returns 200 with the goal, so a lost response can be retried safely. A *different* result gets 409.
+- **Proposal state on items** (optional): `item.proposal = {goal_id, binding_digest, transport, review}`.
+  - `transport` is `validated | stale | refused | expired | cancelled`. This is what the **hive** checked:
+    binding and digest matched, or the request ended. The program copies it from the goal.
+  - `review` is `pending | accepted | rejected | superseded`. This is what the **application** decided,
+    after its own scientific review.
+  - The host always shows the two separately. A validated transport is never shown as an accepted
+    finding.
+- **App identity** (optional manifest block, data only; the host validates it and renders it):
+
+```json
+"app": {
+  "theme": { "accent": "#rrggbb", "accent_2": "#rrggbb", "surface": "#rrggbb", "ink": "#rrggbb",
+             "type": "editorial | technical | humanist | mono",
+             "motif": "none | constellation | strata | lattice | grain | rings",
+             "density": "airy | regular | dense" },
+  "home": "item id to open on (optional)",
+  "open_stage": "unfold | map | compare | detail",
+  "tagline": "one line, shown during the morph"
+}
+```
+
+  Rules for the theme:
+  - Ink on surface must reach 7:1 and accents on surface 3:1, or the host substitutes its defaults and
+    lists `app_warnings` in `GET /api/programs`.
+  - Unknown keys are ignored, with a warning.
+  - No CSS, fonts, images or scripts are taken from an app.
+
+## Local live test (no deployment, no upload)
+
+On the machine that holds the private apps:
+
+```bash
+cd OmegaClaw-Core && git fetch origin claude/holarchy-nested-spaces && git checkout <commit>
+pip install -r requirements.txt -r hive/requirements.txt
+(cd hive/ui && npm ci && npm run build)                  # the UI the hive serves
+HIVE_DATA_DIR=~/.omegadots/apps-test HIVE_ADMIN_PASSWORD=<pw> \
+HIVE_PLUGIN_DIRS=/path/to/atlas/programs:/path/to/omegatruth/programs \
+python3 -m hive                                          # binds 127.0.0.1:8700 only
+```
+
+1. Open `http://127.0.0.1:8700/?sim=0` and log in.
+2. Create a swarm for the test, e.g. `apps-local`. Enrol it in each app's own local configuration; the
+   hive passes `swarm_id` and the app refuses swarms it has not enrolled.
+3. Create the Scientist as an external member: `POST /api/agents {name: "Scientist", kind: "module",
+   swarm_id}`. Give its token to the local Scientist worker process.
+4. The worker loop:
+   - poll `GET /api/agent/inbox?after=…`;
+   - on `event: goal`, `GET /api/agent/goals/{id}`, then claim;
+   - read the snapshot with `GET /api/agent/shares/{share_id}/atoms` (paged) and check its `digest`;
+   - post `…/result {data: {binding_digest, proposal}}`;
+   - on `goal_cancelled` or `goal_expired`, stop and `…/cancel-ack`.
+5. In the UI, open **Programs** and pick the app; or pick a dot, then "Open in…".
+
+Only the swarm you name sees anything. Nothing leaves 127.0.0.1 unless a dot uses a remote model, and
+none is needed for this test.
+
+## Responsibilities
+
+| Platform (OmegaDot session) | Application (Codex: OmegaTruth, Atlas adapter) |
+|---|---|
+| host, stages, morph into app identity, hive spine, trail and back, sources and uncertainty chrome, accessibility | meaning, kinds, evidence model, scientific review (`review`), corrections, private stores and their revisions |
+| program loading, capability checks, graph and result validation | swarm enrolment, admission rules, what a proposal means |
+| goals, assignment, binding checks, digests, deadlines, revocation, cancel-ack (`transport`) | Scientist worker logic, staging and reconciling results, labelling analysis depth honestly |
+| public demo with synthetic programs only | private code, data and test receipts stay local |
+
 ## 8. HTTP routes (operator)
 
 | Method & path | Body → Response |
