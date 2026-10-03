@@ -66,7 +66,7 @@ The new tracks added for parity are:
 | 22 | **View, edit and delete memory** | N | N | P2 | Memory inspector: browse, edit and retire atoms through proposal-first cleanup. **Neither competitor has this.** |
 | 23 | Many agents per user | R | Y | ✅ | No hard cap; limited by resources. |
 | 24 | Agent group chat and handoffs | P | Y | P2 | Swarm group thread, goal claims and handoffs, and a shared commons instead of text-only handoffs. |
-| 25 | Shared team agents | P | Y | T | Shared agent configuration and memory, with private per-user threads. Needs multi-user auth. |
+| 25 | Shared team agents (Grok **Team Bots**: one shared bot per workflow; public beta 2026-09-28) | P | Y | T* | See "Team Bots parity" below. Pulled forward to straight after Phase 2. |
 | 26 | Shared docs workspace | Y | N | T | Collaborative documents (CRDT) that agents edit and can be @-tagged in. |
 | 27 | Web, desktop and mobile apps | Y | Y | 🟡 | Mobile-first PWA web UI (in progress). Desktop (Tauri) and native mobile later. |
 | 28 | Slack, Teams and SMS channels | Y/Y/R | Y | 🟡 → I | Slack exists. Add Teams, SMS, email and Matrix adapters. |
@@ -93,6 +93,47 @@ The new tracks added for parity are:
 | 49 | **Model choice per agent** | N | N | ✅ | `<provider>/<model>` per agent: Anthropic, OpenAI, OpenRouter, any self-hosted vLLM/SGLang/Ollama, or the offline mock. |
 | 50 | Vehicle or embedded surface | N | P | — | Low priority. A generic voice endpoint covers it. |
 | 51 | Agents with their own org identity | R | P | T | Agent service accounts with their own credentials. |
+
+## Team Bots parity
+
+Grok Team Bots launched in public beta on 2026-09-28. Their features and our
+equivalents:
+
+| Team Bots feature | Hive equivalent |
+|---|---|
+| One shared bot per team workflow | A team-owned dot or swarm, owned by a team rather than a person |
+| Shared context, skills and memory | Shared persona, modules and skills. Team memory is the swarm commons, and the dot's private spaces are shared by the team. |
+| Shared plugins and credentials | Team-scoped connector grants and vault entries. Use by each person still goes through per-action approval. |
+| Each person gets a private chat with the shared bot | A conversation per user on the hub (`conversation_id` per person), where the dot sees who it is talking to |
+| Published to the whole team | Team roles (owner, editor, user) on the dot; visible on everyone's Hive home |
+| Own Slack app (DM or @mention) | Slack channel adapter per team dot (the fork already has Slack) |
+| Pre-built team templates (sales, product, marketing, data) | Recipe templates (P3 marketplace), with team versions first |
+
+This needs a minimal multi-user layer (users, teams, roles) from track T.
+That part moves forward to straight after Phase 2. SSO and SCIM stay in T.
+
+## External agents as swarm members (vendor-neutral)
+
+The hive must let **third-party agents join swarms**: Dots, Grok Bots and Team
+Bots, OpenClaw, custom OpenAI or Anthropic agents, and anything else.
+
+| Path | For | How |
+|---|---|---|
+| **Hive MCP server** | Grok Bot / Team Bots (bring-your-own MCP), ChatGPT apps (built on MCP), Claude, and any MCP-capable agent | Tools: `hive_post`, `hive_inbox`, `hive_publish`, `hive_query`, `hive_belief`, `hive_goals`, `hive_claim_goal`, `hive_result`. Auth is a per-member hive token. |
+| **Chat bridge** | Dots (Slack and Teams), Team Bots (Slack) | The swarm's group thread is mirrored into a Slack or Teams channel. Messages from the external bot become hub messages from that member. Structured commands such as `/believe` and `/claim` are parsed. |
+| **API adapters** | OpenClaw (upstream Omega already has an adapter), OpenAI Agents API, Anthropic agents | The adapter runs as a hive module and calls the agent's API for each task. |
+| **Hive SDK, A2A, webhooks** | Everything else | Module Space protocol (P3), Agent2Agent where supported, or a plain webhook endpoint. |
+
+**Trust rules for external members:**
+- Their beliefs count with a **trust discount** (`c' = c·trust`). New vocabulary
+  they introduce is quarantined until approved.
+- Every hive action passes the same policy engine and approvals as our own
+  dots.
+- They **never** enter Crucible and never modify Omega code.
+- Every contribution is labelled with its origin, e.g. "Grok Bot via MCP",
+  and the UI shows it.
+- Their membership can be revoked instantly. Their past assertions stay, with
+  their provenance.
 
 ## Where the hive is ahead of both
 
@@ -137,7 +178,14 @@ The new tracks added for parity are:
 - Teams, SMS, Matrix and email channels.
 - Payment tool behind approval.
 
-### T: Teams and enterprise (after Phase 4)
+### X: External members (with Phase 3)
+
+- Hive MCP server.
+- Slack and Teams chat bridge for external bots.
+- OpenClaw and Agents-API adapters.
+- External-member trust policy and origin labels in the UI.
+
+### T: Teams and enterprise (after Phase 4; Team Bots parity pulled forward)
 
 - Multi-user auth with SSO and SCIM.
 - RBAC and admin toggles.

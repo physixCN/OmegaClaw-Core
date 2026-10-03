@@ -575,6 +575,21 @@ These close every gap against OpenAI Dots and Grok Bot.
   - [ ] Teams, SMS, Matrix and email channels;
   - [ ] payment tool behind approval;
   - [ ] outbound webhooks and SDKs.
+- **X: External members** (with Phase 3). Dots, Grok Bots and Team Bots, OpenClaw and
+  any other agent can join swarms:
+  - [ ] Hive MCP server (`hive_post`, `hive_inbox`, `hive_publish`, `hive_query`,
+        `hive_claim_goal` and more);
+  - [ ] Slack and Teams bridge for bots that only talk in chat;
+  - [ ] OpenClaw and Agents-API adapters;
+  - [ ] trust discount and quarantine for external contributions;
+  - [ ] origin labels in the UI;
+  - [ ] instant revocation.
+- **Team Bots parity** (straight after Phase 2):
+  - [ ] users, teams and roles;
+  - [ ] team-owned dots with shared skills, connectors and memory;
+  - [ ] a private conversation per person;
+  - [ ] a Slack app per team dot;
+  - [ ] team templates.
 - **T: Teams and enterprise** (after Phase 4):
   - [ ] multi-user auth with SSO and SCIM;
   - [ ] RBAC and admin toggles;
