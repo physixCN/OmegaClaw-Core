@@ -3,6 +3,7 @@
 ; Parser/catalog membranes read the imported loader, so a module is callable only when imported.
 !(import! &self (library OmegaClaw-Core ./modules/assume/entry.metta))
 !(import! &self (library OmegaClaw-Core ./modules/channel_hive/entry.metta))
+!(import! &self (library OmegaClaw-Core ./modules/hive/entry.metta))
 !(import! &self (library OmegaClaw-Core ./modules/channel_router/entry.metta))
 !(import! &self (library OmegaClaw-Core ./modules/channel_web_control/entry.metta))
 !(import! &self (library OmegaClaw-Core ./modules/media_imagegen/entry.metta))

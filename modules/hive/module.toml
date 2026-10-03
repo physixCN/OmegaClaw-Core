@@ -1,0 +1,30 @@
+id = "omegaclaw.hive.commons"
+kind = "swarm-organ"
+version = "0.1.0"
+entrypoint = "entry.metta"
+catalog = "catalog.metta"
+signatures = "signatures.metta"
+optional = true
+default_enabled = true
+
+provides = [
+  "skill:hive-publish",
+  "skill:hive-query",
+  "skill:hive-belief",
+]
+
+requires = [
+  "python>=3.10",
+]
+
+[env.HIVE_API_URL]
+description = "Base URL of the OmegaDots Hive this agent belongs to"
+
+[env.HIVE_WS_TOKEN]
+secret = true
+description = "This agent's hive token"
+
+[trace]
+writes = [
+  "HiveBeliefPublished",
+]
