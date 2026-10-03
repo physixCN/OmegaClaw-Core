@@ -91,14 +91,15 @@ export function reduceTour(chapters: ChapterLike[], s: TourState, e: TourEvent):
   }
 }
 
-/** How long a caption stays up without speech: reading pace (≈ 2.6 words a second), scaled by the speed setting. */
+/** How long a caption stays up without speech: about speaking pace (2.8 words a second), scaled by the speed setting. */
 export function estimateMs(text: string, rate = 1): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length
-  return Math.round(Math.max(1700, (words / 2.6) * 1000 + 500) / rate)
+  return Math.round(Math.max(1500, (words / 2.8) * 1000 + 350) / rate)
 }
 
+/** A chapter's length as played: its sentences, the gaps between them, and a moment to set the view up. */
 export function chapterMs(c: ChapterLike, rate = 1): number {
-  return c.beats.reduce((n, b) => n + estimateMs(b.text, rate) + 700 / rate, 0)
+  return c.beats.reduce((n, b) => n + estimateMs(b.text, rate) + GAP_MS / rate, 900 / rate)
 }
 
 // ---------------------------------------------------------------- runner
@@ -116,6 +117,11 @@ export interface SpeechPort {
   cancel(): void
 }
 
+/** Narration may start before the beat's UI work is done (the pointer glides while it speaks); `rest` finishes it. */
+export interface PrepareResult {
+  rest?: Promise<void>
+}
+
 export interface RunnerEnv<C extends ChapterLike> {
   chapters: C[]
   /** null when the browser has no speechSynthesis. */
@@ -124,7 +130,7 @@ export interface RunnerEnv<C extends ChapterLike> {
    * Put the UI in place for a beat (route, pointer, spotlight). Resolves when it is ready to narrate.
    * `fresh` is true on a chapter's first beat: run the chapter's setup too.
    */
-  prepare(chapter: number, beat: number, fresh: boolean, isCurrent: () => boolean): Promise<void>
+  prepare(chapter: number, beat: number, fresh: boolean, isCurrent: () => boolean): Promise<PrepareResult | void>
   onState(s: TourState): void
   /** The beat's sentence starts now (spoken or timed): show its caption. */
   onNarrate?(chapter: number, beat: number): void
@@ -193,19 +199,23 @@ export class TourRunner<C extends ChapterLike> {
     const s = this.state
     const token = s.token
     const isCurrent = () => !this.dead && this.state.token === token && this.state.status === 'playing'
+    let rest: Promise<void> = Promise.resolve()
     try {
       // a chapter's first beat also sets up its view, so any chapter can be jumped to
-      await this.env.prepare(s.chapter, s.beat, s.beat === 0, isCurrent)
+      const r = await this.env.prepare(s.chapter, s.beat, s.beat === 0, isCurrent)
+      if (r?.rest) rest = r.rest.catch(() => undefined)
     } catch {
       /* a missing element never stops the tour */
     }
     if (!isCurrent()) return
     const beat = this.env.chapters[s.chapter]?.beats[s.beat]
     if (!beat) return
+    // the next beat waits for both the sentence and this beat's UI work
+    const advance = () => void rest.then(() => this.dispatch({ type: 'beatDone', token }))
     const done = () => {
-      if (isCurrent()) this.after(GAP_MS / this.state.rate, () => this.dispatch({ type: 'beatDone', token }))
+      if (isCurrent()) this.after(GAP_MS / this.state.rate, advance)
     }
-    const timed = (ms: number) => this.after(ms, () => this.dispatch({ type: 'beatDone', token }))
+    const timed = (ms: number) => this.after(ms, advance)
     this.env.onNarrate?.(s.chapter, s.beat)
     const speech = this.env.speech
     if (!speech || this.state.voice !== 'on') return timed(estimateMs(beat.text, this.state.rate))
@@ -223,7 +233,7 @@ export class TourRunner<C extends ChapterLike> {
     this.after(est * 2 + 4000, () => {
       if (!finished) {
         finished = true
-        this.dispatch({ type: 'beatDone', token })
+        advance()
       }
     })
     this.after(SPEECH_START_TIMEOUT, () => {

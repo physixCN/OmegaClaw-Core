@@ -204,6 +204,18 @@ export default function TourPlayer({ request }: { request: TourRequest }) {
         await ch.setup(ctx)
         if (!isCurrent()) return
       }
+      const show = b.show === undefined ? b.point : b.show
+      // spotlight what the sentence is about (after the click, when there is one)
+      const spotlight = async (report: boolean) => {
+        if (!show) return setTarget(null, null)
+        const same = show === b.point && !b.do && !b.press
+        const got = same ? await resolve(show, 100) : await resolve(show)
+        if (report && !same) row.targets.push({ name: targetName(show) ?? '?', found: !!got })
+        if (!isCurrent()) return
+        if (!got) return setTarget(null, null)
+        await reveal(got)
+        if (!same || !target.current) setTarget(show, got instanceof Element ? got : null)
+      }
       if (b.point) {
         const got = await resolve(b.point)
         row.targets.push({ name: targetName(b.point) ?? '?', found: !!got })
@@ -211,26 +223,24 @@ export default function TourPlayer({ request }: { request: TourRequest }) {
         if (got) {
           await reveal(got)
           setTarget(b.point, got instanceof Element ? got : null)
-          await ctx.sleep(reduced ? 120 : 760)
-          if (!isCurrent()) return
-          setClicks((n) => n + 1)
-          await ctx.sleep(260)
-          if (b.press && got instanceof HTMLElement) got.click()
         }
+        // the sentence starts now, while the pointer travels; the click and what follows run alongside it
+        const rest = (async () => {
+          if (got) {
+            await ctx.sleep(reduced ? 150 : 700)
+            if (!isCurrent()) return
+            setClicks((n) => n + 1)
+            await ctx.sleep(220)
+            if (b.press && got instanceof HTMLElement) got.click()
+          }
+          if (b.do) await b.do(ctx)
+          if (isCurrent()) await spotlight(true)
+        })()
+        return { rest }
       }
       if (b.do) await b.do(ctx)
       if (!isCurrent()) return
-      const show = b.show === undefined ? b.point : b.show
-      if (show) {
-        const got = show === b.point && !b.do && !b.press ? await resolve(show, 100) : await resolve(show)
-        if (show !== b.point || b.do || b.press) row.targets.push({ name: targetName(show) ?? '?', found: !!got })
-        if (!isCurrent()) return
-        if (got) {
-          await reveal(got)
-          if (show !== b.point || !target.current) setTarget(show, got instanceof Element ? got : null)
-          await ctx.sleep(reduced ? 100 : 520)
-        } else setTarget(null, null)
-      } else setTarget(null, null)
+      await spotlight(true)
     },
     [chapters, ctx, resolve, reveal, setTarget, reduced],
   )

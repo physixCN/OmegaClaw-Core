@@ -149,25 +149,14 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
       async setup() {
         await closeOverlays()
         ctx.go({ name: 'hive' })
-        await ctx.sleep(500)
+        await ctx.sleep(400)
         ctx.scene.overview()
-        await ctx.sleep(900)
+        await ctx.sleep(700)
       },
       beats: [
-        { text: 'Welcome to your hive. Every glowing dot here is an AI that stays on, day and night.', show: null },
-        { text: 'Dots live together in swarms. Each swarm circles a bright core, which holds what its dots believe.', show: coreTarget(swarm) },
-        {
-          text: p.sleeper
-            ? 'A bright, breathing dot is awake. A dim one is asleep. A spinning ring means it is thinking right now.'
-            : 'A bright, breathing dot is awake, and a spinning ring around it means it is thinking right now.',
-          show: dotTarget(dotId),
-        },
-        {
-          text: sim
-            ? 'Up top, you can see how many dots are awake, what they know, and their spend. In this demo, the spend is simulated.'
-            : 'Up top, you can see how many dots are awake, how many beliefs they share, and what they have spent.',
-          show: 'hud-stats',
-        },
+        { text: 'This is your hive. Every glowing dot is an AI that stays on.', show: null },
+        { text: 'Dots live in swarms, around a core of shared beliefs.', show: coreTarget(swarm) },
+        { text: p.sleeper ? 'Bright dots are awake, dim ones asleep. A spinning ring means thinking.' : 'Bright dots are awake. A spinning ring means thinking.', show: dotTarget(dotId) },
       ],
     },
     {
@@ -178,12 +167,8 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
         await ctx.waitFor('swarm-sky')
       },
       beats: [
-        { text: 'Open a swarm to see its commons: everything its dots have come to believe, drawn as a constellation.', show: 'swarm-sky' },
-        { text: 'Each star is one belief. The brighter it is, and the nearer the core, the more sure the swarm is.', show: starTarget(p.belief?.statement) },
-        { text: 'Colour shows how often the evidence says yes, from red for rarely to blue for almost always.', show: mobile ? 'swarm-sky' : 'sky-legend' },
-        mobile
-          ? { text: 'The members tab lists the dots that share this commons.', show: 'swarm-tab-members' }
-          : { text: 'On the left are its members: the dots that share this commons.', show: 'swarm-members' },
+        { text: 'A swarm’s commons shows every belief it shares, as a star.', show: 'swarm-sky' },
+        { text: 'Brighter and nearer the core means surer. Colour shows how often it holds.', show: starTarget(p.belief?.statement) },
       ],
     },
     {
@@ -192,15 +177,15 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
         await closeOverlays()
         if (dotId) ctx.go({ name: 'dot', id: dotId })
         await ctx.waitFor('dot-header')
-        await ctx.sleep(500)
+        await ctx.sleep(400)
       },
       beats: [
-        { text: `Tap any dot to open its panel. This is ${dotName}. These buttons wake it, put it to sleep, or stop it.`, show: 'dot-controls' },
-        { text: 'Chat talks to it directly. It answers in its own voice.', point: 'dot-tab-chat', do: openDot(), show: 'chat-composer' },
-        { text: 'Mind lets you watch it think: each step, what it ran, and what the safety gate said.', point: 'dot-tab-mind', do: openDot('mind'), show: 'mind-replay' },
-        { text: 'Memory is what it keeps privately. You can search it, or retire things it should forget.', point: 'dot-tab-memory', do: openDot('memory'), show: 'memory-spaces' },
-        { text: 'Schedule is when it wakes itself up, and when it naps.', point: 'dot-tab-schedule', do: openDot('schedule'), show: 'schedule-wakeups' },
-        { text: 'And Model picks its AI model, its personality and its spending cap.', point: 'dot-tab-model', do: openDot('model'), show: 'model-list' },
+        { text: `This is ${dotName}. Wake it, rest it, or stop it here.`, show: 'dot-controls' },
+        { text: 'Chat talks with it.', point: 'dot-tab-chat', do: openDot(), show: 'chat-composer' },
+        { text: 'Mind shows its thinking, step by step.', point: 'dot-tab-mind', do: openDot('mind'), show: 'mind-replay' },
+        { text: 'Memory is what it keeps.', point: 'dot-tab-memory', do: openDot('memory'), show: 'memory-spaces' },
+        { text: 'Schedule is when it wakes.', point: 'dot-tab-schedule', do: openDot('schedule'), show: 'schedule-wakeups' },
+        { text: 'Model sets its AI and its budget.', point: 'dot-tab-model', do: openDot('model'), show: 'model-list' },
       ],
     },
     {
@@ -212,7 +197,7 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
       },
       beats: [
         {
-          text: 'Tap a star to see where a belief came from. The bars show how often it holds, and how sure the swarm is.',
+          text: 'Tap a belief to see its evidence, and how sure the swarm is.',
           point: starTarget(p.belief?.statement),
           do: async () => {
             if (swarm && p.belief) ctx.go({ name: 'swarm', id: swarm, statement: p.belief.statement })
@@ -220,9 +205,8 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
           },
           show: 'prov-truth',
         },
-        { text: 'These are the dots that gave evidence for it.', show: 'prov-sources' },
-        { text: 'Each new report is weighed against the old, so the belief is revised, never just overwritten. Reports that lean on the same evidence are not counted twice.', show: 'prov-assertions' },
-        { text: 'Dots can also lend each other a private memory space for a limited time, with every read logged. That happens behind the scenes; this app does not show it yet.', show: null },
+        { text: 'Each report revises it. Shared evidence never counts twice.', show: 'prov-assertions' },
+        { text: 'Dots can also lend each other memory, for a set time.', show: 'prov-sources' },
       ],
     },
     {
@@ -233,9 +217,9 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
         await ctx.waitFor('goals-add')
       },
       beats: [
-        { text: 'Goals are jobs for a swarm. You can post one here, and dots post their own too.', show: 'goals-add' },
-        { text: 'A dot claims a goal and holds a lease, like a timer. It renews while the dot works. If it runs out, the goal goes back to Open.', show: 'goal-lease' },
-        { text: 'When a dot has delivered and needs a person, the card turns amber: it is waiting on you.', show: 'goal-waiting' },
+        { text: 'Goals are jobs for a swarm, posted by you or by dots.', show: 'goals-add' },
+        { text: 'A dot claims one on a lease. If the lease runs out, the goal reopens.', show: 'goal-lease' },
+        { text: 'Amber cards are waiting on you.', show: 'goal-waiting' },
       ],
     },
     {
@@ -246,10 +230,10 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
         await ctx.waitFor('approval-card', 4000)
       },
       beats: [
-        { text: 'Some actions are risky. When a dot reaches for one, it pauses and asks you here first.', show: 'approval-card' },
-        { text: 'Approve once lets that exact command run one time. Always allow also adds a rule, so it will not ask again.', show: 'approval-actions' },
+        { text: 'Before anything risky, a dot stops and asks you.', show: 'approval-card' },
+        { text: 'Approve it once, or always, which adds a rule.', show: 'approval-actions' },
         {
-          text: 'Rules decide what dots may do: allow, ask first, or deny, for the whole hive, one swarm, or one dot.',
+          text: 'Rules choose allow, ask or deny, for the hive, a swarm, or one dot.',
           point: 'approvals-tab-rules',
           do: async () => {
             ctx.go({ name: 'approvals', tab: 'rules' })
@@ -257,7 +241,6 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
           },
           show: 'policy-rules',
         },
-        { text: 'Not sure what a rule will do? Try it shows the answer for any dot and skill.', show: 'policy-try' },
       ],
     },
     {
@@ -268,13 +251,10 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
         await ctx.waitFor('lab-scorecard', 4000)
       },
       beats: [
+        { text: sim ? 'The Lab tests the hive itself. Here, it shows recorded runs.' : 'The Lab tests the hive itself, and scores the latest runs.', show: 'lab-scorecard' },
+        { text: 'Cost is projected from measured tokens. It isn’t money spent.', show: 'lab-dim-cost' },
         {
-          text: sim ? 'The Lab tests the hive itself. In this demo it shows recorded results, summed up in this scorecard.' : 'The Lab tests the hive itself. The scorecard sums up the latest run of every test and benchmark.',
-          show: 'lab-scorecard',
-        },
-        { text: 'Each tile is one quality. Cost, for example, is a projection from measured token use. It is not money spent.', show: 'lab-dim-cost' },
-        {
-          text: 'Drift scenarios try to knock the hive off course, like echo storms and runaway spending. The leak counter must read zero.',
+          text: 'Drift scenarios try to push the hive off course. The leak count must stay at zero.',
           do: async () => {
             ctx.go({ name: 'lab', suite: 'bench-drift' })
             await ctx.waitFor('drift-leaks', 4000)
@@ -282,7 +262,7 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
           show: 'drift-leaks',
         },
         {
-          text: 'History shows how each result moves from run to run.',
+          text: 'History shows every run.',
           point: 'lab-suite-tab-history',
           do: async () => {
             ctx.go({ name: 'lab', suite: 'bench-drift', tab: 'history' })
@@ -300,12 +280,9 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
         await ctx.waitFor(p.explorer ? `program-card-${p.explorer}` : 'programs-list', 4000)
       },
       beats: [
+        { text: p.explorer === 'commons-explorer' ? 'Programs turn work into maps, like Commons Explorer.' : 'Programs turn work into maps you can explore.', show: p.explorer ? `program-card-${p.explorer}` : 'programs-list' },
         {
-          text: 'Programs turn work into maps you can explore. Commons Explorer, for one, maps a swarm’s beliefs and the evidence behind them.',
-          show: p.explorer ? `program-card-${p.explorer}` : 'programs-list',
-        },
-        {
-          text: 'Here is a small test case. Unfold puts the question in the middle, with support on one side and doubts on the other.',
+          text: 'Unfold puts a question in the middle, with support on one side and doubt on the other.',
           do: async () => {
             if (!prog || !progSwarm) return
             ctx.freshProgram(prog, progSwarm)
@@ -315,27 +292,36 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
           show: 'program-stage-view',
         },
         {
-          text: 'Pick an item and its sources stay in view, with a warning when two come from the same place.',
+          text: 'Pick an item, and its sources stay in view.',
           point: 'node-c1',
           do: async () => {
             if (prog && progSwarm) ctx.store().programSelect(sessionKey(prog, progSwarm), ['c1'])
             if (mobile) await setExpanded(ctx, 'program-drawer', true)
-            await ctx.sleep(300)
+            await ctx.sleep(250)
           },
           show: 'program-sources',
         },
         {
-          text: 'Map lays out the whole picture. Compare sets the groups side by side: what agrees, what conflicts, and what is missing.',
-          point: 'program-stage-compare',
+          text: 'Map shows everything.',
+          point: 'program-stage-map',
           do: async () => {
             if (mobile) await setExpanded(ctx, 'program-drawer', false)
-            if (prog && progSwarm) programStep(ctx, prog, progSwarm, 'compare', 'c1')
-            await ctx.sleep(500)
+            if (prog && progSwarm) programStep(ctx, prog, progSwarm, 'map', 'c1')
+            await ctx.sleep(400)
           },
           show: 'program-stage-view',
         },
         {
-          text: 'Detail shows one item with its uncertainty: the exact numbers, and how they were worked out.',
+          text: 'Compare sets agreement, conflict and gaps side by side.',
+          point: 'program-stage-compare',
+          do: async () => {
+            if (prog && progSwarm) programStep(ctx, prog, progSwarm, 'compare', 'c1')
+            await ctx.sleep(400)
+          },
+          show: 'program-stage-view',
+        },
+        {
+          text: 'Detail gives one item’s uncertainty, in exact numbers.',
           point: 'program-stage-detail',
           do: async () => {
             if (prog && progSwarm) programStep(ctx, prog, progSwarm, 'detail', 'c1')
@@ -344,12 +330,12 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
           show: 'detail-uncertainty',
         },
         {
-          text: 'Your trail keeps every step, and Back retraces them one at a time.',
-          show: 'program-bar',
-          do: async () => {
-            await ctx.sleep(900)
+          text: 'Your trail keeps every step, and Back retraces it.',
+          point: 'program-back',
+          do: () => {
             if (prog && progSwarm) ctx.store().programBack(sessionKey(prog, progSwarm))
           },
+          show: 'program-bar',
         },
       ],
     },
@@ -361,14 +347,9 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
         await ctx.waitFor('hud-more')
       },
       beats: [
+        { text: 'Stop all is always one menu away.', point: 'hud-more', press: true, show: 'menu-stop-all' },
         {
-          text: 'If anything looks wrong, Stop all is always one menu away.',
-          point: 'hud-more',
-          press: true,
-          show: 'menu-stop-all',
-        },
-        {
-          text: 'It halts every dot and keeps them stopped. You type “stop all” to confirm, so it never happens by accident.',
+          text: 'It halts every dot until you start them again. You type “stop all” to confirm.',
           do: async () => {
             await setExpanded(ctx, 'hud-more', false)
             ctx.store().setStopAll(true)
@@ -377,14 +358,12 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
           show: 'stop-all-dialog',
         },
         {
-          text: sim
-            ? 'Each dot also has a budget cap, and calls that would go over it are refused. Here the costs are simulated: no model is called and nothing is charged.'
-            : 'Each dot also has a budget cap. A call that would go over it is refused before it runs.',
+          text: sim ? 'Each dot has a budget cap. Here, costs are simulated, and nothing is charged.' : 'Each dot has a budget cap, and calls over it are refused.',
           do: async () => {
             ctx.store().setStopAll(false)
             if (dotId) ctx.go({ name: 'dot', id: dotId })
             await ctx.waitFor('dot-budget')
-            await ctx.sleep(400)
+            await ctx.sleep(300)
           },
           show: 'dot-budget',
         },
@@ -399,14 +378,11 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
         ctx.scene.overview()
       },
       beats: [
-        { text: 'Your turn. Make a dot of your own with the plus button: give it a name, a home swarm and a model.', show: 'nav-create' },
+        { text: 'Your turn: make a dot of your own with the plus button.', show: 'nav-create' },
+        mobile ? { text: 'Tap Jump to get anywhere fast.', show: 'nav-jump' } : { text: 'Press Command K to jump anywhere.', show: 'hud-search' },
         mobile
-          ? { text: 'To get anywhere fast, tap Jump and type a dot, a swarm or a command.', show: 'nav-jump' }
-          : { text: 'To get anywhere fast, press Command K, or Control K, and type a dot, a swarm or a command.', show: 'hud-search' },
-        { text: 'Every view has a question mark button that explains it.', show: 'info-hive' },
-        mobile
-          ? { text: 'You can replay this tour any time from the more menu. Enjoy your hive.', show: 'hud-more' }
-          : { text: 'Press the question mark key for shortcuts, or to replay this tour. Enjoy your hive.', show: null },
+          ? { text: 'Every view has a question mark that explains it. Replay this tour from the more menu.', show: 'info-hive' }
+          : { text: 'Every view has a question mark that explains it. Press the question mark key to see this again.', show: 'info-hive' },
       ],
     },
   ]
