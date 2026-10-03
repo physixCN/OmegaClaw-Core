@@ -162,3 +162,159 @@ The server pushes `{"type", "at", ...}` frames. The client may send
 - **`POST /api/agent/query`** `{pattern}` → `{results: string[]}`, the union view
   of the agent's swarm commons and the federation.
 - **`GET /api/agent/belief?statement=`** → `BeliefDetail`.
+- **`GET /api/agent/inbox?after=<seq>`** → `{messages: [{seq, text}]}`. This
+  is an HTTP alternative to the hub for agents that cannot hold a WebSocket:
+  Iter workers and external agents. `text` is the same hive envelope the hub
+  sends. Acknowledgement is implicit: the next call passes the highest `seq`
+  seen.
+- **`POST /api/agent/messages`** `{text, conversation_id?, client_seq?}` →
+  `Message`. Replies over HTTP; deduplicated by `client_seq`.
+
+---
+
+# Phase 2 additions
+
+## Types
+
+```ts
+type PolicyMode = "allow" | "ask" | "deny";
+
+interface PolicyRule {
+  id: string;
+  scope: "hive" | `swarm:${string}` | `agent:${string}`;  // most specific scope wins
+  skill: string;           // glob over skill names: "shell*", "write-file", "*"
+  mode: PolicyMode;
+  note: string;
+  created_at: string;
+}
+
+type ApprovalStatus = "pending" | "approved" | "denied" | "expired" | "used";
+
+interface Approval {
+  id: string;              // "p_..."
+  agent_id: string;
+  skill: string;           // e.g. "shell-confirm"
+  command: string;         // full MeTTa command text, e.g. (shell-confirm "ls /")
+  reason: string;          // why it needs a human: rule note or "human-only"
+  risk: "low" | "medium" | "high";
+  status: ApprovalStatus;
+  decided_by: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
+type GoalStatus = "open" | "claimed" | "done" | "failed" | "cancelled";
+
+interface Goal {
+  id: string;              // "g_..."
+  swarm_id: string;
+  parent_id: string | null;
+  title: string;
+  detail: string;
+  priority: number;        // 0..1
+  status: GoalStatus;
+  created_by: string;      // "user:operator" | "agent:<id>"
+  claimed_by: string | null;   // agent id
+  result: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TraceCommand { command: string; result: string; gated?: "allow" | "ask" | "deny" }
+
+interface Trace {          // one loop iteration that called the model
+  id: number;
+  agent_id: string;
+  iteration: number;
+  input: string | null;    // the new message that triggered it (null for autonomous turns)
+  response: string;        // raw model output
+  commands: TraceCommand[];
+  llm_ms: number | null;   // gateway latency of the model call
+  tokens: number | null;
+  created_at: string;
+}
+
+interface Wakeup {
+  id: string;              // "w_..."
+  agent_id: string;
+  cron: string | null;     // 5-field cron, e.g. "0 9 * * 1-5"
+  at: string | null;       // one-shot ISO time (exactly one of cron/at)
+  tz: string;              // IANA zone, default "UTC"
+  text: string;            // what the agent is told when it wakes
+  enabled: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+}
+
+interface MemorySpace { name: string; atoms: number; bytes: number }
+interface MemoryAtom { index: number; text: string }
+
+// Agent gains:
+//   idle_sleep_minutes: number   (0 = never auto-sleep)
+```
+
+## REST
+
+| Method & path | Body → Response |
+|---|---|
+| `GET /api/policy` | → `PolicyRule[]` |
+| `POST /api/policy` | `{scope, skill, mode, note?}` → `PolicyRule` |
+| `DELETE /api/policy/{id}` | → `{ok}` |
+| `GET /api/approvals?status=` | → `Approval[]` (newest first) |
+| `POST /api/approvals/{id}/approve` | `{remember?: boolean}` → `Approval`. `remember` also adds an `allow` rule for this agent and skill. |
+| `POST /api/approvals/{id}/deny` | → `Approval` |
+| `GET /api/swarms/{id}/goals` | → `Goal[]` |
+| `POST /api/swarms/{id}/goals` | `{title, detail?, priority?, parent_id?}` → `Goal` |
+| `PATCH /api/goals/{id}` | `{status?, priority?, title?, detail?}` → `Goal` |
+| `GET /api/agents/{id}/traces?limit=` | → `Trace[]` (newest first) |
+| `GET /api/agents/{id}/wakeups` | → `Wakeup[]` |
+| `POST /api/agents/{id}/wakeups` | `{cron? \| at?, tz?, text}` → `Wakeup` |
+| `PATCH /api/wakeups/{id}` | `{enabled?, cron?, at?, tz?, text?}` → `Wakeup` |
+| `DELETE /api/wakeups/{id}` | → `{ok}` |
+| `GET /api/agents/{id}/memory` | → `MemorySpace[]` (the agent's private spaces, read from disk) |
+| `GET /api/agents/{id}/memory/{space}?q=&limit=` | → `MemoryAtom[]` |
+| `POST /api/agents/{id}/memory/{space}/retire` | `{atom}` → `{queued: true}`. The agent removes it on its next loop. |
+| `POST /api/agents/{id}/memory/reset` | → `{queued: true}`. Clears all private spaces. |
+| `POST /api/hive/stop-all` | → `{stopped: n}`. Global kill switch: every agent is stopped and its desired state set to stopped. |
+
+## Events (added)
+
+| type | payload |
+|---|---|
+| `approval.created` | `{approval: Approval}` |
+| `approval.updated` | `{approval: Approval}` |
+| `policy.updated` | `{rules: PolicyRule[]}` |
+| `goal.updated` | `{goal: Goal}` |
+| `agent.trace` | `{trace: Trace}` |
+| `wakeup.updated` | `{wakeup: Wakeup}` |
+| `wakeup.fired` | `{wakeup_id, agent_id}` |
+
+## Agent-facing (added)
+
+- **`POST /api/agent/authorize`** `{command}` → `{decision: "allow" | "deny" | "pending", approval_id?, message?}`.
+  - The Omega loop calls it before running a skill.
+  - An `ask` rule creates an `Approval` and returns `pending`.
+  - Once the operator approves, the same command (same text) is allowed
+    **once**, and the agent is told by a hub message
+    `[APPROVED p_x] <command>`.
+- **`POST /api/agent/trace`** `{iteration, input, response, commands}`. The
+  hive fills in `llm_ms` and `tokens` from the gateway's last call.
+- **`GET /api/agent/control`** → `{ops: [{op: "retire", space, atom} | {op: "reset"}]}`.
+  The queued memory operations, polled each loop.
+- **Goals:**
+  - `GET /api/agent/goals?status=open` → `Goal[]` (the agent's swarm);
+  - `POST /api/agent/goals` `{title, detail?, priority?, parent_id?}` → `Goal`;
+  - `POST /api/agent/goals/{id}/claim` → `Goal` (409 if already claimed);
+  - `POST /api/agent/goals/{id}/result` `{status: "done" | "failed", result}` → `Goal`.
+- **New goals** are announced to the swarm's awake members as hub envelopes
+  with `event: "goal"` and `goal_id`.
+
+## Default policy
+
+These apply when no rule matches.
+
+| Skills | Mode | Why |
+|---|---|---|
+| `send`, `wait`, `pin`, `hive-*`, `query`, `remember`, `episodes`, `search`, `web-search`, `read-file`, space reads | `allow` | No side effects outside the agent and the hive |
+| `shell`, `shell-confirm`, `metta`, `write-file*`, `append-file*`, `send-file*`, `codex-*`, `space-transform`, `remove-atom`, any `*-commit` | `ask` | Side effects on the machine or on durable memory |
+| (human-only) `change-password`, `transfer-funds`, `pay*`, `purchase*` | `deny` to agents | These always need a human to act; no rule can open them |
