@@ -1074,7 +1074,6 @@ export class HiveEngine {
   private render() {
     const ctx = this.ctx
     const { w, h } = this
-    const z = this.cam.z
     const t = this.time
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
     ctx.globalCompositeOperation = 'source-over'
