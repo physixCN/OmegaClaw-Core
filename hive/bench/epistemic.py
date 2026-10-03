@@ -123,7 +123,7 @@ def run():
             if backend == "omegadots-commons":
                 ok = result["recovery_score"] == 1.0
                 emit("case", id=f"bench-epistemic::{scenario['scenario_id']}",
-                     name=f"{scenario['family'].title()}: {scenario['claim']}", group="epistemic scenarios",
+                     name=f"{scenario['family'].title()}: {scenario['claim']}", group="epistemic scenarios", dimension="accuracy",
                      status="passed" if ok else "failed",
                      duration_ms=0, notes=" → ".join(f"{a} (want {t})" for a, t in zip(actual, target)),
                      message=None if ok else "ended on the wrong verdict",
@@ -144,7 +144,7 @@ def run():
         status = "failed" if failing else "passed"
         if ours:
             worst = status
-        emit("case", id=f"bench-epistemic::{backend}", name=f"Suite score: {backend}", group="epistemic suite",
+        emit("case", id=f"bench-epistemic::{backend}", name=f"Suite score: {backend}", group="epistemic suite", dimension="accuracy",
              status=status, duration_ms=round((time.perf_counter() - start) * 1000, 1),
              message=f"behind mock-provenance on: {', '.join(failing)}" if failing else None,
              notes=("Our swarm commons. Targets are the mock-provenance row of the paper's Table 1."

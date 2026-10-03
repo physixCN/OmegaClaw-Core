@@ -38,6 +38,8 @@ def test_drift_bench_runs_streams_and_builds_history(client):
     assert any(m["metric"] == "confidence inflation" for m in history["metrics"])
     assert client.get("/api/lab/suites").json()  # last_run attached
     assert client.get("/api/hive").json()["limits"]["goal_lease_minutes"] == 60
+    card = {d["dimension"]: d for d in client.get("/api/lab/scorecard").json()}
+    assert card["drift"]["score"] == 1.0 and card["cost"]["passed"] >= 3 and "bench-drift" in card["drift"]["suites"]
 
 
 def test_reopening_a_goal_clears_its_lapses(client):

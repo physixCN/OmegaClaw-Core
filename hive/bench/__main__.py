@@ -51,7 +51,8 @@ def _run_vitest():
         for test in file.get("assertionResults", []):
             status = {"passed": "passed", "failed": "failed"}.get(test["status"], "skipped")
             worst = "failed" if status == "failed" else worst
-            emit("case", id=f"{group}::{test['fullName']}", name=test["fullName"], group=group, status=status,
+            emit("case", id=f"{group}::{test['fullName']}", name=test["fullName"], group=group,
+                 dimension="correctness", status=status,
                  duration_ms=round(test.get("duration") or 0, 1),
                  message="\n".join(test.get("failureMessages") or [])[-6000:] or None)
     return worst
@@ -87,6 +88,9 @@ def run(suite_id):
     if suite_id == "bench-swarm":
         from . import swarm
         return swarm.run()
+    if suite_id == "bench-ops":
+        from . import ops
+        return ops.run()
     if suite_id == "bench-epistemic":
         from . import epistemic
         return epistemic.run()

@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS lab_runs (
 CREATE INDEX IF NOT EXISTS lab_runs_suite ON lab_runs(suite, started_at);
 CREATE TABLE IF NOT EXISTS lab_cases (
   id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL, case_id TEXT NOT NULL, name TEXT NOT NULL,
-  grp TEXT NOT NULL, status TEXT NOT NULL, duration_ms REAL, message TEXT, notes TEXT,
+  grp TEXT NOT NULL, dimension TEXT NOT NULL DEFAULT '', status TEXT NOT NULL, duration_ms REAL, message TEXT, notes TEXT,
   metrics TEXT NOT NULL, series TEXT NOT NULL, created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS lab_cases_run ON lab_cases(run_id, id);
@@ -50,6 +50,9 @@ class Lab:
         self.hive = hive
         self.db = hive.db
         self.db._conn.executescript(SCHEMA)
+        columns = {r[1] for r in self.db._conn.execute("PRAGMA table_info(lab_cases)")}
+        if "dimension" not in columns:
+            self.db._conn.execute("ALTER TABLE lab_cases ADD COLUMN dimension TEXT NOT NULL DEFAULT ''")
         self.procs: dict[str, subprocess.Popen] = {}
         # Runs left "running" by a hive that stopped mid-run never finished.
         self.db.execute("UPDATE lab_runs SET status = 'cancelled' WHERE status = 'running'")
@@ -80,6 +83,7 @@ class Lab:
 
     def case_view(self, row):
         return {"run_id": row["run_id"], "id": row["case_id"], "name": row["name"], "group": row["grp"],
+                "dimension": row["dimension"] or "correctness",
                 "status": row["status"], "duration_ms": row["duration_ms"], "message": row["message"],
                 "notes": row["notes"], "metrics": json.loads(row["metrics"]), "series": json.loads(row["series"])}
 
@@ -113,6 +117,34 @@ class Lab:
                     entry["points"].append({"run_id": run["id"], "at": run["started_at"], "value": m["value"],
                                             "ok": m.get("ok")})
         return {"suite": suite, "runs": [self.run_view(r) for r in runs], "metrics": list(points.values())}
+
+    def scorecard(self):
+        """Health per dimension, from the latest finished run of every suite."""
+        dims: dict[str, dict] = {}
+        for suite in SUITES:
+            run = self.db.one("SELECT * FROM lab_runs WHERE suite = ? AND status NOT IN ('running', 'cancelled') "
+                              "ORDER BY started_at DESC LIMIT 1", (suite["id"],))
+            if run is None:
+                continue
+            for case in self.db.all("SELECT * FROM lab_cases WHERE run_id = ?", (run["id"],)):
+                view = self.case_view(case)
+                entry = dims.setdefault(view["dimension"], {"dimension": view["dimension"], "passed": 0, "failed": 0,
+                                                            "skipped": 0, "errors": 0, "suites": set(),
+                                                            "highlights": []})
+                entry[COUNT.get(view["status"], "errors")] += 1
+                entry["suites"].add(suite["id"])
+                for m in view["metrics"]:
+                    if m.get("target") is not None and len(entry["highlights"]) < 6:
+                        entry["highlights"].append({"case": view["name"], "suite": suite["id"], **m})
+        out = []
+        for entry in dims.values():
+            judged = entry["passed"] + entry["failed"] + entry["errors"]
+            entry["score"] = round(entry["passed"] / judged, 4) if judged else None
+            entry["suites"] = sorted(entry["suites"])
+            out.append(entry)
+        order = ["correctness", "accuracy", "latency", "efficiency", "resources", "power", "cost", "reliability",
+                 "bias", "drift"]
+        return sorted(out, key=lambda e: order.index(e["dimension"]) if e["dimension"] in order else 99)
 
     # ---- running ------------------------------------------------------------------------------
 
@@ -191,7 +223,8 @@ class Lab:
     def _record_case(self, run_id, event):
         status = event.get("status", "error")
         row = {"run_id": run_id, "case_id": str(event.get("id", "")), "name": str(event.get("name", ""))[:500],
-               "grp": str(event.get("group", "")), "status": status, "duration_ms": event.get("duration_ms"),
+               "grp": str(event.get("group", "")), "dimension": str(event.get("dimension") or "correctness"),
+               "status": status, "duration_ms": event.get("duration_ms"),
                "message": event.get("message"), "notes": event.get("notes"),
                "metrics": json.dumps(event.get("metrics") or []), "series": json.dumps(event.get("series") or []),
                "created_at": now()}

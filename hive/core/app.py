@@ -411,6 +411,11 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
         operator(request)
         return hive.lab.cancel(run_id)
 
+    @app.get("/api/lab/scorecard")
+    async def lab_scorecard(request: Request):
+        operator(request)
+        return await run_in_threadpool(hive.lab.scorecard)
+
     @app.get("/api/lab/history/{suite}")
     async def lab_history(suite: str, request: Request, limit: int = 30):
         operator(request)

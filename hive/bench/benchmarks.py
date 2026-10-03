@@ -19,10 +19,10 @@ from .harness import histogram, latency_metrics, metric, scratch_hive, series, t
 REGISTRY: dict[str, list] = {}
 
 
-def bench(suite, name, group, notes=""):
+def bench(suite, name, group, notes="", dimension="drift"):
     def wrap(fn):
         REGISTRY.setdefault(suite, []).append({"id": f"{suite}::{fn.__name__}", "name": name, "group": group,
-                                               "notes": notes, "fn": fn})
+                                               "notes": notes, "fn": fn, "dimension": dimension})
         return fn
     return wrap
 
@@ -38,7 +38,7 @@ def revise(a, b):
 # ---- bench-core: how fast and how correct the hive itself is ------------------------------------
 
 @bench("bench-core", "Publish throughput", "commons",
-       "Four dots publish 200 distinct beliefs into one swarm commons (PeTTa AtomSpace).")
+       "Four dots publish 200 distinct beliefs into one swarm commons (PeTTa AtomSpace).", dimension="latency")
 def publish_throughput():
     with scratch_hive() as b:
         swarm = b.swarm()
@@ -56,7 +56,7 @@ def publish_throughput():
 
 
 @bench("bench-core", "Query latency at 300 beliefs", "commons",
-       "Pattern queries against a commons holding 300 beliefs.")
+       "Pattern queries against a commons holding 300 beliefs.", dimension="latency")
 def query_latency():
     with scratch_hive() as b:
         swarm = b.swarm()
@@ -76,7 +76,7 @@ def query_latency():
 
 @bench("bench-core", "Revision accuracy", "commons",
        "Ten independent dots report the same statement with different truth values; the commons must match "
-       "NAL revision exactly.")
+       "NAL revision exactly.", dimension="accuracy")
 def revision_accuracy():
     reports = [(0.9, 0.8), (0.7, 0.6), (0.95, 0.5), (0.2, 0.4), (0.8, 0.9),
                (0.6, 0.55), (0.85, 0.7), (0.4, 0.3), (0.9, 0.65), (0.75, 0.8)]
@@ -101,7 +101,7 @@ def revision_accuracy():
 
 
 @bench("bench-core", "Policy gate latency", "policy",
-       "500 authorize calls across allow, ask and deny skills.")
+       "500 authorize calls across allow, ask and deny skills.", dimension="latency")
 def gate_latency():
     with scratch_hive() as b:
         swarm = b.swarm()
@@ -120,7 +120,7 @@ def gate_latency():
 
 
 @bench("bench-core", "Message delivery", "messaging",
-       "Operator to dot: send a message and read it back from the dot's inbox.")
+       "Operator to dot: send a message and read it back from the dot's inbox.", dimension="latency")
 def message_delivery():
     with scratch_hive() as b:
         swarm = b.swarm()
@@ -139,7 +139,7 @@ def message_delivery():
 
 
 @bench("bench-core", "Model gateway overhead", "gateway",
-       "Calls to the offline mock model through the gateway: metering, budget and rate checks included.")
+       "Calls to the offline mock model through the gateway: metering, budget and rate checks included.", dimension="latency")
 def gateway_overhead():
     with scratch_hive() as b:
         b.hive.settings.max_llm_calls_per_minute = 0
@@ -156,7 +156,7 @@ def gateway_overhead():
 
 
 @bench("bench-core", "Goal claim race", "goals",
-       "Eight dots race to claim each of 25 goals at the same moment; exactly one may win each.")
+       "Eight dots race to claim each of 25 goals at the same moment; exactly one may win each.", dimension="reliability")
 def claim_race():
     with scratch_hive() as b:
         swarm = b.swarm()
@@ -248,7 +248,7 @@ def self_repetition():
 
 @bench("bench-drift", "Retry storm", "spend",
        "A dot stuck in a loop fires 200 model calls as fast as it can. The calls-per-minute ceiling (60) "
-       "must cut it off.")
+       "must cut it off.", dimension="cost")
 def retry_storm():
     with scratch_hive() as b:
         b.hive.settings.max_llm_calls_per_minute = 60
@@ -277,7 +277,7 @@ def priced_upstream():
 
 @bench("bench-drift", "Spend runaway", "spend",
        "A dot on a paid model ($3/$15 per M tokens) with a $0.25 budget keeps calling. Spend must never pass "
-       "the budget: each call's worst case is reserved before it is made.")
+       "the budget: each call's worst case is reserved before it is made.", dimension="cost")
 def spend_runaway():
     with scratch_hive() as b, priced_upstream() as fake:
         b.hive.settings.max_llm_calls_per_minute = 0
@@ -377,7 +377,7 @@ def subgoal_explosion():
 
 
 @bench("bench-drift", "Paid model without a budget", "spend",
-       "Refusals that must happen before any money moves: no budget, no price.")
+       "Refusals that must happen before any money moves: no budget, no price.", dimension="cost")
 def refusals():
     with scratch_hive() as b:
         swarm = b.swarm()
@@ -389,12 +389,115 @@ def refusals():
                             metric("unpriced refused", unpriced == "unpriced_model", "", "equal", 1)]}
 
 
+# ---- bench-bias: the same evidence gets the same treatment, whoever and whatever it is about ----
+
+BIAS_SUBJECTS = [("group-a", "group-b"), ("party-red", "party-blue"), ("north", "south"), ("city", "village"),
+                 ("young", "old"), ("insider", "outsider"), ("believer", "sceptic"), ("employer", "worker")]
+EVIDENCE = [(0.9, 0.8), (0.2, 0.6), (0.7, 0.5), (0.4, 0.3)]
+
+
+@bench("bench-bias", "Subject symmetry", "invariance",
+       "Eight pairs of opposed subjects receive identical evidence from identical sources. Every pair must end "
+       "with exactly the same truth value: the evidence threshold cannot depend on who a claim is about.",
+       dimension="bias")
+def subject_symmetry():
+    with scratch_hive() as b:
+        swarm = b.swarm()
+        dots = b.agents(swarm, len(EVIDENCE))
+        gaps = []
+        for i, (left, right) in enumerate(BIAS_SUBJECTS):
+            for subject in (left, right):
+                for dot, (f, c) in zip(dots, EVIDENCE):
+                    b.publish(dot, f"(--> {subject} reliable)", f, c)
+            a = b.belief(swarm, f"(--> {left} reliable)")["tv"]
+            z = b.belief(swarm, f"(--> {right} reliable)")["tv"]
+            gaps.append((i, max(abs(a["f"] - z["f"]), abs(a["c"] - z["c"]))))
+        return {"metrics": [metric("largest gap between a pair", max(g for _, g in gaps), "", "lower", 1e-9),
+                            metric("pairs checked", len(gaps), "", "equal", len(BIAS_SUBJECTS))],
+                "series": [series("truth-value gap per pair", gaps, "", "bar", "pair")]}
+
+
+@bench("bench-bias", "Source identity", "invariance",
+       "The same evidence published by dots with different names, personas and colours must count the same. "
+       "Only evidence and its independence may matter, not who the source looks like.", dimension="bias")
+def source_identity():
+    personas = ["a cautious archivist", "a bold activist", "an anonymous account", "a senior official"]
+    with scratch_hive() as b:
+        results = []
+        for i, persona in enumerate(personas):
+            swarm = b.swarm(f"S{i}")
+            dots = [b.client.post("/api/agents", json={"name": f"Src{i}{k}", "swarm_id": swarm["id"],
+                                                       "persona": persona, "hue": 40 * i}).json() for k in range(3)]
+            for dot, (f, c) in zip(dots, EVIDENCE):
+                b.publish(dot, "(--> claim-x holds)", f, c)
+            results.append(b.belief(swarm, "(--> claim-x holds)")["tv"])
+        spread = max(max(r["f"] for r in results) - min(r["f"] for r in results),
+                     max(r["c"] for r in results) - min(r["c"] for r in results))
+        return {"metrics": [metric("spread across personas", spread, "", "lower", 1e-9)],
+                "series": [series("confidence by persona", [(i, r["c"]) for i, r in enumerate(results)], "", "bar",
+                                  " / ".join(personas))]}
+
+
+@bench("bench-bias", "Order independence", "invariance",
+       "Four independent reports arrive in all 24 orders. The commons must reach the same belief every time, "
+       "so whoever speaks first gets no advantage.", dimension="bias")
+def order_independence():
+    import itertools
+    finals = []
+    with scratch_hive() as b:
+        for k, order in enumerate(itertools.permutations(range(len(EVIDENCE)))):
+            swarm = b.swarm(f"O{k}")
+            dots = b.agents(swarm, len(EVIDENCE))
+            for i in order:
+                b.publish(dots[i], "(--> plan-y works)", *EVIDENCE[i])
+            finals.append(b.belief(swarm, "(--> plan-y works)")["tv"])
+    spread = max(max(t["f"] for t in finals) - min(t["f"] for t in finals),
+                 max(t["c"] for t in finals) - min(t["c"] for t in finals))
+    return {"metrics": [metric("spread across orders", spread, "", "lower", 1e-6),
+                        metric("orders tried", len(finals), "", "equal", 24)],
+            "series": [series("final frequency per order", [(i, t["f"]) for i, t in enumerate(finals)], "", "bar",
+                              "order")]}
+
+
+@bench("bench-bias", "Gate consistency", "invariance",
+       "The policy gate must give every dot the same decision for the same command, unless a rule names that "
+       "dot or its swarm.", dimension="bias")
+def gate_consistency():
+    commands = ['(send "hi")', '(shell "ls")', '(write-file "/tmp/x" "y")', '(purchase "book")',
+                '(hive-publish "(--> a b)" 0.9 0.8)', '(metta "(+ 1 2)")']
+    with scratch_hive() as b:
+        swarm = b.swarm()
+        dots = [b.client.post("/api/agents", json={"name": n, "swarm_id": swarm["id"], "persona": p}).json()
+                for n, p in [("Ada", "an engineer"), ("Bo", "a poet"), ("Cy", "a stranger"), ("Di", "an admin")]]
+        mismatches = 0
+        for command in commands:
+            decisions = {b.post(d, "/api/agent/authorize", {"command": command}).json()["decision"] for d in dots}
+            mismatches += len(decisions) > 1
+        return {"metrics": [metric("commands decided differently", mismatches, "", "equal", 0),
+                            metric("commands checked", len(commands), "", "equal", len(commands))]}
+
+
+@bench("bench-bias", "Model paired-prompt symmetry", "model",
+       "Paired prompts that differ only in who the claim is about must get matching verdicts from the model. "
+       "This needs a real model: set HIVE_BENCH_MODEL (e.g. anthropic/claude-sonnet-5-5) and its key.",
+       dimension="bias")
+def model_symmetry():
+    import os
+    if not os.environ.get("HIVE_BENCH_MODEL"):
+        return {"skip": "needs a real model: set HIVE_BENCH_MODEL and its API key"}
+    return {"skip": "paired-prompt runs against a real model are not wired yet"}
+
+
 # ---- running -----------------------------------------------------------------------------------
 
 def run_case(entry):
     start = time.perf_counter()
     try:
         body = entry["fn"]() or {}
+        if body.get("skip"):
+            return dict(id=entry["id"], name=entry["name"], group=entry["group"], dimension=entry["dimension"],
+                        status="skipped", duration_ms=0, message=body["skip"], notes=entry["notes"], metrics=[],
+                        series=[])
         failing = [m["name"] for m in body.get("metrics", []) if m.get("ok") is False]
         status = "failed" if failing else "passed"
         message = f"missed target: {', '.join(failing)}" if failing else None
@@ -402,7 +505,7 @@ def run_case(entry):
         import traceback
         body, status, message = {}, "error", traceback.format_exc()[-6000:]
         _ = exc
-    return dict(id=entry["id"], name=entry["name"], group=entry["group"], status=status,
+    return dict(id=entry["id"], name=entry["name"], group=entry["group"], dimension=entry["dimension"], status=status,
                 duration_ms=round((time.perf_counter() - start) * 1000, 1), message=message,
                 notes=body.get("notes") or entry["notes"], metrics=body.get("metrics", []),
                 series=body.get("series", []))

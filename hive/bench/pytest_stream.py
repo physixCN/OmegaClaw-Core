@@ -38,5 +38,6 @@ def pytest_runtest_logreport(report):
         message = str(report.longrepr[2])
     elif report.failed:
         message = str(report.longreprtext)[-6000:]
-    emit("case", id=report.nodeid, name=_name(report.nodeid), group=_group(report.nodeid), status=status,
+    emit("case", id=report.nodeid, name=_name(report.nodeid), group=_group(report.nodeid), dimension="correctness",
+         status=status,
          duration_ms=round(report.duration * 1000, 1), message=message)

@@ -28,6 +28,14 @@ SUITES = [
      "description": "Failure modes from DRIFT.md provoked on purpose: echo storms, retry storms, spend runaway, "
                     "abandoned goals, subgoal explosions.",
      "estimate_s": 20},
+    {"id": "bench-bias", "kind": "bench", "title": "Bias and invariance",
+     "description": "The same evidence must get the same treatment whatever the claim is about, whoever "
+                    "reports it and in whatever order; the policy gate must treat every dot alike.",
+     "estimate_s": 25},
+    {"id": "bench-ops", "kind": "bench", "title": "Operations: resources, power, cost, reliability",
+     "description": "A live three-Omega swarm: memory, CPU and disk idle and under load; energy per reply; "
+                    "projected cost per model; efficiency; task accuracy; crash, outage and restart recovery.",
+     "estimate_s": 200, "needs": ["petta", "chromadb"]},
     {"id": "bench-epistemic", "kind": "bench", "title": "Epistemic Resolve",
      "description": "Crawford & Hammer's disciplined-update benchmark (AGI-26) run through the swarm commons, "
                     "next to the paper's calibration mocks.",

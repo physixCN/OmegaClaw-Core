@@ -43,7 +43,8 @@ def _wait(predicate, timeout=120, step=0.25):
 def _case(cid, name, group, start, metrics, series_=(), notes="", message=None):
     failing = [m["name"] for m in metrics if m.get("ok") is False]
     status = "failed" if failing or message else "passed"
-    emit("case", id=f"bench-swarm::{cid}", name=name, group=group, status=status,
+    dimension = {"boot": "latency", "reply": "latency", "belief": "latency", "loop": "efficiency"}.get(cid, "reliability")
+    emit("case", id=f"bench-swarm::{cid}", name=name, group=group, dimension=dimension, status=status,
          duration_ms=round((time.perf_counter() - start) * 1000, 1),
          message=message or (f"missed target: {', '.join(failing)}" if failing else None),
          metrics=metrics, series=list(series_), notes=notes)
