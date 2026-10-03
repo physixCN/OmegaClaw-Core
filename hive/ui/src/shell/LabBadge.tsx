@@ -6,7 +6,7 @@ import { useHive } from '../store/store'
 import { Icon } from '../ui/Icon'
 import { cx } from '../lib/cx'
 
-export const HEALTH_COLOR = { failing: '#fb7185', running: '#7dd3fc', passing: '#4ade80', unknown: '#5d5c86' } as const
+const HEALTH_COLOR = { failing: '#fb7185', running: '#7dd3fc', passing: '#4ade80', unknown: '#5d5c86' } as const
 
 /** The Lab at a glance in the HUD: last-run health of every suite; tapping opens the Lab. */
 export function LabBadge({ compactMode }: { compactMode?: boolean }) {

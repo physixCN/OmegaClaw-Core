@@ -15,7 +15,7 @@ const PORT = Number(process.env.SHOTS_PORT) || (await new Promise((resolve) => {
 }))
 const BASE = `http://localhost:${PORT}/?sim=1`
 const OUT = new URL('../screenshots/', import.meta.url).pathname
-const only = process.argv[2] // optional: "mobile" | "desktop"
+const only = process.argv[2] // optional: "mobile" | "desktop" | "lab" (only the Lab, both sizes)
 
 await mkdir(OUT, { recursive: true })
 
@@ -35,6 +35,91 @@ for (let i = 0; ; i++) {
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] })
 const errors = []
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+/** The Lab: overview, a live drift replay, the drift board, Epistemic Resolve, a case, history, a dimension. */
+async function lab(page, shot, go, mobile) {
+  const scroll = async (y) => {
+    await page.evaluate((top) => {
+      const el = [...document.querySelectorAll('section[role=dialog] .overflow-y-auto')].pop()
+      if (el) el.scrollTop = top
+    }, y)
+    await sleep(500)
+  }
+  const dismiss = async () => {
+    for (const b of await page.getByRole('button', { name: 'Dismiss' }).all()) await b.click().catch(() => undefined)
+  }
+  await go('#/lab')
+  await sleep(2200)
+  await dismiss()
+  await shot('19-lab')
+  await scroll(mobile ? 900 : 640)
+  await shot('19a-lab-suites')
+  // start the drift scenarios and watch them stream
+  await go('#/lab/bench-drift')
+  await sleep(1400)
+  await page.getByRole('button', { name: 'Run Drift scenarios', exact: true }).first().click()
+  await sleep(mobile ? 3200 : 3000)
+  await dismiss()
+  await shot('19b-lab-drift-live')
+  await sleep(4000)
+  await dismiss()
+  await scroll(0)
+  await shot('19c-lab-drift')
+  await scroll(mobile ? 560 : 330)
+  await shot('19d-lab-drift-scenarios')
+  // scrub the echo storm back to an early step
+  const slider = page.getByRole('slider').first()
+  await slider.focus()
+  for (let i = 0; i < 30; i++) await page.keyboard.press('ArrowLeft')
+  await sleep(400)
+  await shot('19e-lab-drift-replay')
+  await go('#/lab/bench-epistemic')
+  await sleep(2000)
+  await shot('19f-lab-epistemic')
+  await scroll(mobile ? 900 : 520)
+  await shot('19g-lab-epistemic-verdicts')
+  // a benchmark case opened: metric tiles and charts
+  await go('#/lab/bench-core')
+  await sleep(2000)
+  await page.getByRole('button', { name: /Publish throughput/ }).first().click()
+  await sleep(700)
+  await scroll(mobile ? 240 : 160)
+  await shot('19h-lab-case')
+  await go('#/lab/bench-core/history')
+  await sleep(2000)
+  await shot('19i-lab-history')
+  await scroll(mobile ? 640 : 520)
+  await shot('19j-lab-history-runs')
+  await go('#/lab/dim/cost')
+  await sleep(2200)
+  await shot('19k-lab-dimension')
+  await go('#/lab/tests-runtime')
+  await sleep(2200)
+  await page.getByPlaceholder('Search cases').fill('memory')
+  await sleep(600)
+  await shot('19l-lab-tests')
+  await go('#/dot/a_vega01/model')
+  await sleep(1500)
+  await dismiss()
+  await shot('19m-dot-lab-guards')
+}
+
+async function runLab(name, viewport, opts) {
+  const ctx = await browser.newContext({ viewport, ...opts })
+  const page = await ctx.newPage()
+  page.on('console', (m) => m.type() === 'error' && errors.push(`[${name}] console: ${m.text()}`))
+  page.on('pageerror', (e) => errors.push(`[${name}] pageerror: ${e.message}`))
+  const shot = async (label) => {
+    const path = `${OUT}${label}-${name}.png`
+    await page.screenshot({ path })
+    console.log('saved', path)
+  }
+  await page.goto(`${BASE}#/`)
+  await page.waitForSelector('canvas')
+  await sleep(2500)
+  await lab(page, shot, (h) => page.evaluate((x) => (window.location.hash = x), h), viewport.width < 768)
+  await ctx.close()
+}
 
 async function run(name, viewport, opts) {
   const ctx = await browser.newContext({ viewport, ...opts })
@@ -253,12 +338,17 @@ async function run(name, viewport, opts) {
   await page.keyboard.press('Escape')
   await sleep(300)
 
+  await lab(page, shot, go, mobile)
+
   await ctx.close()
 }
 
 try {
-  if (only !== 'desktop') await run('mobile', { width: 390, height: 844 }, { deviceScaleFactor: 2, isMobile: true, hasTouch: true })
-  if (only !== 'mobile') await run('desktop', { width: 1440, height: 900 }, { deviceScaleFactor: 1 })
+  if (only === 'lab') {
+    await runLab('mobile', { width: 390, height: 844 }, { deviceScaleFactor: 2, isMobile: true, hasTouch: true })
+    await runLab('desktop', { width: 1440, height: 900 }, { deviceScaleFactor: 1 })
+  } else if (only !== 'desktop') await run('mobile', { width: 390, height: 844 }, { deviceScaleFactor: 2, isMobile: true, hasTouch: true })
+  if (only !== 'mobile' && only !== 'lab') await run('desktop', { width: 1440, height: 900 }, { deviceScaleFactor: 1 })
   if (!only) {
     // prefers-reduced-motion: the scene should be calm (no dust storm, no glitch jitter)
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' })

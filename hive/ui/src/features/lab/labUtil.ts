@@ -244,3 +244,10 @@ export function categoricalX(s: Pick<LabSeries, 'x' | 'points'>): Record<number,
   if (parts.length !== s.points.length || !s.points.every(([x], i) => x === i)) return null
   return Object.fromEntries(parts.map((p, i) => [i, p]))
 }
+
+export const DEMO_LABEL: Record<NonNullable<LabRunSummary['demo']>, { label: string; title: string }> = {
+  recorded: { label: 'recorded', title: 'Real results from the recording' },
+  example: { label: 'example', title: 'Example history for the demo: the recording with small jitter. Not a real run.' },
+  replay: { label: 'replay', title: 'The recorded run, replayed in the browser' },
+}
+

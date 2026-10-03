@@ -1,21 +1,8 @@
-import { useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useId, useMemo, useState, type ReactNode } from 'react'
+import { useWidth } from './useWidth'
 import type { LabSeries } from '../../api/types'
 import { cx } from '../../lib/cx'
 import { categoricalX, fmtValue, GRID, INK3, INK4, isReference, niceDomain, seriesTitle, SLOTS, valueAt } from './labUtil'
-
-export function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] {
-  const ref = useRef<T>(null)
-  const [w, setW] = useState(0)
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const ro = new ResizeObserver(() => setW(el.clientWidth))
-    ro.observe(el)
-    setW(el.clientWidth)
-    return () => ro.disconnect()
-  }, [])
-  return [ref, w]
-}
 
 export interface ChartSeries extends LabSeries {
   color?: string

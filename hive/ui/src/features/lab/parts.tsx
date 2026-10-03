@@ -4,7 +4,7 @@ import { cx } from '../../lib/cx'
 import { useHive } from '../../store/store'
 import { Icon } from '../../ui/Icon'
 import { Button } from '../../ui/primitives'
-import { BETTER_ARROW, BETTER_TEXT, fmtValue, needsText, STATUS, SURFACE, targetText, total } from './labUtil'
+import { BETTER_ARROW, BETTER_TEXT, DEMO_LABEL, fmtValue, needsText, STATUS, SURFACE, targetText, total } from './labUtil'
 
 export function StatusIcon({ status, size = 22 }: { status: LabRunStatus | LabCaseStatus; size?: number }) {
   const s = STATUS[status]
@@ -184,12 +184,6 @@ export function DemoBanner({ recordedAt }: { recordedAt: string | null }) {
       </p>
     </div>
   )
-}
-
-export const DEMO_LABEL: Record<NonNullable<LabRunSummary['demo']>, { label: string; title: string }> = {
-  recorded: { label: 'recorded', title: 'Real results from the recording' },
-  example: { label: 'example', title: 'Example history for the demo: the recording with small jitter. Not a real run.' },
-  replay: { label: 'replay', title: 'The recorded run, replayed in the browser' },
 }
 
 export function DemoChip({ demo }: { demo?: LabRunSummary['demo'] }) {

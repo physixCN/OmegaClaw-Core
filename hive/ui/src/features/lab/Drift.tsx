@@ -220,7 +220,7 @@ const fallbackVerdict = (c: LabCase) => {
   return guards ? `All ${guards} guard${guards === 1 ? '' : 's'} held.` : c.status === 'passed' ? 'Passed.' : STATUS[c.status].label
 }
 
-export function verdictOf(c: LabCase): string {
+function verdictOf(c: LabCase): string {
   if (c.status === 'error') return 'The scenario crashed before it could measure anything.'
   try {
     return (DRIFT[caseKey(c)]?.verdict ?? fallbackVerdict)(c)

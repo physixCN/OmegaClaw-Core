@@ -422,16 +422,15 @@ function DimensionView({ dimension, suites }: { dimension: string; suites: LabSu
   const bySuite = useRunsBySuite()
   const allCases = useHive((s) => s.labCases)
   const loadRun = useHive((s) => s.loadLabRun)
-  const ids = card?.suites.length ? card.suites : meta.sources
   const latest = useMemo(
     () =>
-      ids
+      (card?.suites.length ? card.suites : dimMeta(dimension).sources)
         .map((id) => {
           const finished = (bySuite[id] ?? []).filter((r) => r.status !== 'running' && r.status !== 'cancelled')
           return { suite: suites.find((x) => x.id === id), run: finished[finished.length - 1] }
         })
         .filter((x): x is { suite: LabSuite; run: LabRunSummary } => !!x.suite && !!x.run),
-    [ids, bySuite, suites],
+    [card, dimension, bySuite, suites],
   )
   useEffect(() => {
     for (const { run } of latest) if (!useHive.getState().labRunLog[run.id]) void loadRun(run.id).catch(() => undefined)

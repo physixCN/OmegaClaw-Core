@@ -2,9 +2,7 @@ import { AnimatePresence, m } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { LabCase, LabRunSummary, LabSuite } from '../../api/types'
 import { cx } from '../../lib/cx'
-import { ago } from '../../lib/format'
 import { useNow, useReducedMotion } from '../../lib/hooks'
-import { navigate } from '../../lib/router'
 import { useHive } from '../../store/store'
 import { Icon } from '../../ui/Icon'
 import { Button, EmptyState, Segmented, Skeleton } from '../../ui/primitives'
@@ -26,7 +24,8 @@ import {
   total,
   type CaseFilter,
 } from './labUtil'
-import { Card, Counts, DemoChip, DEMO_LABEL, MetricTile, StatusChip, StatusIcon } from './parts'
+import { DEMO_LABEL } from './labUtil'
+import { Card, Counts, DemoChip, MetricTile, StatusChip, StatusIcon } from './parts'
 
 /** The previous finished run of the same suite: how many cases to expect. */
 function usePrevious(run: LabRunSummary | undefined): LabRunSummary | null {
@@ -390,8 +389,3 @@ function RunLog({ runId, running }: { runId: string; running: boolean }) {
     </Card>
   )
 }
-
-/** "a run" link text for elsewhere. */
-export const runWhen = (r: LabRunSummary, now: number) => (r.status === 'running' ? 'running now' : ago(r.finished_at ?? r.started_at, now))
-
-export const openRun = (id: string) => navigate({ name: 'lab', run: id })
