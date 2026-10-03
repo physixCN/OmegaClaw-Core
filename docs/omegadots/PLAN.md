@@ -600,6 +600,49 @@ External ARC- and GAIA-style sets come after the harness is proven.
     sandbox is rejected and flagged.
   - A rollback restores the previous champion.
 
+### The Lab: tests and benchmarks (built; see hive/API.md "The Lab")
+
+- [x] Suites run from the UI in child processes and stream live. History and
+      a per-dimension scorecard cover correctness, accuracy, latency,
+      efficiency, resources, power, cost, reliability, bias and drift.
+- [x] Prediction reliability: the Brier score and calibration of commons
+      beliefs on Epistemic Resolve.
+- [ ] Trust scores: per source and per dot, learned from how often their
+      evidence was later confirmed or corrected (a Brier score per source), and
+      fed back as the confidence weight of their future evidence. Shown per
+      dot in the UI, with the history that produced the score.
+- [ ] Brier score and calibration for every forecast a dot makes (goal
+      estimates, predictions in the commons), scored when the outcome is known.
+- [ ] Real-model runs: task accuracy, paired-prompt bias symmetry and cost
+      against actual providers (`HIVE_BENCH_MODEL`), and a power meter where
+      the host has one.
+- [ ] The Lab becomes the Crucible's evaluator: the same suites score a
+      candidate against the baseline (see Phase 2.5).
+
+### Self-improving UI: building Dot platform in Dot platform
+
+The web UI is a Crucible target like any agent code. The swarm can propose
+changes to it, and each person can shape their own UI from the baseline.
+
+- [ ] UI as layered source: the baseline, then a hive overlay, then a
+      per-person overlay. Overlays are patches to components, tokens and
+      layouts, stored as versioned atoms with provenance (who proposed what,
+      and why).
+- [ ] Dots propose UI changes as Crucible candidates: a patch plus a preview
+      build plus screenshots and the UI test suite (vitest, a11y and
+      screenshot diffs, the bundle budget) run in the testbed.
+- [ ] A person reviews the candidate with a live preview, then approves it for
+      themselves, for the hive, or as a baseline proposal. The policy gate
+      treats "change my UI" as an `ask` action, never `allow` by default.
+- [ ] Live update: approved overlays hot-swap through a plugin and slot
+      registry (views, panels, palette commands, scene layers) without a
+      rebuild where possible. Every overlay can be rolled back instantly to
+      the baseline, and a safe mode always loads the plain baseline.
+- [ ] Guardrails: overlays run in the same sandbox as the app and cannot reach
+      tokens or other people's data. A UI patch never changes server policy.
+      Anything security-relevant (auth, approvals UI, stop-all) is pinned to
+      the baseline and needs a human-authored change.
+
 ### Parity tracks (see FEATURE_PARITY.md)
 
 These close every gap against OpenAI Dots and Grok Bot.

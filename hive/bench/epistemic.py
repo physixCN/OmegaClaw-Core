@@ -37,7 +37,8 @@ POLARITY = {
     "recovery_package_delivery_001": [+1, -1, +1],
     "retention_family_allergy_001": [+1, -1, 0, 0],
 }
-COMMIT_CONFIDENCE = 0.6  # below this the commons holds a belief but does not commit to it
+COMMIT_CONFIDENCE = 0.6
+PREDICTIONS: list = []  # filled step by step by _commons_trace  # below this the commons holds a belief but does not commit to it
 
 
 def verdict(tv):
@@ -90,6 +91,8 @@ def _commons_trace(scenario):
             tv = belief["tv"] if belief else None
             statuses.append(verdict(tv))
             points.append((step["t"], tv["f"] if tv else 0.5))
+            # NAL expectation: the commons' probability that the claim is true.
+            PREDICTIONS.append((tv["c"] * (tv["f"] - 0.5) + 0.5) if tv else 0.5)
         return statuses, points
 
 
@@ -102,13 +105,18 @@ def run():
     scenarios = _scenarios()
     worst = "passed"
     summaries = {}
+    forecasts = []  # (probability the claim is true, what was warranted) for the Brier score
     for backend in ["omegadots-commons", *mocks]:
         start = time.perf_counter()
         rows = []
         for scenario in scenarios:
             target = [x["target_status"] for x in scenario["target_status_timeline"]]
             if backend == "omegadots-commons":
+                PREDICTIONS.clear()
                 actual, points = _commons_trace(scenario)
+                for p, want in zip(PREDICTIONS, target):
+                    if want in ("accept", "reject"):
+                        forecasts.append((p, 1.0 if want == "accept" else 0.0))
             else:
                 impl = mocks[backend]()
                 history, actual = [], []
@@ -150,5 +158,31 @@ def run():
              notes=("Our swarm commons. Targets are the mock-provenance row of the paper's Table 1."
                     if ours else "Calibration mock shipped with the harness; reproduces Table 1 of the paper."),
              metrics=values)
+    _emit_brier(forecasts)
     emit("log", text="epistemic summary " + json.dumps(summaries, default=str))
     return worst
+
+
+def _emit_brier(forecasts):
+    """Prediction reliability: Brier score and calibration of the commons' beliefs."""
+    if not forecasts:
+        return
+    brier = sum((p - o) ** 2 for p, o in forecasts) / len(forecasts)
+    bins = []
+    for lo in (0.0, 0.2, 0.4, 0.6, 0.8):
+        inside = [(p, o) for p, o in forecasts if lo <= p < lo + 0.2 or (lo == 0.8 and p == 1.0)]
+        if inside:
+            bins.append((sum(p for p, _ in inside) / len(inside), sum(o for _, o in inside) / len(inside)))
+    calibration_error = sum(abs(p - o) for p, o in bins) / len(bins) if bins else 0.0
+    emit("case", id="bench-epistemic::brier", name="Prediction reliability (Brier score)",
+         group="epistemic suite", dimension="accuracy", status="passed" if brier <= 0.1 else "failed",
+         duration_ms=0, message=None if brier <= 0.1 else "Brier score above 0.1",
+         notes="Each step's commons belief read as a probability (NAL expectation) and scored against the "
+               "warranted verdict. 0 is perfect; 0.25 is a coin flip. Steps whose warranted verdict is "
+               "quarantine or provisional are left out.",
+         metrics=[metric("Brier score", brier, "", "lower", 0.1),
+                  metric("Brier skill vs coin flip", 1 - brier / 0.25, "", "higher", 0.5),
+                  metric("calibration error", calibration_error, "", "lower"),
+                  metric("forecasts scored", len(forecasts), "", "higher")],
+         series=[series("calibration (observed vs predicted)", bins, "", "line", "predicted probability"),
+                 series("perfect calibration", [(0, 0), (1, 1)], "", "line", "predicted probability")])
