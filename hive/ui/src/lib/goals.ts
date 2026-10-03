@@ -21,5 +21,5 @@ export function leaseOf(g: Goal, now: number, leaseMinutes = 60): Lease {
 
 export function leaseText(ms: number): string {
   const m = Math.ceil(ms / 60_000)
-  return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`
+  return m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}` : `${m}m`
 }

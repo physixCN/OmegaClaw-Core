@@ -2,9 +2,17 @@
 // Usage: npm run build && npm run shots   (starts `vite preview` itself)
 import { spawn } from 'node:child_process'
 import { mkdir } from 'node:fs/promises'
+import { createServer } from 'node:net'
 import { chromium } from 'playwright-core'
 
-const PORT = 4179
+// a free port, so a preview server from another project cannot answer for us
+const PORT = Number(process.env.SHOTS_PORT) || (await new Promise((resolve) => {
+  const srv = createServer()
+  srv.listen(0, '127.0.0.1', () => {
+    const { port } = srv.address()
+    srv.close(() => resolve(port))
+  })
+}))
 const BASE = `http://localhost:${PORT}/?sim=1`
 const OUT = new URL('../screenshots/', import.meta.url).pathname
 const only = process.argv[2] // optional: "mobile" | "desktop"
@@ -165,9 +173,9 @@ async function run(name, viewport, opts) {
   await sleep(1200)
   await clearToasts()
   await shot('12-goals-swarm')
-  await go('#/goals/s_kelp')
+  await go('#/goals/s_lyra')
   await sleep(1500)
-  await page.getByPlaceholder(/Add a goal for/).fill('Count sunflower stars at the north reef')
+  await page.getByPlaceholder(/Add a goal for/).fill('Re-measure the Vega dust disk with the new spectra')
   await page.getByPlaceholder(/Add a goal for/).press('Enter')
   await sleep(5200)
   await clearToasts()
@@ -222,6 +230,14 @@ async function run(name, viewport, opts) {
   await sleep(2500)
   await clearToasts()
   await shot('16-scene-cues')
+
+  // a dot whose model calls are refused by the gateway (429 rate_limited)
+  await go('#/dot/a_qnch11/model')
+  await sleep(1500)
+  await clearToasts()
+  await shot('18-dot-gateway-error')
+  await go('#/')
+  await sleep(800)
 
   // global kill switch from the command palette
   if (mobile) await page.getByRole('button', { name: 'Search and commands' }).first().click()
