@@ -599,6 +599,13 @@ export class HiveEngine {
     return { x: d.sx, y: d.sy, r: d.sr }
   }
 
+  /** Screen position of a swarm's core (CSS px) and the radius of its bright centre, for the tour's spotlight. */
+  corePos(id: string): { x: number; y: number; r: number } | null {
+    const c = this.cores.get(id)
+    if (!c) return null
+    return { x: c.sx, y: c.sy, r: 58 * Math.pow(this.cam.z, 0.8) * (1 + Math.min(0.4, c.motes.length / 90)) }
+  }
+
   /** Keep a DOM element pinned to a dot; the engine writes its transform every frame. */
   track(el: HTMLElement, id: string | null): void {
     if (id) this.tracked.set(el, id)
