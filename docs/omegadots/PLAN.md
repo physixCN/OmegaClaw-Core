@@ -636,6 +636,39 @@ External ARC- and GAIA-style sets come after the harness is proven.
 - [ ] Iter tools and the MCP server for sharing; across swarms once
       federation exists, with per-swarm sharing policy.
 
+### Projects and plugins: every project builds itself inside the hive
+
+A project is a swarm, a private workspace (its own repo and data directory)
+and an optional plugin. The swarm works on the project's own code and UI from
+inside the hive, through the same Crucible gate as the platform. When the
+project is ready it can leave: as a plugin of the platform, or as a separate
+project with its own repo, hive and funding.
+
+- [ ] Project record: swarm, workspace path or private repo, owner, privacy
+      (local-only by default; another destination only when the owner
+      chooses it), and the plugin manifest.
+- [ ] Plugin manifest: an id, server routes (namespaced
+      `/api/plugins/<id>/…`), Omega/Iter skills, MeTTa spaces it owns, UI
+      slots (views, dot-panel tabs, palette commands, scene layers), policy
+      defaults, and the Lab suites that gate its changes.
+- [ ] UI plugin host: slots in the baseline UI that load a plugin's bundle
+      from its own workspace at runtime. Plugins are lazy, sandboxed from
+      tokens and other projects, and can always be turned off (safe mode).
+- [ ] Server plugin host: plugin routes and skills mounted from the
+      project's workspace, never from this repo. Private plugins stay in their
+      own private repos.
+- [ ] Self-building loop: the project's swarm proposes changes to its own
+      plugin (code and UI) as Crucible candidates. The Lab and the project's
+      own suites score them, a person approves, and the hive hot-swaps the
+      plugin.
+- [ ] Split-out: export a project with its history (goals, decisions,
+      beliefs with provenance, exhibits, Lab history, plugin source) into a
+      standalone hive or repo, keeping provenance so its record stays
+      auditable.
+- **Accept:** a project swarm ships a UI panel for its own project through
+      the gate, the panel appears live in its members' UI, and the project is
+      exported to a fresh hive where the panel and its history still work.
+
 ### Self-improving UI: building Dot platform in Dot platform
 
 The web UI is a Crucible target like any agent code. The swarm can propose
