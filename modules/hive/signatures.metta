@@ -1,3 +1,8 @@
 (SkillSignature hive-publish (Arg metta statement) (Arg number frequency) (Arg number confidence))
 (SkillSignature hive-query (Arg metta pattern))
 (SkillSignature hive-belief (Arg metta statement))
+(SkillSignature hive-goals)
+(SkillSignature hive-goal-claim (Arg text goal))
+(SkillSignature hive-goal-done (Arg text goal) (Arg rest-text result))
+(SkillSignature hive-goal-fail (Arg text goal) (Arg rest-text reason))
+(SkillSignature hive-goal-create (Arg text parent) (Arg rest-text title))

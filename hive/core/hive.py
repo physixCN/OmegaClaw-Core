@@ -5,16 +5,22 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import datetime
+import pathlib
 import random
+import re
 import secrets
 
 from ..spaces.service import SpaceService
 from .config import Settings
 from .db import Database, new_id, now
 from .events import EventBus
+from .goals import Goals
+from .policy import Policy
+from .schedule import Scheduler
 
 AGENT_KINDS = {"omega", "iter", "module"}
-EDITABLE = {"name", "swarm_id", "model", "persona", "hue", "budget_usd"}
+EDITABLE = {"name", "swarm_id", "model", "persona", "hue", "budget_usd", "idle_sleep_minutes"}
 
 
 class HiveError(Exception):
@@ -36,6 +42,10 @@ class Hive:
         self.supervisor = supervisor
         self.connections: dict[str, object] = {}  # agent_id -> hub websocket
         self.name = "OmegaDots Hive"
+        self.policy = Policy(self)
+        self.goals = Goals(self)
+        self.scheduler = Scheduler(self)
+        self.last_llm = {}  # agent_id -> (latency_ms, tokens) of its latest model call
 
     # ---- serialisation ---------------------------------------------------------------
 
@@ -46,6 +56,7 @@ class Hive:
             "status": row["status"], "driver": row["driver"],
             "budget_usd": row["budget_usd"], "spent_usd": round(row["spent_usd"], 6),
             "connected": row["id"] in self.connections,
+            "idle_sleep_minutes": row.get("idle_sleep_minutes") or 0,
             "last_error": row.get("last_error"),
             "last_active_at": row["last_active_at"], "created_at": row["created_at"],
         }
@@ -186,6 +197,7 @@ class Hive:
             raise HiveError(503, "no_supervisor", "no supervisor configured")
         if action in ("start", "wake"):
             self.set_status(agent_id, "starting", desired="awake")
+            self.db.update("agents", agent_id, {"last_active_at": now()})
             self.supervisor.start(agent_id)
         elif action == "stop":
             self.supervisor.stop(agent_id)
@@ -218,7 +230,7 @@ class Hive:
         params.append(int(limit))
         return [self.message_view(r) for r in reversed(self.db.all(sql, params))]
 
-    async def send_to_agent(self, agent_id, text, conversation_id=None, sender="user:operator"):
+    async def send_to_agent(self, agent_id, text, conversation_id=None, sender="user:operator", extra=None):
         row = self._agent_row(agent_id)
         if not str(text).strip():
             raise HiveError(400, "bad_request", "text is required")
@@ -227,6 +239,7 @@ class Hive:
         message = {
             "id": new_id("m"), "agent_id": agent_id, "conversation_id": conversation_id or f"c_{agent_id}",
             "direction": "in", "sender": sender, "text": str(text), "hub_seq": seq, "created_at": now(),
+            "extra": json.dumps(extra) if extra else None,
         }
         self.db.insert("messages", message)
         view = self.message_view(message)
@@ -237,8 +250,11 @@ class Hive:
         return view
 
     def envelope(self, message):
-        return json.dumps({"hive": 1, "sender": message["sender"], "conversation_id": message["conversation_id"],
-                           "message_id": message["id"], "text": message["text"]})
+        body = {"hive": 1, "sender": message["sender"], "conversation_id": message["conversation_id"],
+                "message_id": message["id"], "text": message["text"]}
+        if message.get("extra"):
+            body.update(json.loads(message["extra"]))
+        return json.dumps(body)
 
     async def deliver(self, agent_id, message):
         ws = self.connections.get(agent_id)
@@ -443,3 +459,168 @@ class Hive:
             elif row["status"] in ("awake", "starting"):
                 self.set_status(row["id"], "stopped")
             await asyncio.sleep(0)
+
+    # ---- phase 2: helpers -----------------------------------------------------------------
+
+    @staticmethod
+    def error(status, code, message):
+        return HiveError(status, code, message)
+
+    def stop_all(self):
+        stopped = 0
+        for row in self.db.all("SELECT id, status FROM agents WHERE deleted = 0"):
+            if self.supervisor:
+                self.supervisor.stop(row["id"])
+            if row["status"] != "stopped":
+                stopped += 1
+            self.set_status(row["id"], "stopped", desired="stopped")
+        return {"stopped": stopped}
+
+    # ---- traces -------------------------------------------------------------------------------
+
+    def trace_view(self, row):
+        return dict(row, commands=json.loads(row["commands"]))
+
+    @staticmethod
+    def _commands_from_results(text):
+        """[{command, result}] from the loop's (RESULTS: ((COMMAND_RETURN: (cmd result)) ...))."""
+        from ..spaces import sexpr
+
+        try:
+            value = sexpr.read_result(text)
+        except (IndexError, ValueError):
+            return []
+        out = []
+
+        def walk(node):
+            if isinstance(node, list):
+                if len(node) == 2 and node[0] == "COMMAND_RETURN:" and isinstance(node[1], list) and node[1]:
+                    command, *rest = node[1]
+                    out.append({"command": sexpr.render(command),
+                                "result": " ".join(sexpr.render(r) for r in rest)})
+                    return
+                for item in node:
+                    walk(item)
+
+        walk(value)
+        return out
+
+    def record_trace(self, agent, data):
+        commands = []
+        items = data.get("commands")
+        if items is None and data.get("results"):
+            items = self._commands_from_results(data["results"])
+        for item in (items or [])[:20]:
+            command = str(item.get("command", ""))[:2000]
+            entry = {"command": command, "result": str(item.get("result", ""))[:2000]}
+            gate = self.policy.gate_of(agent["id"], command)
+            if gate:
+                entry["gated"] = gate
+            commands.append(entry)
+        llm_ms, tokens = self.last_llm.get(agent["id"], (None, None))
+        row = {"agent_id": agent["id"], "iteration": int(data.get("iteration") or 0),
+               "input": (str(data["input"])[:4000] if data.get("input") else None),
+               "response": str(data.get("response", ""))[:8000], "commands": json.dumps(commands),
+               "llm_ms": llm_ms, "tokens": tokens, "created_at": now()}
+        row["id"] = self.db.insert("traces", row)
+        self.db.execute("DELETE FROM traces WHERE agent_id = ? AND id <= ?", (agent["id"], row["id"] - 2000))
+        trace = self.trace_view(row)
+        self.events.publish("agent.trace", trace=trace)
+        return trace
+
+    def traces(self, agent_id, limit=100):
+        self._agent_row(agent_id)
+        rows = self.db.all("SELECT * FROM traces WHERE agent_id = ? ORDER BY id DESC LIMIT ?",
+                           (agent_id, min(int(limit), 500)))
+        return [self.trace_view(r) for r in rows]
+
+    # ---- private memory: read from disk, change through the agent ----------------------------
+
+    MEMORY_SKIP = {"history.metta"}
+
+    def _memory_dir(self, agent_id):
+        self._agent_row(agent_id)
+        return self.settings.agents_dir / agent_id / "memory"
+
+    @staticmethod
+    def _atoms(text):
+        """Split a saved space (one top-level expression per entry) into atom texts."""
+        atoms, depth, start, in_string, escape = [], 0, None, False, False
+        for i, ch in enumerate(text):
+            if in_string:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+            elif ch == "(":
+                if depth == 0:
+                    start = i
+                depth += 1
+            elif ch == ")" and depth:
+                depth -= 1
+                if depth == 0 and start is not None:
+                    atoms.append(text[start:i + 1])
+        return atoms
+
+    def memory_spaces(self, agent_id):
+        folder = self._memory_dir(agent_id)
+        out = []
+        for path in sorted(folder.glob("*.metta")) if folder.exists() else []:
+            if path.name in self.MEMORY_SKIP:
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            out.append({"name": path.stem, "atoms": len(self._atoms(text)), "bytes": path.stat().st_size})
+        return out
+
+    def memory_atoms(self, agent_id, space, q=None, limit=200):
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", str(space)):
+            raise HiveError(400, "bad_request", "bad space name")
+        path = self._memory_dir(agent_id) / f"{space}.metta"
+        if not path.exists() or path.name in self.MEMORY_SKIP:
+            raise HiveError(404, "not_found", f"no space {space}")
+        atoms = self._atoms(path.read_text(encoding="utf-8", errors="replace"))
+        rows = [{"index": i, "text": a} for i, a in enumerate(atoms) if not q or str(q).lower() in a.lower()]
+        return rows[: min(int(limit), 1000)]
+
+    def queue_control(self, agent_id, op):
+        self._agent_row(agent_id)
+        self.db.insert("control_ops", {"agent_id": agent_id, "op": json.dumps(op), "created_at": now()})
+        return {"queued": True}
+
+    def retire_atom(self, agent_id, space, atom):
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", str(space)):
+            raise HiveError(400, "bad_request", "bad space name")
+        if str(atom) not in {a["text"] for a in self.memory_atoms(agent_id, space, limit=1000)}:
+            raise HiveError(404, "not_found", "no such atom in that space")
+        return self.queue_control(agent_id, {"op": "retire", "space": space, "atom": str(atom)})
+
+    def take_control(self, agent_id):
+        rows = self.db.all("SELECT id, op FROM control_ops WHERE agent_id = ? AND taken = 0 ORDER BY id", (agent_id,))
+        for row in rows:
+            self.db.execute("UPDATE control_ops SET taken = 1 WHERE id = ?", (row["id"],))
+        return {"ops": [json.loads(r["op"]) for r in rows]}
+
+    # ---- HTTP inbox for agents without a socket ------------------------------------------------
+
+    def inbox(self, agent_id, after=0):
+        rows = self.db.all("SELECT * FROM messages WHERE agent_id = ? AND direction = 'in' AND hub_seq > ? "
+                           "ORDER BY hub_seq LIMIT 100", (agent_id, int(after or 0)))
+        self.db.update("agents", agent_id, {"last_active_at": now()})
+        return {"messages": [{"seq": r["hub_seq"], "text": self.envelope(r)} for r in rows]}
+
+    # ---- idle sleep ----------------------------------------------------------------------------
+
+    def idle_candidates(self, moment=None):
+        moment = moment or datetime.datetime.now(datetime.timezone.utc)
+        out = []
+        for row in self.db.all("SELECT * FROM agents WHERE deleted = 0 AND status = 'awake' AND idle_sleep_minutes > 0"):
+            last = row["last_active_at"] or row["created_at"]
+            seen = datetime.datetime.fromisoformat(last.replace("Z", "+00:00"))
+            if (moment - seen).total_seconds() >= row["idle_sleep_minutes"] * 60:
+                out.append(row["id"])
+        return out

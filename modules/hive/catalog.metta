@@ -2,3 +2,8 @@
 (SkillHelp "hive-publish" "hive-publish (--> sky blue) 0.9 0.8 - share a belief with your swarm (f = how true, 0 < c < 1 = how confident)")
 (SkillHelp "hive-query" "hive-query (Current (--> sky $x) $tv $stamp) - search your swarm's shared beliefs")
 (SkillHelp "hive-belief" "hive-belief (--> sky blue) - a shared belief with its truth value and sources")
+(SkillHelp "hive-goals" "hive-goals - open goals in your swarm, highest priority first")
+(SkillHelp "hive-goal-claim" "hive-goal-claim g_id - take a goal so others do not duplicate the work")
+(SkillHelp "hive-goal-done" "hive-goal-done g_id result - finish a goal you claimed and report what you did")
+(SkillHelp "hive-goal-fail" "hive-goal-fail g_id reason - give up a goal you claimed and say why")
+(SkillHelp "hive-goal-create" "hive-goal-create parent_or_none title - post a goal; use a parent id to split work into subgoals")

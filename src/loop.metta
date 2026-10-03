@@ -102,15 +102,26 @@
                                           (change-state! &error $new)))
                  ($else $sexpr))))
 
+; Before a command runs, a hive decides whether it may (policy rules and human
+; approvals; see hive/core/policy.py): True, or the text recorded instead of a
+; result.  Off the hive every command is allowed.
+(= (command-gate $cmd)
+   (if (== (commchannel) hive)
+       (py-call (hive_commons.authorize (repr $cmd)))
+       True))
+
 (= (command-results $items)
    (if (== $items ())
        ()
        (let* (($cmd (car-atom $items))
               ($rest (cdr-atom $items))
-              ($result (HandleError SINGLE_COMMAND_FORMAT_ERROR_NOTHING_WAS_DONE_PLEASE_FIX_AND_RETRY
-                                    $cmd
-                                    (catch (let $R (once (reduce $cmd))
-                                                (py-call (helper.normalize_string $R)))))))
+              ($gate (command-gate $cmd))
+              ($result (if (== $gate True)
+                           (HandleError SINGLE_COMMAND_FORMAT_ERROR_NOTHING_WAS_DONE_PLEASE_FIX_AND_RETRY
+                                        $cmd
+                                        (catch (let $R (once (reduce $cmd))
+                                                    (py-call (helper.normalize_string $R)))))
+                           $gate)))
              (cons (COMMAND_RETURN: ($cmd $result))
                    (command-results $rest)))))
 
@@ -158,6 +169,8 @@
                                        ($_ (println! $results))
                                        ($_ (change-state! &lastResponseMsgNew $msgnew))
                                        ($_ (change-state! &lastResponseSexpr $sexpr))
+                                       ($_ (change-state! &lastResponseText $response))
+                                       ($_ (change-state! &lastResponseResults $results))
                                        ($_ (run-runtime-hooks response)))
                                       (progn (if (or $msgnew  (not (== $sexpr ()))) (addToHistory $msg $response $sexpr $msgnew $results) _)
                                              (change-state! &lastresults (string-safe (repr $results)))))

@@ -8,6 +8,7 @@ import hmac
 import json
 import pathlib
 import secrets
+import time
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -60,6 +61,9 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
             await asyncio.sleep(reconcile_seconds)
             try:
                 await run_in_threadpool(supervisor.check)
+                await hive.scheduler.tick()
+                for agent_id in hive.idle_candidates():
+                    await run_in_threadpool(hive.lifecycle, agent_id, "sleep")
             except Exception as exc:  # keep reconciling
                 print(f"[hive] reconcile error: {exc}")
 
@@ -300,10 +304,13 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
         hive.check_budget(agent)
         data = await body(request)
         hive.thinking(agent["id"], "llm")
+        started = time.monotonic()
         try:
             response, usage = await gateway.chat(agent, data)
         finally:
             hive.thinking(agent["id"], "idle")
+        hive.last_llm[agent["id"]] = (int((time.monotonic() - started) * 1000),
+                                      usage["prompt_tokens"] + usage["completion_tokens"])
         await run_in_threadpool(hive.record_usage, agent, agent["model"], usage)
         return response
 
@@ -333,11 +340,183 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
             raise HiveError(400, "no_swarm", "agent is not in a swarm")
         return await run_in_threadpool(hive.belief, agent["swarm_id"], statement)
 
+    # ---- phase 2: policy and approvals ----------------------------------------------------------
+
+    @app.get("/api/policy")
+    async def policy_rules(request: Request):
+        operator(request)
+        return hive.policy.rules()
+
+    @app.post("/api/policy")
+    async def add_policy_rule(request: Request):
+        operator(request)
+        data = await body(request)
+        return hive.policy.add_rule(data.get("scope", ""), data.get("skill", ""), data.get("mode", ""), data.get("note", ""))
+
+    @app.delete("/api/policy/{rule_id}")
+    async def delete_policy_rule(rule_id: str, request: Request):
+        operator(request)
+        return hive.policy.delete_rule(rule_id)
+
+    @app.get("/api/approvals")
+    async def approvals(request: Request, status: str | None = None):
+        operator(request)
+        return hive.policy.approvals(status)
+
+    @app.post("/api/approvals/{approval_id}/approve")
+    async def approve(approval_id: str, request: Request):
+        operator(request)
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+        return await hive.policy.decide_approval(approval_id, True, remember=bool((data or {}).get("remember")))
+
+    @app.post("/api/approvals/{approval_id}/deny")
+    async def deny(approval_id: str, request: Request):
+        operator(request)
+        return await hive.policy.decide_approval(approval_id, False)
+
+    @app.post("/api/hive/stop-all")
+    async def stop_all(request: Request):
+        operator(request)
+        return await run_in_threadpool(hive.stop_all)
+
+    # ---- phase 2: goals ----------------------------------------------------------------------------
+
+    @app.get("/api/swarms/{swarm_id}/goals")
+    async def goals(swarm_id: str, request: Request):
+        operator(request)
+        hive.swarm(swarm_id)
+        return hive.goals.list(swarm_id)
+
+    @app.post("/api/swarms/{swarm_id}/goals")
+    async def create_goal(swarm_id: str, request: Request):
+        operator(request)
+        data = await body(request)
+        return await hive.goals.create(swarm_id, data.get("title", ""), data.get("detail", ""),
+                                       data.get("priority", 0.5), data.get("parent_id"))
+
+    @app.patch("/api/goals/{goal_id}")
+    async def update_goal(goal_id: str, request: Request):
+        operator(request)
+        return hive.goals.update(goal_id, await body(request))
+
+    # ---- phase 2: traces, wakeups, memory ------------------------------------------------------
+
+    @app.get("/api/agents/{agent_id}/traces")
+    async def traces(agent_id: str, request: Request, limit: int = 100):
+        operator(request)
+        return hive.traces(agent_id, limit)
+
+    @app.get("/api/agents/{agent_id}/wakeups")
+    async def wakeups(agent_id: str, request: Request):
+        operator(request)
+        hive.agent(agent_id)
+        return hive.scheduler.list(agent_id)
+
+    @app.post("/api/agents/{agent_id}/wakeups")
+    async def create_wakeup(agent_id: str, request: Request):
+        operator(request)
+        data = await body(request)
+        return hive.scheduler.create(agent_id, data.get("cron"), data.get("at"), data.get("tz") or "UTC", data.get("text", ""))
+
+    @app.patch("/api/wakeups/{wakeup_id}")
+    async def update_wakeup(wakeup_id: str, request: Request):
+        operator(request)
+        return hive.scheduler.update(wakeup_id, await body(request))
+
+    @app.delete("/api/wakeups/{wakeup_id}")
+    async def delete_wakeup(wakeup_id: str, request: Request):
+        operator(request)
+        return hive.scheduler.delete(wakeup_id)
+
+    @app.get("/api/agents/{agent_id}/memory")
+    async def memory(agent_id: str, request: Request):
+        operator(request)
+        return await run_in_threadpool(hive.memory_spaces, agent_id)
+
+    @app.get("/api/agents/{agent_id}/memory/{space}")
+    async def memory_atoms(agent_id: str, space: str, request: Request, q: str | None = None, limit: int = 200):
+        operator(request)
+        return await run_in_threadpool(hive.memory_atoms, agent_id, space, q, limit)
+
+    @app.post("/api/agents/{agent_id}/memory/{space}/retire")
+    async def retire(agent_id: str, space: str, request: Request):
+        operator(request)
+        data = await body(request)
+        return await run_in_threadpool(hive.retire_atom, agent_id, space, data.get("atom", ""))
+
+    @app.post("/api/agents/{agent_id}/memory/reset")
+    async def reset_memory(agent_id: str, request: Request):
+        operator(request)
+        return hive.queue_control(agent_id, {"op": "reset"})
+
+    # ---- phase 2: agent-facing -----------------------------------------------------------------
+
+    @app.post("/api/agent/authorize")
+    async def authorize(request: Request):
+        agent = agent_from(request)
+        data = await body(request)
+        return await run_in_threadpool(hive.policy.authorize, agent, data.get("command", ""))
+
+    @app.post("/api/agent/trace")
+    async def agent_trace(request: Request):
+        agent = agent_from(request)
+        return await run_in_threadpool(hive.record_trace, agent, await body(request))
+
+    @app.get("/api/agent/control")
+    async def agent_control(request: Request):
+        agent = agent_from(request)
+        return hive.take_control(agent["id"])
+
+    @app.get("/api/agent/inbox")
+    async def agent_inbox(request: Request, after: int = 0):
+        agent = agent_from(request)
+        return hive.inbox(agent["id"], after)
+
+    @app.post("/api/agent/messages")
+    async def agent_message(request: Request):
+        agent = agent_from(request)
+        data = await body(request)
+        return hive.record_agent_message(agent["id"], data)
+
+    @app.get("/api/agent/goals")
+    async def agent_goals(request: Request, status: str | None = "open"):
+        agent = agent_from(request)
+        if not agent["swarm_id"]:
+            return []
+        return hive.goals.list(agent["swarm_id"], status or None)
+
+    @app.post("/api/agent/goals")
+    async def agent_create_goal(request: Request):
+        agent = agent_from(request)
+        if not agent["swarm_id"]:
+            raise HiveError(400, "no_swarm", "agent is not in a swarm")
+        data = await body(request)
+        return await hive.goals.create(agent["swarm_id"], data.get("title", ""), data.get("detail", ""),
+                                       data.get("priority", 0.5), data.get("parent_id"), created_by=f"agent:{agent['id']}")
+
+    @app.post("/api/agent/goals/{goal_id}/claim")
+    async def agent_claim(goal_id: str, request: Request):
+        agent = agent_from(request)
+        return hive.goals.claim(agent, goal_id)
+
+    @app.post("/api/agent/goals/{goal_id}/result")
+    async def agent_result(goal_id: str, request: Request):
+        agent = agent_from(request)
+        data = await body(request)
+        goal = hive.goals.result(agent, goal_id, data.get("status", "done"), data.get("result", ""))
+        await hive.goals.notify_parent(goal)
+        return goal
+
     # ---- the web UI ---------------------------------------------------------------------------------
 
     if UI_DIST.exists():
         @app.get("/{path:path}")
         async def ui(path: str):
+            if path.split("/", 1)[0] in ("api", "llm", "agent-hub"):
+                raise HiveError(404, "not_found", f"no route /{path}")
             target = (UI_DIST / path).resolve()
             if path and target.is_file() and UI_DIST.resolve() in target.parents:
                 return FileResponse(target)

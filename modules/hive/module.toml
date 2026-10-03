@@ -11,6 +11,11 @@ provides = [
   "skill:hive-publish",
   "skill:hive-query",
   "skill:hive-belief",
+  "skill:hive-goals",
+  "skill:hive-goal-claim",
+  "skill:hive-goal-done",
+  "skill:hive-goal-fail",
+  "skill:hive-goal-create",
 ]
 
 requires = [

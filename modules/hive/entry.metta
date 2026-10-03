@@ -14,6 +14,11 @@
 (Provides omegaclaw.hive.commons (Skill hive-publish))
 (Provides omegaclaw.hive.commons (Skill hive-query))
 (Provides omegaclaw.hive.commons (Skill hive-belief))
+(Provides omegaclaw.hive.commons (Skill hive-goals))
+(Provides omegaclaw.hive.commons (Skill hive-goal-claim))
+(Provides omegaclaw.hive.commons (Skill hive-goal-done))
+(Provides omegaclaw.hive.commons (Skill hive-goal-fail))
+(Provides omegaclaw.hive.commons (Skill hive-goal-create))
 
 (OrganPrinciple omegaclaw.hive.commons "The commons is shared memory between dots; private memory never leaves this agent unless published.")
 
@@ -22,6 +27,13 @@
 (RuntimeConfig omegaclaw.hive.commons HIVE_WS_TOKEN "runtime-secret")
 
 (TraceWrites omegaclaw.hive.commons HiveBeliefPublished)
+
+; Report each model iteration to the hive timeline, and apply memory operations
+; the operator queued (retire an atom, reset).  Both are no-ops off the hive.
+(RuntimeHook response hive-trace (hive-report-trace))
+(TrustedRuntimeHook response hive-trace)
+(RuntimeHook cycle hive-control (hive-run-control))
+(TrustedRuntimeHook cycle hive-control)
 
 !(import! &self (car-atom (collapse (library OmegaClaw-Core ./modules/hive/src/hive_commons.py))))
 !(import! &self (library OmegaClaw-Core ./modules/hive/catalog.metta))

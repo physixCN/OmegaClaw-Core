@@ -71,10 +71,37 @@ def mock_reply(agent_name, prompt):
     tail = prompt.rsplit("HUMAN-MSG:", 1)[1]
     # The CHANNEL_EVENT block may arrive flattened onto one line, so stop at the
     # next key=value field.
-    found = re.findall(r"text=(.*?)(?=\s+[a-z_]+=|_newline_|\n|$)", tail)
-    text = (found[-1] if found else tail).strip().strip('")')
-    text = text.replace('\\"', '"')
+    if "_newline_" in tail:  # encoded block: fields are separated by _newline_
+        found = [field[5:] for field in tail.split("_newline_") if field.startswith("text=")]
+    else:
+        found = re.findall(r"text=(.*?)(?=\s+[a-z_]+=|\n|$)", tail)
+    # The Omega prompt encodes some characters as _name_ tokens.
+    text = (found[-1] if found else tail).replace("_quote_", '"').replace("_newline_", " ")
+    text = text.replace('\\"', '"').strip()
+    if text.count(")") > text.count("("):  # the closing paren of the HUMAN-MSG wrapper
+        text = text[: text.rfind(")")].rstrip()
     lowered = text.lower()
+    approved = re.match(r"^\[APPROVED (p_\w+)\] (\(.*\))$", text)
+    if approved:
+        return f"{approved.group(2)}\nsend Approved - running {approved.group(1)}"
+    if text.startswith("[DENIED "):
+        return "send Understood, I will not do that"
+    if text.startswith("[WAKE "):
+        reason = text.split("] ", 1)[-1]
+        return f"send Awake: {reason}"
+    goal = re.match(r"^New goal (g_\w+) \(priority [0-9.]+\): (.*)$", text)
+    if goal:
+        goal_id, title = goal.group(1), goal.group(2).split(" - ", 1)[0]
+        if title.startswith("Project:") and ";" in title:
+            parts = [p.strip() for p in title[len("Project:"):].split(";") if p.strip()]
+            lines = [f"hive-goal-claim {goal_id}"] + [f"hive-goal-create {goal_id} {p}" for p in parts]
+            return "\n".join(lines[:5])
+        return f"hive-goal-claim {goal_id}\nhive-goal-done {goal_id} did: {title}"
+    merged = re.match(r"^\[SUBGOALS-DONE (g_\w+)\] (.*)$", text)
+    if merged:
+        return f"hive-goal-done {merged.group(1)} merged: {merged.group(2)}"
+    if lowered.startswith("run "):
+        return text[4:].strip()
     if lowered.startswith("believe "):
         body = text[8:].strip()
         match = re.match(r"^(\(.*\))\s*([0-9.]+)?\s*([0-9.]+)?$", body)

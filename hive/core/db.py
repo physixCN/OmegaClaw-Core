@@ -42,6 +42,36 @@ CREATE TABLE IF NOT EXISTS usage (
 );
 CREATE INDEX IF NOT EXISTS usage_agent ON usage(agent_id, created_at);
 CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS policy_rules (
+  id TEXT PRIMARY KEY, scope TEXT NOT NULL, skill TEXT NOT NULL, mode TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS approvals (
+  id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, skill TEXT NOT NULL, command TEXT NOT NULL,
+  reason TEXT NOT NULL, risk TEXT NOT NULL, status TEXT NOT NULL, decided_by TEXT,
+  created_at TEXT NOT NULL, decided_at TEXT
+);
+CREATE INDEX IF NOT EXISTS approvals_agent ON approvals(agent_id, status);
+CREATE TABLE IF NOT EXISTS goals (
+  id TEXT PRIMARY KEY, swarm_id TEXT NOT NULL, parent_id TEXT, title TEXT NOT NULL,
+  detail TEXT NOT NULL DEFAULT '', priority REAL NOT NULL, status TEXT NOT NULL,
+  created_by TEXT NOT NULL, claimed_by TEXT, result TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS goals_swarm ON goals(swarm_id, status);
+CREATE TABLE IF NOT EXISTS traces (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, agent_id TEXT NOT NULL, iteration INTEGER NOT NULL,
+  input TEXT, response TEXT NOT NULL, commands TEXT NOT NULL, llm_ms INTEGER, tokens INTEGER,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS traces_agent ON traces(agent_id, id);
+CREATE TABLE IF NOT EXISTS wakeups (
+  id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, cron TEXT, at TEXT, tz TEXT NOT NULL, text TEXT NOT NULL,
+  enabled INTEGER NOT NULL, next_run_at TEXT, last_run_at TEXT, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS control_ops (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, agent_id TEXT NOT NULL, op TEXT NOT NULL, taken INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
 """
 
 
@@ -63,8 +93,12 @@ class Database:
         with self._lock:
             self._conn.executescript(SCHEMA)
             columns = {r[1] for r in self._conn.execute("PRAGMA table_info(agents)")}
-            if "last_error" not in columns:
-                self._conn.execute("ALTER TABLE agents ADD COLUMN last_error TEXT")
+            for column, ddl in (("last_error", "TEXT"), ("idle_sleep_minutes", "REAL NOT NULL DEFAULT 0")):
+                if column not in columns:
+                    self._conn.execute(f"ALTER TABLE agents ADD COLUMN {column} {ddl}")
+            message_columns = {r[1] for r in self._conn.execute("PRAGMA table_info(messages)")}
+            if "extra" not in message_columns:
+                self._conn.execute("ALTER TABLE messages ADD COLUMN extra TEXT")
 
     def execute(self, sql, params=()):
         with self._lock:
