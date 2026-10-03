@@ -89,3 +89,16 @@ def test_sharing_stays_inside_the_swarm(client):
         == 400  # asking yourself
     missing = call(client, a, "POST", "/api/agent/shares/offer", {"grantee": "nobody", "space": "world"})
     assert missing.status_code == 404
+
+
+def test_external_members_use_timed_exhibits(client):
+    swarm = client.post("/api/swarms", json={"name": "Private project"}).json()
+    codex = client.post("/api/agents", json={"name": "Codex", "kind": "module", "swarm_id": swarm["id"]}).json()
+    fable = client.post("/api/agents", json={"name": "Fable", "kind": "module", "swarm_id": swarm["id"]}).json()
+    shown = call(client, codex, "POST", "/api/agent/exhibits",
+                 {"title": "Module map v1", "to": ["Fable"], "minutes": 15, "body": "outline"}).json()
+    share = shown["shares"][0]
+    assert inbox(client, fable)[-1]["event"] == "exhibit"
+    assert call(client, fable, "GET", f"/api/agent/shares/{share['id']}/atoms").json()["body"] == "outline"
+    assert client.post(f"/api/shares/{share['id']}/revoke").json()["status"] == "revoked"   # operator revokes
+    assert call(client, fable, "GET", f"/api/agent/shares/{share['id']}/atoms").status_code == 410
