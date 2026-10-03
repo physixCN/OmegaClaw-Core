@@ -91,7 +91,7 @@ class HiveChannelTests(unittest.TestCase):
         self.channel.stop_hive()
         pid_file = pathlib.Path(self.memory) / "hive" / "daemon.pid"
         if pid_file.exists():
-            pid = json.loads(pid_file.read_text())
+            pid = json.loads(pid_file.read_text())["pid"]
             wait_for(lambda: not self.channel._pid_alive(pid), timeout=5)
         self.hub.shutdown()
         if self._old_memory is None:
@@ -169,6 +169,17 @@ class HiveChannelTests(unittest.TestCase):
 
         self.connect(expected_resume=7)
         self.assertEqual(self.channel.getLastMessage(), "seen before sleep")
+
+    def test_daemon_left_by_another_agent_process_is_replaced(self):
+        self.connect()
+        folder = pathlib.Path(self.memory) / "hive"
+        record = json.loads((folder / "daemon.pid").read_text())
+        record["owner"] = 1  # pretend a previous agent process started it
+        (folder / "daemon.pid").write_text(json.dumps(record))
+        started = self.channel.start_hive(self.url, "agent-token")
+        self.assertIn("HIVE-CHANNEL-STARTED", started)
+        self.assertFalse(self.channel._pid_alive(record["pid"]))
+        self.assertTrue(wait_for(lambda: "connected=true" in self.channel.status(), timeout=10))
 
 
 if __name__ == "__main__":

@@ -135,9 +135,13 @@ def start_hive(ws_url="", ws_token=""):
     if not url:
         return "HIVE-CHANNEL-DISABLED missing HIVE_WS_URL"
     folder = channel_dir()
-    pid = _read_json(folder / "daemon.pid", None)
+    pid, owner = _daemon_record(folder)
     if pid and _pid_alive(pid):
-        return f"HIVE-CHANNEL-ALREADY-RUNNING pid={pid}"
+        if owner == os.getpid():
+            return f"HIVE-CHANNEL-ALREADY-RUNNING pid={pid}"
+        # Left over from a previous agent process: it is about to exit on its
+        # own, so replace it rather than adopt it.
+        _terminate(pid)
     env = dict(os.environ, HIVE_WS_URL=url, HIVE_WS_TOKEN=token, HIVE_CHANNEL_DIR=str(folder))
     process = subprocess.Popen(
         [_python_executable(), str(pathlib.Path(__file__).resolve()), "--daemon", str(os.getpid())],
@@ -147,13 +151,29 @@ def start_hive(ws_url="", ws_token=""):
         stderr=subprocess.STDOUT,
         start_new_session=True,
     )
-    _write_json(folder / "daemon.pid", process.pid)
+    _write_json(folder / "daemon.pid", {"pid": process.pid, "owner": os.getpid()})
     return f"HIVE-CHANNEL-STARTED {url} pid={process.pid}"
 
 
+def _daemon_record(folder):
+    record = _read_json(folder / "daemon.pid", None)
+    if isinstance(record, dict):
+        return record.get("pid"), record.get("owner")
+    return record, None
+
+
+def _terminate(pid, timeout=5.0):
+    try:
+        os.kill(int(pid), signal.SIGTERM)
+    except OSError:
+        return
+    deadline = time.time() + timeout
+    while time.time() < deadline and _pid_alive(pid):
+        time.sleep(0.05)
+
+
 def stop_hive():
-    folder = channel_dir()
-    pid = _read_json(folder / "daemon.pid", None)
+    pid, _ = _daemon_record(channel_dir())
     if pid and _pid_alive(pid):
         try:
             os.kill(int(pid), signal.SIGTERM)
@@ -214,7 +234,7 @@ def send_message(text):
 def status():
     folder = channel_dir()
     state = _read_json(folder / "status.json", {})
-    pid = _read_json(folder / "daemon.pid", None)
+    pid, _ = _daemon_record(folder)
     return (
         f"HIVE-CHANNEL connected={str(bool(state.get('connected'))).lower()} "
         f"daemon={'alive' if pid and _pid_alive(pid) else 'down'} url={state.get('url', '')} "
