@@ -68,6 +68,10 @@ CREATE TABLE IF NOT EXISTS wakeups (
   id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, cron TEXT, at TEXT, tz TEXT NOT NULL, text TEXT NOT NULL,
   enabled INTEGER NOT NULL, next_run_at TEXT, last_run_at TEXT, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS reads (
+  agent_id TEXT NOT NULL, swarm_id TEXT NOT NULL, statement TEXT NOT NULL, stamp TEXT NOT NULL,
+  created_at TEXT NOT NULL, PRIMARY KEY (agent_id, statement)
+);
 CREATE TABLE IF NOT EXISTS control_ops (
   id INTEGER PRIMARY KEY AUTOINCREMENT, agent_id TEXT NOT NULL, op TEXT NOT NULL, taken INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL
@@ -96,6 +100,10 @@ class Database:
             for column, ddl in (("last_error", "TEXT"), ("idle_sleep_minutes", "REAL NOT NULL DEFAULT 0")):
                 if column not in columns:
                     self._conn.execute(f"ALTER TABLE agents ADD COLUMN {column} {ddl}")
+            goal_columns = {r[1] for r in self._conn.execute("PRAGMA table_info(goals)")}
+            for column, ddl in (("lease_until", "TEXT"), ("attempts", "INTEGER NOT NULL DEFAULT 0")):
+                if column not in goal_columns:
+                    self._conn.execute(f"ALTER TABLE goals ADD COLUMN {column} {ddl}")
             message_columns = {r[1] for r in self._conn.execute("PRAGMA table_info(messages)")}
             if "extra" not in message_columns:
                 self._conn.execute("ALTER TABLE messages ADD COLUMN extra TEXT")

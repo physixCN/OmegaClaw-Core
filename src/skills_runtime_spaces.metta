@@ -3,11 +3,17 @@
 ; export! and bound-space! live here, before the runtime-space functions that
 ; call them: PeTTa compiles calls at import time, so a definition imported later
 ; leaves the call as an inert literal and nothing is saved or bounded.
+; Saves go to a temp file that is renamed over the old one only once it is
+; complete, so a failure part-way leaves the previous save on disk.
 (= (export! $space $file)
-   (progn (write-file $file "")
-          (collapse (let $x (get-atoms $space)
-                         (append-file $file (repr $x))))))
+   (let $tmp (py-call (helper.save_begin $file))
+        (progn (collapse (let $x (get-atoms $space)
+                              (append-file $tmp (repr $x))))
+               (py-call (helper.save_commit $tmp $file)))))
 
+; Over the limit, atoms are dropped in get-atoms order, except protected ones
+; (identity, pins, goals, commitments).  Every drop is written to
+; memory/evicted.metta so nothing disappears without a record.
 (= (bound-space! $space $limit)
    (progn (change-state! &exportchars 0)
           (collapse (let* (($x (get-atoms $space))
@@ -15,7 +21,11 @@
                            ($l (string_length $y))
                            ($_ (change-state! &exportchars (+ (get-state &exportchars) $l))))
                           (if (> (get-state &exportchars) $limit)
-                              (remove-atom $space $x) _)))))
+                              (if (== (py-call (helper.protected_atom $y)) True)
+                                  _
+                                  (progn (py-call (helper.evict_receipt $y))
+                                         (remove-atom $space $x)))
+                              _)))))
 
 (= (register-space $name $handle $role)
    (progn (collapse (match &self (SpaceRegistry $name $oldhandle $oldrole)

@@ -460,6 +460,36 @@ through `run_metta_smokes.py`, and Playwright for the UI.
   and finish them, the Omega merges the results, and a risky step waits for UI
   approval. Agents sleep when idle and wake on new messages.
 
+### Anti-drift track (runs alongside phases 2 to 3; see DRIFT.md)
+
+Lessons from Jon's earlier Omega and hive work and from how Dots and Grok Bot
+handle drift. DRIFT.md has the evidence and the full list.
+
+- [x] Uncited echoes inherit the stamp the agent read (no confidence inflation).
+- [x] Spend refused before the call: paid models need a budget, unknown prices
+      are refused, worst-case cost is reserved, there is a hive-wide cap and a
+      per-agent calls-per-minute ceiling.
+- [x] Goal leases with heartbeat and expiry, `waiting` (on a human) and
+      `stalled` states, `done` needs a result, atomic claims, bounded splitting.
+- [x] Space bounding keeps protected atoms and writes eviction receipts;
+      atomic space saves; the spam-shield nag off by default.
+- [ ] P0: `once` after the LLM call in the loop; atomic hive-spaces log;
+      chat-quoted beliefs count as reads.
+- [ ] P1: claim labels, ambiguity quarantine, LLM-confidence discount, stamp
+      cap, valid-time and supersession, conflict atoms, taint, compaction with
+      provenance.
+- [ ] P1: loop and oscillation detectors, goal-linked actions, goal
+      re-confirmation, goal heartbeat skills, origin-bound approvals,
+      version pins.
+- [ ] P2: drift monitor, honest reports, current-state view, run-kind labels
+      on traces, independent auditor agent, persona and policy anchors.
+- [ ] Long-horizon evals: goal-drift pressure tests, long simulations and
+      poisoning red-team runs.
+- **Accept:** in a 24-hour mixed-swarm soak with mock and local models, no goal
+  is held past its lease, no belief's confidence rises from echoes, spend
+  stays inside the caps, the drift monitor flags an injected loop and an
+  injected off-goal agent, and no protected atom is lost.
+
 ### Phase 2.5: Crucible (gated recursive self-improvement)
 
 The swarm improves a **candidate Omega** inside a firewalled testbed.

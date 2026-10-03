@@ -32,7 +32,7 @@ interface Agent {
   hue: number;           // 0-359, the agent's colour everywhere in the UI
   status: AgentStatus;
   driver: string;        // "local" | "docker" | ...
-  budget_usd: number;    // hard cap, 0 = unlimited
+  budget_usd: number;    // hard cap; 0 = none, so free (mock/local) models only
   spent_usd: number;
   connected: boolean;    // live hub connection
   last_error: string | null;  // why status is "error"
@@ -304,10 +304,36 @@ interface MemoryAtom { index: number; text: string }
 - **Goals:**
   - `GET /api/agent/goals?status=open` → `Goal[]` (the agent's swarm);
   - `POST /api/agent/goals` `{title, detail?, priority?, parent_id?}` → `Goal`;
-  - `POST /api/agent/goals/{id}/claim` → `Goal` (409 if already claimed);
-  - `POST /api/agent/goals/{id}/result` `{status: "done" | "failed", result}` → `Goal`.
+  - `POST /api/agent/goals/{id}/claim` → `Goal` (409 if already claimed).
+    A claim is a lease: `lease_until` is set `HIVE_GOAL_LEASE_MINUTES` (default
+    60) ahead;
+  - `POST /api/agent/goals/{id}/heartbeat` → `Goal`. The claimer renews its
+    lease; also resumes a `waiting` goal (409 if you don't hold it);
+  - `POST /api/agent/goals/{id}/result` `{status: "done" | "failed" | "waiting", result}`
+    → `Goal`.
+    - `done` needs a non-empty `result` (400 `no_result`).
+    - `waiting` means "delivered, waiting on a person" and pauses the lease.
+  - A lapsed lease puts the goal back to `open` and re-announces it. After 3
+    lapses the goal is `stalled` until a person acts.
+  - Splitting is limited to 3 levels and 12 subgoals per goal (400 `too_deep`,
+    `too_many_subgoals`).
+  - Goal statuses: `open`, `claimed`, `waiting`, `stalled`, `done`, `failed`,
+    `cancelled`. `Goal` gains `lease_until` and `attempts`.
 - **New goals** are announced to the swarm's awake members as hub envelopes
   with `event: "goal"` and `goal_id`.
+- **Reads count.** When an agent reads a belief (`/api/agent/query`,
+  `/api/agent/belief`) and then publishes the same statement without citing
+  evidence, the publish inherits the stamp it read. It is an echo and does not
+  revise the belief.
+- **LLM spend is checked before the call.**
+  - 402 `no_budget`: a paid model with `budget_usd` 0.
+  - 402 `unpriced_model`: a remote model with no price; `HIVE_ALLOW_UNPRICED=1`
+    allows it.
+  - 402 `budget_exhausted`: spent plus the call's worst-case cost would pass
+    the budget.
+  - 402 `hive_budget_exhausted`: the call would pass `HIVE_BUDGET_USD`.
+  - 429 `rate_limited`: more than `HIVE_MAX_LLM_CALLS_PER_MINUTE` calls (default
+    60) in a minute.
 
 ## Default policy
 

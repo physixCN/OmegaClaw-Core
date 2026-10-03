@@ -30,6 +30,9 @@ class Provider:
         entry = self.prices.get(model) or self.prices.get("*") or {}
         return float(entry.get("in", 0.0)), float(entry.get("out", 0.0))
 
+    def priced(self, model):
+        return bool(self.prices.get(model) or self.prices.get("*"))
+
 
 DEFAULT_PROVIDERS = [
     Provider("mock", models=["echo"], local=True),
@@ -57,6 +60,13 @@ class Settings:
     providers: dict
     default_model: str
     embedding_model: str
+    # Spend guards (docs/omegadots/DRIFT.md): a cap for the whole hive (0 = none)
+    # and a per-agent ceiling on LLM calls per minute, which stops retry storms.
+    hive_budget_usd: float = 0.0
+    max_llm_calls_per_minute: int = 60
+    allow_unpriced: bool = False
+    # A claimed goal goes back to the swarm when its claimer stops renewing it.
+    goal_lease_minutes: float = 60.0
 
     @property
     def agents_dir(self):
@@ -88,6 +98,10 @@ def load_settings(**overrides) -> Settings:
         providers=_load_providers(),
         default_model=os.environ.get("HIVE_DEFAULT_MODEL", "mock/echo"),
         embedding_model=os.environ.get("HIVE_EMBEDDING_MODEL", "mock/hash"),
+        hive_budget_usd=float(os.environ.get("HIVE_BUDGET_USD", "0") or 0),
+        max_llm_calls_per_minute=int(os.environ.get("HIVE_MAX_LLM_CALLS_PER_MINUTE", "60") or 0),
+        allow_unpriced=os.environ.get("HIVE_ALLOW_UNPRICED", "") == "1",
+        goal_lease_minutes=float(os.environ.get("HIVE_GOAL_LEASE_MINUTES", "60") or 60),
     )
     values.update(overrides)
     settings = Settings(**values)

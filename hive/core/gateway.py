@@ -188,6 +188,26 @@ class Gateway:
             raise GatewayError(400, "unknown_provider", f"no provider {name!r}")
         return provider
 
+    def estimate(self, agent, body, allow_unpriced=False):
+        """Worst-case cost of a call before it is made: (paid, usd).
+
+        Local and mock models are free.  A remote model with no known price is
+        refused rather than counted as $0, unless the operator allows it.
+        """
+        provider_name, model = split_model(agent["model"])
+        provider = self.provider(provider_name)
+        if provider.local:
+            return False, 0.0
+        if not provider.priced(model):
+            if allow_unpriced:
+                return True, 0.0
+            raise GatewayError(402, "unpriced_model",
+                               f"no price is configured for {agent['model']}; add one to the providers file "
+                               "or set HIVE_ALLOW_UNPRICED=1")
+        prompt_tokens = len(json.dumps(body.get("messages", ""))) // 4 + 1
+        max_out = int(body.get("max_completion_tokens") or body.get("max_tokens") or 4096)
+        return True, self.cost(provider, model, prompt_tokens, max_out)
+
     def cost(self, provider, model, prompt_tokens, completion_tokens):
         price_in, price_out = provider.price(model)
         return (prompt_tokens * price_in + completion_tokens * price_out) / 1_000_000

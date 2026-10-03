@@ -1,12 +1,33 @@
-"""Swarm goals: posted by people or dots, claimed and finished by dots."""
+"""Swarm goals: posted by people or dots, claimed and finished by dots.
+
+Anti-drift rules (docs/omegadots/DRIFT.md):
+- A claim is a lease.  The claimer renews it with a heartbeat; when it lapses
+  the goal goes back to the swarm, and after MAX_ATTEMPTS lapses it is
+  ``stalled`` until a person looks at it, instead of being re-tried forever.
+- ``waiting`` means "delivered, waiting on a person": not failing, so the
+  claimer does not keep re-sending, and its lease is paused.
+- ``done`` needs a result that says what was done.
+- Splitting is bounded in depth and fan-out, so one goal cannot spawn an
+  unbounded tree of subgoals.
+"""
 
 from __future__ import annotations
 
+import datetime
 import json
 
 from .db import new_id, now
 
-STATUSES = {"open", "claimed", "done", "failed", "cancelled"}
+STATUSES = {"open", "claimed", "waiting", "stalled", "done", "failed", "cancelled"}
+UNFINISHED = ("open", "claimed", "waiting", "stalled")
+MAX_ATTEMPTS = 3
+MAX_DEPTH = 4
+MAX_CHILDREN = 12
+
+
+def _later(minutes):
+    moment = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=minutes)
+    return moment.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 class Goals:
@@ -27,6 +48,13 @@ class Goals:
             params.append(status)
         return self.db.all(sql + " ORDER BY priority DESC, created_at", params)
 
+    def depth(self, goal):
+        depth = 0
+        while goal["parent_id"] and depth < MAX_DEPTH + 1:
+            goal = self.get(goal["parent_id"])
+            depth += 1
+        return depth
+
     def _emit(self, goal_id):
         goal = self.get(goal_id)
         self.hive.events.publish("goal.updated", goal=goal)
@@ -43,6 +71,11 @@ class Goals:
             author = created_by.removeprefix("agent:")
             if created_by.startswith("agent:") and parent["claimed_by"] != author:
                 raise self.hive.error(403, "forbidden", "only the dot that claimed a goal can split it")
+            if self.depth(parent) + 1 >= MAX_DEPTH:
+                raise self.hive.error(400, "too_deep", f"goals can be split at most {MAX_DEPTH - 1} levels deep")
+            children = self.db.one("SELECT COUNT(*) AS n FROM goals WHERE parent_id = ?", (parent_id,))["n"]
+            if children >= MAX_CHILDREN:
+                raise self.hive.error(400, "too_many_subgoals", f"a goal can have at most {MAX_CHILDREN} subgoals")
         stamp = now()
         row = {"id": new_id("g"), "swarm_id": swarm_id, "parent_id": parent_id or None,
                "title": str(title).strip()[:300], "detail": str(detail or "")[:4000],
@@ -87,20 +120,60 @@ class Goals:
         goal = self.get(goal_id)
         if goal["swarm_id"] != agent["swarm_id"]:
             raise self.hive.error(403, "forbidden", "goal is in another swarm")
-        if goal["status"] != "open":
+        # One conditional UPDATE, so two dots claiming at once cannot both win.
+        cursor = self.db.execute(
+            "UPDATE goals SET status = 'claimed', claimed_by = ?, lease_until = ?, attempts = attempts + 1, "
+            "updated_at = ? WHERE id = ? AND status = 'open'",
+            (agent["id"], _later(self.hive.settings.goal_lease_minutes), now(), goal_id))
+        if cursor.rowcount != 1:
+            goal = self.get(goal_id)
             raise self.hive.error(409, "not_open", f"goal is {goal['status']}"
                                   + (f" by {goal['claimed_by']}" if goal["claimed_by"] else ""))
-        self.db.update("goals", goal_id, {"status": "claimed", "claimed_by": agent["id"], "updated_at": now()})
+        return self._emit(goal_id)
+
+    def heartbeat(self, agent, goal_id):
+        """Renew the claimer's lease; also resumes a goal that was waiting on a person."""
+        goal = self.get(goal_id)
+        if goal["claimed_by"] != agent["id"] or goal["status"] not in ("claimed", "waiting"):
+            raise self.hive.error(409, "not_claimed", "you do not hold this goal")
+        self.db.update("goals", goal_id, {"status": "claimed", "updated_at": now(),
+                                          "lease_until": _later(self.hive.settings.goal_lease_minutes)})
         return self._emit(goal_id)
 
     def result(self, agent, goal_id, status, result):
         goal = self.get(goal_id)
         if goal["claimed_by"] != agent["id"]:
             raise self.hive.error(403, "forbidden", "only the dot that claimed a goal can finish it")
-        if status not in ("done", "failed"):
-            raise self.hive.error(400, "bad_request", "status must be done or failed")
-        self.db.update("goals", goal_id, {"status": status, "result": str(result or "")[:4000], "updated_at": now()})
+        if goal["status"] not in ("claimed", "waiting"):
+            raise self.hive.error(409, "not_claimed", f"goal is {goal['status']}")
+        if status not in ("done", "failed", "waiting"):
+            raise self.hive.error(400, "bad_request", "status must be done, failed or waiting")
+        text = str(result or "").strip()
+        if status == "done" and not text:
+            raise self.hive.error(400, "no_result", "say what was done: a goal is not done without a result")
+        values = {"status": status, "result": text[:4000], "updated_at": now()}
+        if status == "waiting":
+            values["lease_until"] = None
+        self.db.update("goals", goal_id, values)
         return self._emit(goal_id)
+
+    async def expire(self, moment=None):
+        """Release claims whose lease lapsed; stall goals that keep lapsing."""
+        moment = moment or now()
+        released = []
+        for goal in self.db.all("SELECT * FROM goals WHERE status = 'claimed' AND lease_until IS NOT NULL "
+                                "AND lease_until < ?", (moment,)):
+            if goal["attempts"] >= MAX_ATTEMPTS:
+                self.db.update("goals", goal["id"], {"status": "stalled", "lease_until": None, "updated_at": now(),
+                                                     "result": f"stalled: {goal['attempts']} claims lapsed "
+                                                               f"without a result (last {goal['claimed_by']})"})
+                self._emit(goal["id"])
+            else:
+                self.db.update("goals", goal["id"], {"status": "open", "claimed_by": None, "lease_until": None,
+                                                     "updated_at": now()})
+                await self.announce(self._emit(goal["id"]))
+            released.append(goal["id"])
+        return released
 
     async def notify_parent(self, goal):
         """When the last subgoal finishes, tell whoever holds the parent, with the results."""
@@ -108,7 +181,7 @@ class Goals:
             return
         parent = self.get(goal["parent_id"])
         children = self.db.all("SELECT * FROM goals WHERE parent_id = ?", (parent["id"],))
-        if parent["status"] != "claimed" or any(c["status"] in ("open", "claimed") for c in children):
+        if parent["status"] != "claimed" or any(c["status"] in UNFINISHED for c in children):
             return
         summary = "; ".join(f"{c['title']}: {c['status']} - {c['result'] or ''}".strip(" -") for c in children)
         await self.hive.send_to_agent(parent["claimed_by"], f"[SUBGOALS-DONE {parent['id']}] {summary}",

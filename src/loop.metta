@@ -20,7 +20,7 @@
 (= (initLoop)
    (progn (configure maxNewInputLoops 12) ;bounded restart posture; the agent can choose more with energy skills
           (configure maxWakeLoops 6) ;warm autonomous wake posture, not idle-only
-          (configure spamShield True)
+          (configure spamShield False) ;the per-cycle "DO NOT RE-SEND" nag trained wind-down silence (docs/omegadots/DRIFT.md)
           (configure LLM gpt-5.4)
           (configure provider OpenAI)
           (configure sleepInterval 3) ;slower continuous loop

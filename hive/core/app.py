@@ -62,6 +62,7 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
             try:
                 await run_in_threadpool(supervisor.check)
                 await hive.scheduler.tick()
+                await hive.goals.expire()
                 for agent_id in hive.idle_candidates():
                     await run_in_threadpool(hive.lifecycle, agent_id, "sleep")
             except Exception as exc:  # keep reconciling
@@ -301,8 +302,9 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
     @app.post("/llm/v1/chat/completions")
     async def chat_completions(request: Request):
         agent = agent_from(request)
-        hive.check_budget(agent)
         data = await body(request)
+        paid, estimate = gateway.estimate(agent, data, settings.allow_unpriced)
+        hive.check_budget(agent, paid, estimate)
         hive.thinking(agent["id"], "llm")
         started = time.monotonic()
         try:
@@ -336,9 +338,7 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
     @app.get("/api/agent/belief")
     async def agent_belief(statement: str, request: Request):
         agent = agent_from(request)
-        if not agent["swarm_id"]:
-            raise HiveError(400, "no_swarm", "agent is not in a swarm")
-        return await run_in_threadpool(hive.belief, agent["swarm_id"], statement)
+        return await run_in_threadpool(hive.agent_belief, agent["id"], statement)
 
     # ---- phase 2: policy and approvals ----------------------------------------------------------
 
@@ -501,6 +501,10 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
     async def agent_claim(goal_id: str, request: Request):
         agent = agent_from(request)
         return hive.goals.claim(agent, goal_id)
+
+    @app.post("/api/agent/goals/{goal_id}/heartbeat")
+    async def agent_goal_heartbeat(goal_id: str, request: Request):
+        return hive.goals.heartbeat(agent_from(request), goal_id)
 
     @app.post("/api/agent/goals/{goal_id}/result")
     async def agent_result(goal_id: str, request: Request):

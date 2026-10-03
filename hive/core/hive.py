@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import collections
 import hashlib
 import json
 import datetime
@@ -10,7 +11,9 @@ import pathlib
 import random
 import re
 import secrets
+import time
 
+from ..spaces import sexpr
 from ..spaces.service import SpaceService
 from .config import Settings
 from .db import Database, new_id, now
@@ -46,6 +49,7 @@ class Hive:
         self.goals = Goals(self)
         self.scheduler = Scheduler(self)
         self.last_llm = {}  # agent_id -> (latency_ms, tokens) of its latest model call
+        self.llm_calls = {}  # agent_id -> monotonic times of its calls in the last minute
 
     # ---- serialisation ---------------------------------------------------------------
 
@@ -340,6 +344,14 @@ class Hive:
                 (row["swarm_id"], agent_id, canonical))
             if previous:
                 evidence = [e for e in json.loads(previous["stamp"]) if e.startswith(f"ev:{agent_id}:")] or None
+            if not evidence:
+                # Repeating what the commons told you is an echo, not a second
+                # observation: it inherits the stamp the agent read, so it
+                # cannot revise the belief upward.
+                seen = self.db.one("SELECT stamp FROM reads WHERE agent_id = ? AND statement = ?",
+                                   (agent_id, canonical))
+                if seen:
+                    evidence = json.loads(seen["stamp"]) or None
         if evidence:
             # Cited evidence must already exist: minted earlier for this agent, or
             # seen in the hive.  Otherwise an agent could fabricate "independent"
@@ -413,20 +425,72 @@ class Hive:
                            (swarm_id, item["statement"]))
         return dict(belief, assertions=[self.assertion_view(r) for r in rows], choices=item["choices"])
 
+    def _note_read(self, row, statement, stamp):
+        """Remember which beliefs an agent has read, with the evidence behind them."""
+        if not stamp:
+            return
+        self.db.execute("INSERT INTO reads (agent_id, swarm_id, statement, stamp, created_at) VALUES (?, ?, ?, ?, ?) "
+                        "ON CONFLICT(agent_id, statement) DO UPDATE SET stamp = excluded.stamp, "
+                        "created_at = excluded.created_at",
+                        (row["id"], row["swarm_id"], statement, json.dumps(stamp), now()))
+
     def query(self, agent_id, pattern):
         row = self._agent_row(agent_id)
         if not row["swarm_id"]:
             return {"results": []}
         try:
-            return {"results": self.spaces.query([row["swarm_id"]], pattern)}
+            results = self.spaces.query([row["swarm_id"]], pattern)
         except ValueError as exc:
             raise HiveError(400, "bad_pattern", str(exc)) from exc
+        for text in results:
+            try:
+                value = sexpr.parse(text)
+            except ValueError:
+                continue
+            if isinstance(value, list) and len(value) == 4 and value[0] == "Current":
+                stamp = [f"ev:{e[1]}:{e[2]}" for e in (value[3] or []) if isinstance(e, list) and len(e) == 3]
+                self._note_read(row, sexpr.render(value[1]), stamp)
+        return {"results": results}
+
+    def agent_belief(self, agent_id, statement):
+        """A belief as an agent reads it; the read is remembered for echo detection."""
+        row = self._agent_row(agent_id)
+        if not row["swarm_id"]:
+            raise HiveError(400, "no_swarm", "agent is not in a swarm")
+        belief = self.belief(row["swarm_id"], statement)
+        self._note_read(row, belief["statement"], belief["stamp"])
+        return belief
 
     # ---- usage ----------------------------------------------------------------------------------
 
-    def check_budget(self, agent):
-        if agent["budget_usd"] and agent["spent_usd"] >= agent["budget_usd"]:
-            raise HiveError(402, "budget_exhausted", f"{agent['name']} has spent its ${agent['budget_usd']:.2f} budget")
+    def check_budget(self, agent, paid=False, estimate=0.0):
+        """Refuse an LLM call before it is made when it could overspend.
+
+        A paid call needs a budget (0 means none, not unlimited) with room for
+        the call's worst-case cost, and room under the hive-wide cap.  Every
+        call counts against a per-agent calls-per-minute ceiling, which stops a
+        loop that keeps re-calling the model from running up a bill.
+        """
+        limit = self.settings.max_llm_calls_per_minute
+        if limit:
+            moment = time.monotonic()
+            calls = self.llm_calls.setdefault(agent["id"], collections.deque())
+            while calls and moment - calls[0] > 60:
+                calls.popleft()
+            if len(calls) >= limit:
+                raise HiveError(429, "rate_limited", f"{agent['name']} made {limit} LLM calls in the last minute")
+            calls.append(moment)
+        budget, spent = agent["budget_usd"] or 0.0, agent["spent_usd"] or 0.0
+        if paid and budget <= 0:
+            raise HiveError(402, "no_budget", f"{agent['name']} needs a budget to use {agent['model']}")
+        if budget and spent + estimate > budget:
+            raise HiveError(402, "budget_exhausted", f"{agent['name']} has spent ${spent:.2f} of its "
+                                                     f"${budget:.2f} budget")
+        cap = self.settings.hive_budget_usd
+        if paid and cap:
+            total = self.db.one("SELECT COALESCE(SUM(cost_usd), 0) AS total FROM usage")["total"]
+            if total + estimate > cap:
+                raise HiveError(402, "hive_budget_exhausted", f"the hive has spent ${total:.2f} of its ${cap:.2f} cap")
 
     def record_usage(self, agent, model, usage):
         row = {"agent_id": agent["id"], "model": model, "prompt_tokens": usage["prompt_tokens"],

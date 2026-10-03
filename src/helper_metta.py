@@ -6,6 +6,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import time
 
 try:
     from .helper_history import _iter_history_entries, _compact_long_history_tokens
@@ -442,6 +443,54 @@ def memory_file(name):
     # append-file requires an existing file; a fresh agent's memory dir has none.
     path.touch(exist_ok=True)
     return str(path)
+
+
+# Atoms that space bounding never drops: identity, pins, goals and commitments.
+# Losing them silently is how a full persistent space loses who the agent is.
+_PROTECTED_ATOM = re.compile(r"^\(\s*(Pin|Pinned|Protected|Identity|Persona|Goal|Commitment)\b")
+
+
+def protected_atom(text):
+    """True when bound-space! must keep this atom whatever the limit."""
+    return bool(_PROTECTED_ATOM.match(str(text or "").strip()))
+
+
+def evict_receipt(text):
+    """Record an atom that bound-space! removed, so the drop can be audited or undone."""
+    path = MEMORY_DIR / "evicted.metta"
+    MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(f'(Evicted "{stamp}" {str(text).strip()})\n')
+    return True
+
+
+def save_begin(path):
+    """Start an atomic save: an empty temp file next to ``path``."""
+    tmp = f"{path}.saving"
+    with open(tmp, "w", encoding="utf-8"):
+        pass
+    return tmp
+
+
+def save_commit(tmp, path):
+    """Finish an atomic save: flush the temp file to disk, then rename it over ``path``.
+
+    A crash before the rename leaves the previous file intact, so a failed
+    export can no longer leave a space empty on disk.
+    """
+    with open(tmp, "rb+") as handle:
+        os.fsync(handle.fileno())
+    os.replace(tmp, path)
+    try:
+        directory = os.open(os.path.dirname(os.path.abspath(path)) or ".", os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    except OSError:
+        pass
+    return True
 
 
 def ensure_runtime_memory_files(names=""):
