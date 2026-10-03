@@ -321,6 +321,17 @@ Not in this route:
   response can be retried safely. Anything else is refused: a differing payload (409), a cancelled or
   expired request (409 `goal_cancelled` / `goal_expired` / `not_claimed`), or a late result.
   Applications keep their own `base_revision` checks and pending review regardless.
+- **Async error boundary.** Exceptions from `view`/`act` become a clean 500 `program_error`, whether
+  they are raised before or after an `await`.
+- **Atomic bound request.**
+  - `await ctx.bound_request(title, assignee, snapshot={title, body?, atoms?}, binding={…your fields},
+    detail="", minutes=30, deadline_minutes=None)` shows the snapshot to the named dot, then posts the
+    assigned goal.
+  - The hive adds `snapshot_digest` and `share_ids` to the binding.
+  - If the goal cannot be posted, the exhibit is revoked before the error is raised.
+  - `await ctx.revoke_exhibit(exhibit_id)` withdraws any exhibit the program created.
+  - Programs that keep their own snapshot store (`share_ids: []`) are unaffected: they revoke in their
+    own store.
 - **Proposal state on items** (optional): `item.proposal = {goal_id, binding_digest, transport, review}`.
   - `transport` is `validated | stale | refused | expired | cancelled`. This is what the **hive** checked:
     binding and digest matched, or the request ended. The program copies it from the goal.

@@ -282,6 +282,16 @@ class Shares:
         return await self._publish(f"program:{program_id}", program_id, swarm_id, title, readers,
                                    self._minutes(minutes), body, items, f"program {program_id}", size)
 
+    async def revoke_program_exhibit(self, program_id, swarm_id, exhibit_id):
+        ex = self.db.one("SELECT * FROM exhibits WHERE id = ?", (exhibit_id,))
+        if ex is None or ex["owner_id"] != f"program:{program_id}" or ex["swarm_id"] != swarm_id:
+            raise self.hive.error(404, "not_found", f"no exhibit {exhibit_id} of this program")
+        closed = []
+        for share in self.db.all("SELECT id FROM shares WHERE exhibit_id = ? AND status IN ('requested', 'active')",
+                                 (exhibit_id,)):
+            closed.append((await self.revoke(share["id"]))["id"])
+        return {"exhibit_id": exhibit_id, "revoked": closed}
+
     async def _publish(self, owner_id, owner_name, swarm_id, title, readers, minutes, body, items, source, size):
         exhibit_id = new_id("ex")
         digest = exhibit_digest(title, body, items)

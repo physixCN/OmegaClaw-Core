@@ -174,3 +174,59 @@ def test_retries_must_match_the_full_payload_and_never_revive_closed_requests(cl
     same = {"status": "done", "result": "r", "data": {"binding": b2}}
     assert call(client, scientist, "POST", f"/api/agent/goals/{gid}/result", same).json()["error"]["code"] \
         == "goal_cancelled"
+
+
+ATOMIC = textwrap.dedent('''
+    def describe():
+        return {"contract": "0.1", "kinds": [{"id": "claim", "label": "Claim", "role": "claim"}], "relations": [],
+                "actions": [{"id": "ask", "label": "Ask", "applies_to": ["claim"]},
+                            {"id": "boom", "label": "Boom", "applies_to": ["claim"]}]}
+
+    def view(ctx, focus, stage):
+        return {"revision": "r1", "items": [{"id": "c1", "kind": "claim", "label": "claim"}]}
+
+    async def act(ctx, action, items, params):
+        if action == "boom":
+            await ctx.goals_noop() if False else None
+            raise ValueError("raised after an await inside an async program")
+        out = await ctx.bound_request("Analyse c1", params["who"], {"title": "Snapshot", "atoms": ["(a b)"]},
+                                      {"request_id": "req-9", "base_revision": "r1"}, deadline_minutes=5)
+        return {"status": "started", "task": {"id": out["goal"]["id"], "kind": "goal", "status": "open"},
+                "detail": {"binding": out["binding"]}}
+''')
+
+
+def test_async_program_errors_are_clean_and_bound_requests_are_atomic(client, tmp_path, monkeypatch):
+    folder = tmp_path / "atomic"
+    folder.mkdir()
+    (folder / "plugin.json").write_text(json.dumps({"id": "atomic", "name": "Atomic",
+                                                    "capabilities": ["goals:read", "goals:write", "exhibits:write"]}))
+    (folder / "program.py").write_text(ATOMIC)
+    monkeypatch.setenv("HIVE_PLUGIN_DIRS", str(folder))
+    client.post("/api/programs/reload")
+    swarm = client.post("/api/swarms", json={"name": "Atomic"}).json()
+    sci = client.post("/api/agents", json={"name": "Scientist", "kind": "module", "swarm_id": swarm["id"]}).json()
+    boom = client.post("/api/programs/atomic/act", json={"swarm_id": swarm["id"], "action": "boom", "items": ["c1"]})
+    assert boom.status_code == 500 and boom.json()["error"]["code"] == "program_error"
+    ok = client.post("/api/programs/atomic/act", json={"swarm_id": swarm["id"], "action": "ask", "items": ["c1"],
+                                                       "params": {"who": "Scientist"}}).json()
+    binding = ok["detail"]["binding"]
+    assert binding["request_id"] == "req-9" and binding["snapshot_digest"].startswith("sha256:")
+    assert call(client, sci, "GET", f"/api/agent/shares/{binding['share_ids'][0]}/atoms").status_code == 200
+    # an assignee that is not a dot: the exhibit cannot even be shown, so nothing is left behind
+    bad = client.post("/api/programs/atomic/act", json={"swarm_id": swarm["id"], "action": "ask", "items": ["c1"],
+                                                        "params": {"who": "Nobody"}})
+    assert bad.status_code == 404
+    hive = client.app.state.hive
+    hive.db.update("goals", ok["task"]["id"], {"status": "done"})   # make the next create fail on a bad deadline
+    before = len(client.get("/api/shares", params={"status": "active"}).json())
+    monkeypatch.setattr(hive.goals, "create", _fail)
+    failed = client.post("/api/programs/atomic/act", json={"swarm_id": swarm["id"], "action": "ask", "items": ["c1"],
+                                                           "params": {"who": "Scientist"}})
+    assert failed.status_code == 503
+    assert len(client.get("/api/shares", params={"status": "active"}).json()) == before   # exhibit revoked
+
+
+async def _fail(*args, **kwargs):
+    from hive.core.hive import HiveError
+    raise HiveError(503, "unavailable", "goal store unavailable")

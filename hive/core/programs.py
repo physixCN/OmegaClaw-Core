@@ -139,6 +139,32 @@ class ProgramContext:
         await self._hive.goals.notify_cancelled(goal_id)
         return self._hive.goals.view(self._hive.goals.get(goal_id))
 
+    async def revoke_exhibit(self, exhibit_id):
+        """Withdraw an exhibit this program created: every reader's share closes now."""
+        self._need("exhibits:write")
+        return await self._hive.shares.revoke_program_exhibit(self._program["id"], self.swarm_id, exhibit_id)
+
+    async def bound_request(self, title, assignee, snapshot, binding, detail="", minutes=30, deadline_minutes=None,
+                            priority=0.5):
+        """Show a snapshot to one named dot and post the goal bound to it, as one step.
+
+        snapshot = {title, body?, atoms?}; binding = the program's own fields (e.g. request_id,
+        base_revision). The hive adds snapshot_digest and share_ids. If the goal cannot be posted, the
+        exhibit is revoked before the error is raised, so no snapshot outlives a failed request.
+        """
+        self._need("exhibits:write")
+        self._need("goals:write")
+        shown = await self.exhibit(snapshot.get("title") or title, [assignee], minutes,
+                                   snapshot.get("body", ""), snapshot.get("atoms"))
+        full = dict(binding or {}, snapshot_digest=shown["digest"], share_ids=[s["id"] for s in shown["shares"]])
+        try:
+            goal = await self.create_goal(title, detail, assignee=assignee, binding=full, priority=priority,
+                                          deadline_minutes=deadline_minutes)
+        except Exception:
+            await self.revoke_exhibit(shown["exhibit_id"])
+            raise
+        return {"goal": goal, "exhibit": shown, "binding": full}
+
     async def exhibit(self, title, to, minutes=30, body="", atoms=None):
         """Show a snapshot to named dots for a while; returns its content digest and share ids."""
         self._need("exhibits:write")
@@ -256,9 +282,14 @@ class Programs:
 
     # ---- running ------------------------------------------------------------------------------
 
-    def _call(self, entry, fn, *args):
+    async def _call(self, entry, fn, *args):
+        """Run a program function, sync or async; any exception that is not a hive error becomes a clean
+        500 program_error, including ones raised after an await inside an async program."""
         try:
-            return fn(*args)
+            value = fn(*args)
+            if hasattr(value, "__await__"):
+                value = await value
+            return value
         except Exception as exc:
             if getattr(exc, "status", None):
                 raise
@@ -269,8 +300,7 @@ class Programs:
         entry = self._ready(program_id)
         stage = stage if stage in STAGES else "unfold"
         ctx = ProgramContext(self.hive, swarm_id, entry)
-        graph = self._call(entry, entry["module"].view, ctx, focus or None, stage)
-        graph = await graph if hasattr(graph, "__await__") else graph
+        graph = await self._call(entry, entry["module"].view, ctx, focus or None, stage)
         return self.validate(entry, graph, stage)
 
     async def act(self, program_id, swarm_id, action, items, params=None, base_revision=None):
@@ -280,8 +310,7 @@ class Programs:
             raise self.hive.error(400, "bad_request", f"{program_id} has no action {action!r}")
         ctx = ProgramContext(self.hive, swarm_id, entry)
         params = dict(params or {}, base_revision=base_revision)
-        out = self._call(entry, entry["module"].act, ctx, action, list(items or []), params)
-        out = await out if hasattr(out, "__await__") else out
+        out = await self._call(entry, entry["module"].act, ctx, action, list(items or []), params)
         return validate_result(entry["id"], entry["describe"], out,
                                lambda m: self.hive.error(400, "bad_result", f"{entry['id']}: {m}"))
 
