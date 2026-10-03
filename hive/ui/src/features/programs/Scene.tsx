@@ -181,6 +181,7 @@ const Node = memo(function Node({
   return (
     <m.button
       data-node
+      data-tour={box.dupOf ? undefined : `node-${item.id}`}
       layout
       layoutId={box.dupOf ? undefined : `pn-${scope}-${item.id}`}
       initial={from ? { opacity: 0, scale: 0.6, x: from.x - box.x, y: from.y - box.y } : { opacity: 0, scale: 0.92 }}

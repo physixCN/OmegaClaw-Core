@@ -249,7 +249,7 @@ export function DriftBoard({ cases, running, expected, onOpenCase }: { cases: La
   const color = zero ? '#4ade80' : '#fb7185'
   return (
     <div className="space-y-3">
-      <Card className="overflow-hidden" tone={cases.length ? color : undefined}>
+      <Card className="overflow-hidden" tone={cases.length ? color : undefined} tour="drift-leaks">
         <div className="pointer-events-none absolute -top-24 -left-16 size-72 rounded-full opacity-60" style={{ background: `radial-gradient(circle, ${cases.length ? (zero ? 'rgb(74 222 128 / 0.16)' : 'rgb(251 113 133 / 0.2)') : 'transparent'}, transparent 70%)` }} />
         <div className="relative flex flex-wrap items-center gap-x-6 gap-y-3">
           <div className="flex items-center gap-4">

@@ -10,6 +10,7 @@ import { Icon, type IconName } from '../ui/Icon'
 import { CountBadge, Kbd, Orb } from '../ui/primitives'
 import { cx } from '../lib/cx'
 import { LabBadge } from './LabBadge'
+import { SimChip } from '../ui/SimChip'
 import { useIntro } from '../tour/introStore'
 
 function AnimatedNumber({ value, format }: { value: number; format: (n: number) => string }) {
@@ -91,6 +92,7 @@ export function Stats() {
           <div className="flex items-center gap-1.5 text-[10px] font-medium tracking-[0.12em] text-ink-3 uppercase">
             {it.dot && <span className="size-1.5 rounded-full bg-[#5eead4]" style={{ boxShadow: '0 0 8px #5eead4' }} />}
             {it.label}
+            {it.label === 'Spend' && <SimChip className="tracking-[0.06em]" />}
           </div>
           <div className="mt-0.5 font-display text-[17px] leading-tight font-semibold md:text-lg">
             <AnimatedNumber value={it.value} format={it.fmt} />

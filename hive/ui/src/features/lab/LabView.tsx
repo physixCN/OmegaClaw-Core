@@ -157,7 +157,7 @@ function Scorecard({ suites }: { suites: LabSuite[] }) {
 
   return (
     <section aria-label="Scorecard" className="space-y-3">
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden" tour="lab-scorecard">
         <div className="pointer-events-none absolute -top-28 -right-10 size-80 rounded-full opacity-50" style={{ background: `radial-gradient(circle, ${color}33, transparent 70%)` }} />
         <div className="relative flex flex-wrap items-center gap-x-6 gap-y-4">
           <div className="flex items-center gap-4">
@@ -191,7 +191,7 @@ function Scorecard({ suites }: { suites: LabSuite[] }) {
         </div>
       </Card>
 
-      <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5" aria-label="Health by dimension">
+      <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5" aria-label="Health by dimension" data-tour="lab-dims">
         {entries.map(({ d, e }) => (
           <DimensionTile key={d} d={d} e={e} suites={suites} />
         ))}
@@ -242,7 +242,7 @@ function DimensionTile({ d, e, suites }: { d: string; e: LabScorecardEntry | nul
         : 'No suite measures this yet'
   const top = (e?.highlights ?? []).slice(0, 2)
   return (
-    <li>
+    <li data-tour={`lab-dim-${d}`}>
       <button
         onClick={() => navigate({ name: 'lab', dimension: d })}
         className={cx('group relative flex h-full min-h-[132px] w-full flex-col rounded-2xl border p-3 text-left transition-colors hover:border-line-2', empty && 'opacity-80')}
@@ -374,6 +374,7 @@ function SuiteView({ suite, tab }: { suite: LabSuite; tab: LabTab }) {
         </p>
         <Segmented<LabTab>
           label="Suite section"
+          tour="lab-suite-tab"
           value={tab}
           onChange={(t) => navigate({ name: 'lab', suite: suite.id, tab: t }, { replace: true })}
           options={[

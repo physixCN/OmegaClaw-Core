@@ -118,9 +118,10 @@ export function MetricTile({ m }: { m: LabMetric }) {
   )
 }
 
-export function Card({ title, subtitle, actions, children, className, tone }: { title?: ReactNode; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; tone?: string }) {
+export function Card({ title, subtitle, actions, children, className, tone, tour }: { title?: ReactNode; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; tone?: string; tour?: string }) {
   return (
     <section
+      data-tour={tour}
       className={cx('relative rounded-[20px] border p-4 md:p-5', className)}
       style={{ background: SURFACE, borderColor: tone ? `color-mix(in srgb, ${tone} 30%, transparent)` : 'var(--color-line)' }}
     >
@@ -180,7 +181,8 @@ export function DemoBanner({ recordedAt }: { recordedAt: string | null }) {
         <span className="text-ink-2"> · recorded results{when ? ` from ${when}` : ''}.</span>{' '}
         <span className="text-ink-3">
           Run replays a suite's real recorded cases at their recorded pace. Earlier history is <b className="font-medium text-ink-2">example data</b>, the recording with small jitter, shown hollow and marked “example”.
-        </span>
+        </span>{' '}
+        <span className="text-ink-3">Elsewhere in the demo, costs are simulated: made-up token counts × list prices. No model was called and nothing was charged.</span>
       </p>
     </div>
   )

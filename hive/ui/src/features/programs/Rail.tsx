@@ -39,7 +39,7 @@ export function SourcesPanel({
   const sharedCount = groups.filter((g) => g.shared).length
   const subjectLabel = subjects.length === 1 ? gi.items.get(subjects[0])?.label : `${subjects.length} items`
   return (
-    <section aria-label="Sources" className="min-w-0">
+    <section aria-label="Sources" className="min-w-0" data-tour="program-sources">
       <header className="mb-2 flex items-baseline gap-2">
         <h3 className="eyebrow">Sources</h3>
         <span className="text-[11.5px] text-ink-4 tabular-nums">

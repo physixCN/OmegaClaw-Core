@@ -9,6 +9,7 @@ import { Icon } from '../../ui/Icon'
 import { EmptyState, ErrorState, Orb, Segmented, Skeleton } from '../../ui/primitives'
 import { cx } from '../../lib/cx'
 import { Page } from '../../ui/Page'
+import { SIM_COST_NOTE, SimChip, useSim } from '../../ui/SimChip'
 
 /**
  * Categorical slots: the dataviz reference palette's dark steps, validated with
@@ -65,6 +66,7 @@ export default function UsageView() {
   const usage = useHive((s) => s.usage)
   const agents = useHive((s) => s.agents)
   const models = useHive((s) => s.models)
+  const sim = useSim()
   const [range, setRange] = useState<Range>('7d')
   const [group, setGroup] = useState<Group>('agent')
   const [table, setTable] = useState(false)
@@ -204,23 +206,33 @@ export default function UsageView() {
           <EmptyState icon="chart" title="No usage yet" body={`Nothing was spent in the ${RANGE[range].label}. When dots think, the gateway meters every call here.`} />
         ) : (
           <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            {sim && (
+              <p className="flex items-start gap-3 rounded-2xl border border-warn/25 bg-warn/[0.06] px-3.5 py-2.5 text-[12.5px] leading-snug text-ink-3" role="note">
+                <span className="mt-px flex size-6 shrink-0 items-center justify-center rounded-lg bg-warn/15 text-warn">
+                  <Icon name="coin" size={14} />
+                </span>
+                <span>
+                  <b className="font-semibold text-warn">Simulated</b> · {SIM_COST_NOTE}
+                </span>
+              </p>
+            )}
             <section className="grid grid-cols-3 gap-2.5 md:grid-cols-4 md:gap-3" aria-label="Key figures">
-              <Tile hero label={`Spend · ${RANGE[range].label}`} value={money(data.cost)} delta={pctDelta(data.cost, data.prevCost)} upIsGood={false} />
+              <Tile hero money label={`Spend · ${RANGE[range].label}`} value={money(data.cost)} delta={pctDelta(data.cost, data.prevCost)} upIsGood={false} />
               <Tile label="Requests" value={compact(data.req)} delta={pctDelta(data.req, data.prevReq)} />
               <Tile label="Tokens" value={compact(data.tokens)} delta={pctDelta(data.tokens, data.prevTokens)} />
-              <Tile label="Avg / request" value={data.req ? money(data.cost / data.req) : '$0'} />
+              <Tile money label="Avg / request" value={data.req ? money(data.cost / data.req) : '$0'} />
             </section>
 
             {table ? (
               <EntityTable rows={data.entities} total={data.cost} name={nameOf} group={group} />
             ) : (
               <>
-                <Card title={`Spend over time, ${group === 'agent' ? 'by dot' : 'by model'}`} subtitle={`Per ${data.bucket >= 86_400_000 ? 'day' : data.bucket >= 6 * 3_600_000 ? '6 hours' : 'hour'}, US dollars`}>
+                <Card money title={`Spend over time, ${group === 'agent' ? 'by dot' : 'by model'}`} subtitle={`Per ${data.bucket >= 86_400_000 ? 'day' : data.bucket >= 6 * 3_600_000 ? '6 hours' : 'hour'}, US dollars`}>
                   <Legend items={data.series.map((k) => ({ k, label: labelOf(k), color: colorOf(k) }))} />
                   <StackedColumns cols={data.cols} series={data.series} colorOf={colorOf} labelOf={labelOf} range={range} />
                 </Card>
                 <div className="grid gap-4 lg:grid-cols-2">
-                  <Card title={group === 'agent' ? 'Spend by dot' : 'Spend by model'} subtitle={`${RANGE[range].label}, US dollars`}>
+                  <Card money title={group === 'agent' ? 'Spend by dot' : 'Spend by model'} subtitle={`${RANGE[range].label}, US dollars`}>
                     <Bars rows={data.entities.slice(0, 12)} name={nameOf} group={group} />
                   </Card>
                   <Card title="Tokens by kind" subtitle={`Prompt vs completion, ${RANGE[range].label}`}>
@@ -241,12 +253,15 @@ function pctDelta(cur: number, prev: number): number | null {
   return (cur - prev) / prev
 }
 
-function Tile({ label, value, delta, hero, upIsGood = true }: { label: string; value: string; delta?: number | null; hero?: boolean; upIsGood?: boolean }) {
+function Tile({ label, value, delta, hero, upIsGood = true, money: isMoney }: { label: string; value: string; delta?: number | null; hero?: boolean; upIsGood?: boolean; money?: boolean }) {
   const up = (delta ?? 0) >= 0
   const good = up === upIsGood
   return (
     <div className={cx('rounded-2xl border border-line', hero ? 'col-span-3 p-4 md:col-span-1' : 'p-3 md:p-4')} style={{ background: SURFACE }}>
-      <div className="truncate text-[12px] text-ink-3">{label}</div>
+      <div className="flex min-w-0 items-center gap-1.5 text-[12px] text-ink-3">
+        <span className="truncate">{label}</span>
+        {isMoney && <SimChip />}
+      </div>
       <div className={cx('mt-1 font-sans font-semibold tracking-tight text-ink', hero ? 'text-[44px] leading-none md:text-[48px]' : 'text-xl md:text-2xl')}>{value}</div>
       {delta !== undefined && delta !== null && (
         <div className="mt-1.5 flex flex-wrap items-center gap-x-1 text-[11px] md:text-[12px]">
@@ -260,11 +275,14 @@ function Tile({ label, value, delta, hero, upIsGood = true }: { label: string; v
   )
 }
 
-function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+function Card({ title, subtitle, children, money: isMoney }: { title: string; subtitle?: string; children: ReactNode; money?: boolean }) {
   return (
     <figure className="rounded-[20px] border border-line p-4 md:p-5" style={{ background: SURFACE }}>
       <figcaption className="mb-3">
-        <div className="text-[15px] font-semibold text-ink">{title}</div>
+        <div className="flex items-center gap-2 text-[15px] font-semibold text-ink">
+          {title}
+          {isMoney && <SimChip label="simulated" />}
+        </div>
         {subtitle && <div className="text-[12px] text-ink-3">{subtitle}</div>}
       </figcaption>
       {children}

@@ -203,8 +203,8 @@ function Host({ programId, swarmId, variant, onExit, width }: HostProps & { widt
   const inputDef = session.input ? allActions.find((a) => a.id === session.input!.action) : undefined
 
   const bar = (
-    <div className={cx('flex min-w-0 shrink-0 items-center gap-2', narrow ? 'px-3' : 'px-0')}>
-      <Button variant="subtle" icon="back" onClick={back} className="min-h-9 shrink-0 rounded-xl px-2.5 text-[13px]" aria-label={trail.length > 1 ? `Back to ${STAGE_WORDS[trail[trail.length - 2].stage]}` : 'Leave the program'} title="Back (Backspace, Alt+←, Esc)">
+    <div className={cx('flex min-w-0 shrink-0 items-center gap-2', narrow ? 'px-3' : 'px-0')} data-tour="program-bar">
+      <Button variant="subtle" icon="back" onClick={back} data-tour="program-back" className="min-h-9 shrink-0 rounded-xl px-2.5 text-[13px]" aria-label={trail.length > 1 ? `Back to ${STAGE_WORDS[trail[trail.length - 2].stage]}` : 'Leave the program'} title="Back (Backspace, Alt+←, Esc)">
         {narrow ? null : trail.length > 1 ? 'Back' : 'Leave'}
       </Button>
       <nav aria-label="Trail" className="no-scrollbar min-w-0 flex-1 overflow-x-auto" style={trail.length > 2 ? { maskImage: 'linear-gradient(90deg, transparent, #000 28px)', WebkitMaskImage: 'linear-gradient(90deg, transparent, #000 28px)' } : undefined}>
@@ -217,6 +217,7 @@ function Host({ programId, swarmId, variant, onExit, width }: HostProps & { widt
   const stageSwitch = (
     <Segmented<ProgramStage>
       label="Stage"
+      tour="program-stage"
       dense={narrow}
       value={step.stage}
       onChange={(s) => pushStage(s, step.focus, s === 'compare' && selection.length >= 2 ? selection : undefined)}
@@ -258,7 +259,7 @@ function Host({ programId, swarmId, variant, onExit, width }: HostProps & { widt
   )
 
   const stage = (
-    <div className={cx('relative min-h-0 flex-1 overflow-hidden', !narrow && 'rounded-[20px] border border-line')} style={{ background: 'radial-gradient(80% 70% at 50% 40%, rgb(70 60 160 / 0.14), rgb(4 4 16 / 0.35))' }}>
+    <div className={cx('relative min-h-0 flex-1 overflow-hidden', !narrow && 'rounded-[20px] border border-line')} data-tour="program-stage-view" style={{ background: 'radial-gradient(80% 70% at 50% 40%, rgb(70 60 160 / 0.14), rgb(4 4 16 / 0.35))' }}>
       {graph.items.length === 0 ? (
         <EmptyState icon="sparkles" title="Nothing here yet" body={graph.notes[0] ?? 'The program returned an empty view.'} />
       ) : step.stage === 'detail' && step.focus ? (
@@ -462,7 +463,7 @@ function Drawer({ open, setOpen, subject, gi, sourceCount, shared, quick, childr
   const first = subject[0]
   return (
     <m.section layout className="glass-strong relative z-10 mx-0 shrink-0 overflow-hidden rounded-t-[22px] border-x-0 border-b-0" style={{ paddingBottom: 'calc(var(--sab) + 6px)' }} aria-label="Inspector">
-      <button onClick={() => setOpen(!open)} className="flex min-h-14 w-full items-center gap-2.5 px-4 pt-1.5 text-left" aria-expanded={open}>
+      <button onClick={() => setOpen(!open)} className="flex min-h-14 w-full items-center gap-2.5 px-4 pt-1.5 text-left" aria-expanded={open} data-tour="program-drawer">
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-medium text-ink">{subject.length > 1 ? `${subject.length} selected` : first ? first.label : 'Nothing selected'}</span>
           <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-ink-3">

@@ -52,7 +52,7 @@ export default function ProgramsIndex() {
         ) : !programs.length ? (
           <EmptyState icon="apps" title="No programs found" body="Built-in programs live in hive/plugins/. Point HIVE_PLUGIN_DIRS at your own program directories, then Reload." />
         ) : (
-          <ul className="grid gap-3 md:grid-cols-2">
+          <ul className="grid gap-3 md:grid-cols-2" data-tour="programs-list">
             {programs.map((p, i) => (
               <ProgramCard key={p.id} p={p} i={i} />
             ))}
@@ -72,6 +72,7 @@ function ProgramCard({ p, i }: { p: Program; i: number }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: i * 0.04, type: 'spring', stiffness: 300, damping: 30 }}
+      data-tour={`program-card-${p.id}`}
       className="relative flex flex-col overflow-hidden rounded-[20px] border p-4 md:p-5"
       style={{ background: 'linear-gradient(180deg, rgb(255 255 255 / 0.035), rgb(255 255 255 / 0.012)), rgb(13 13 38 / 0.72)', borderColor: state === 'error' ? 'rgb(251 113 133 / 0.3)' : 'var(--color-line)' }}
     >

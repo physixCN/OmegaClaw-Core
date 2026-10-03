@@ -1,6 +1,7 @@
 import { AnimatePresence, m } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ago, modelLabel, money } from '../lib/format'
+import { SimChip } from '../ui/SimChip'
 import { useFinePointer, useNow, useReducedMotion } from '../lib/hooks'
 import { navigate, useRoute } from '../lib/router'
 import { describeLlmError } from '../lib/llmErrors'
@@ -195,7 +196,9 @@ function DotCard({ id, touch }: { id: string; touch: boolean }) {
           <dd className="truncate font-mono text-ink-2">{modelLabel(agent.model)}</dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-ink-4">Spend</dt>
+          <dt className="flex items-center gap-1 text-ink-4">
+            Spend <SimChip />
+          </dt>
           <dd className="font-mono text-ink-2">{money(agent.spent_usd)}</dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">

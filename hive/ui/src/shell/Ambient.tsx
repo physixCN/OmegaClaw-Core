@@ -10,6 +10,7 @@ import { MeTTa } from '../ui/MeTTa'
 import { Button, Orb } from '../ui/primitives'
 import { cx } from '../lib/cx'
 import { Brand } from './Hud'
+import { ViewInfo } from '../tour/ViewInfo'
 
 const OUTCOME_VERB: Record<AssertionOutcome, string> = {
   adopted: 'introduced',
@@ -76,18 +77,19 @@ export function SceneControls() {
   if (!engine || route.name !== 'hive') return null
   if (!desktop) {
     return (
-      <button
-        onClick={() => engine.overview()}
-        className="glass fixed right-3 z-10 flex size-11 items-center justify-center rounded-2xl text-ink-2"
-        style={{ top: 'calc(var(--sat) + 132px)' }}
-        aria-label="Recenter the hive"
-      >
-        <Icon name="locate" size={19} />
-      </button>
+      <div className="fixed right-3 z-10 flex flex-col gap-2" style={{ top: 'calc(var(--sat) + 132px)' }}>
+        <button onClick={() => engine.overview()} className="glass flex size-11 items-center justify-center rounded-2xl text-ink-2" aria-label="Recenter the hive">
+          <Icon name="locate" size={19} />
+        </button>
+        <div className="glass rounded-2xl">
+          <ViewInfo view="hive" />
+        </div>
+      </div>
     )
   }
   return (
     <div className="glass fixed right-4 bottom-5 z-10 flex flex-col rounded-2xl p-1" role="group" aria-label="Camera">
+      <ViewInfo view="hive" />
       <button onClick={() => engine.zoomBy(1.3)} className="flex size-11 items-center justify-center rounded-xl text-ink-2 hover:bg-white/[0.06] hover:text-ink" aria-label="Zoom in">
         <Icon name="zoomIn" size={19} />
       </button>

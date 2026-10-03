@@ -135,6 +135,7 @@ export function GoalsBoard({ swarmId, className }: { swarmId: string; className?
             <section
               key={c.key}
               data-col={c.key}
+              data-tour={`goals-col-${c.key}`}
               aria-label={`${c.label} goals`}
               className={cx('flex min-h-0 flex-col rounded-[20px] border border-line bg-white/[0.02]', !desktop && 'w-[86%] shrink-0 snap-start')}
             >
@@ -197,7 +198,7 @@ function QuickAdd({ swarmId, swarmName, hue }: { swarmId: string; swarmName: str
     if (g) setTitle('')
   }
   return (
-    <form onSubmit={submit} className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-[18px] border border-line bg-black/20 p-1.5 focus-within:border-line-2 md:flex-nowrap">
+    <form onSubmit={submit} data-tour="goals-add" className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-[18px] border border-line bg-black/20 p-1.5 focus-within:border-line-2 md:flex-nowrap">
       <div className="flex min-w-0 basis-full items-center gap-2 md:basis-auto md:flex-1">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-xl" style={{ background: hsl(hue, 80, 55, 0.15), color: hsl(hue, 100, 80) }}>
           <Icon name="plus" size={18} />
@@ -290,6 +291,7 @@ function GoalCard({ goal: g, subgoals, agents, swarmHue }: { goal: Goal; subgoal
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.94, transition: { duration: 0.15 } }}
       transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+      data-tour={`goal-${g.status}`}
       className={cx('relative overflow-hidden rounded-2xl border bg-[#12122e]/80', col === 'done' && 'opacity-85', open ? 'border-line-2' : 'border-line')}
       style={stalled ? { borderColor: `${STALLED}66`, boxShadow: `0 0 22px -8px ${STALLED}` } : waiting ? { borderColor: `${WAITING}4d` } : undefined}
     >
@@ -437,7 +439,7 @@ function LeaseRow({ lease, attempts }: { lease: ReturnType<typeof leaseOf>; atte
   const frac = lease?.kind === 'running' ? Math.max(0.02, Math.min(1, lease.ms / lease.total)) : 0
   const color = lease?.kind === 'lapsed' ? STALLED : lease?.kind === 'paused' ? WAITING : left < 10 * 60_000 ? '#fbbf24' : '#7dd3fc'
   return (
-    <div className="mt-1.5 flex items-center gap-2 text-[10.5px]">
+    <div className="mt-1.5 flex items-center gap-2 text-[10.5px]" data-tour={lease?.kind === 'running' ? 'goal-lease' : undefined}>
       {lease && (
         <>
           <Icon name="clock" size={11} style={{ color }} />

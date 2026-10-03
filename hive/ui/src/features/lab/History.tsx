@@ -86,7 +86,7 @@ export function SuiteHistory({ suite }: { suite: LabSuite }) {
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px]" data-tour="lab-history">
         <Card
           title={selected ? `${selected.group === 'Run' ? '' : `${selected.group} · `}${selected.name}` : 'History'}
           subtitle={selected ? `${pts.length} runs, oldest to newest${selected.better ? ` · ${BETTER_TEXT[selected.better]}` : ''}${targetText({ better: selected.better ?? 'lower', target: selected.target, unit: selected.unit }) ? ` · target ${targetText({ better: selected.better ?? 'lower', target: selected.target, unit: selected.unit })}` : ''}` : undefined}

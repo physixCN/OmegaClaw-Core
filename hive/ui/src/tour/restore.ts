@@ -3,18 +3,18 @@
  * the route, overlays it opened, and the program sessions (trails) it touched, in memory and in storage.
  */
 
-export interface RestorableState {
+export interface RestorableState<P = unknown> {
   paletteOpen: boolean
   stopAllOpen: boolean
-  programSessions: Record<string, unknown>
+  programSessions: Record<string, P>
 }
 
-export interface RestoreEnv {
+export interface RestoreEnv<P = unknown> {
   getHash(): string
   /** Replace the route without adding a history entry. */
   replaceHash(hash: string): void
-  getState(): RestorableState
-  setState(partial: Partial<RestorableState>): void
+  getState(): RestorableState<P>
+  setState(partial: Partial<RestorableState<P>>): void
   storage: {
     keys(): string[]
     get(key: string): string | null
@@ -23,16 +23,16 @@ export interface RestoreEnv {
   }
 }
 
-export interface Snapshot {
+export interface Snapshot<P = unknown> {
   hash: string
-  programSessions: Record<string, unknown>
+  programSessions: Record<string, P>
   storage: Record<string, string>
 }
 
 /** Storage the tour may change while it plays (program trails, a program's remembered swarm). */
 export const TOUR_TOUCHED_PREFIX = 'omegadots.program.'
 
-export function takeSnapshot(env: RestoreEnv, returnTo?: string): Snapshot {
+export function takeSnapshot<P>(env: RestoreEnv<P>, returnTo?: string): Snapshot<P> {
   const storage: Record<string, string> = {}
   for (const k of safeKeys(env)) {
     if (!k.startsWith(TOUR_TOUCHED_PREFIX)) continue
@@ -42,7 +42,7 @@ export function takeSnapshot(env: RestoreEnv, returnTo?: string): Snapshot {
   return { hash: returnTo ?? env.getHash(), programSessions: env.getState().programSessions, storage }
 }
 
-export function restoreSnapshot(env: RestoreEnv, snap: Snapshot): void {
+export function restoreSnapshot<P>(env: RestoreEnv<P>, snap: Snapshot<P>): void {
   env.setState({ paletteOpen: false, stopAllOpen: false, programSessions: snap.programSessions })
   for (const k of safeKeys(env)) {
     if (k.startsWith(TOUR_TOUCHED_PREFIX) && !(k in snap.storage)) safe(() => env.storage.remove(k))
@@ -59,14 +59,14 @@ function safe(fn: () => void) {
     /* storage unavailable */
   }
 }
-function safeKeys(env: RestoreEnv): string[] {
+function safeKeys<P>(env: RestoreEnv<P>): string[] {
   try {
     return env.storage.keys()
   } catch {
     return []
   }
 }
-function safeGet(env: RestoreEnv, k: string): string | null {
+function safeGet<P>(env: RestoreEnv<P>, k: string): string | null {
   try {
     return env.storage.get(k)
   } catch {
@@ -75,7 +75,7 @@ function safeGet(env: RestoreEnv, k: string): string | null {
 }
 
 /** The real environment: location.hash, the zustand store, localStorage. */
-export function browserRestoreEnv(store: { getState(): RestorableState; setState(p: Partial<RestorableState>): void }): RestoreEnv {
+export function browserRestoreEnv<P>(store: { getState(): RestorableState<P>; setState(p: Partial<RestorableState<P>>): void }): RestoreEnv<P> {
   return {
     getHash: () => window.location.hash || '#/',
     replaceHash(hash) {

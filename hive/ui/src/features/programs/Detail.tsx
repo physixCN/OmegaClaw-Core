@@ -80,7 +80,7 @@ export function Detail({
             </h2>
             {item.text && <p className="mt-2 text-[14px] leading-relaxed whitespace-pre-wrap text-ink-2">{item.text}</p>}
             <div className="mt-3.5 flex flex-wrap items-center gap-x-5 gap-y-2">
-              <div>
+              <div data-tour="detail-uncertainty">
                 <div className="eyebrow mb-1">Uncertainty</div>
                 <UReading u={item.uncertainty} large />
               </div>

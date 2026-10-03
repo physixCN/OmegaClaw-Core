@@ -97,7 +97,7 @@ const coreTarget = (id: string | undefined): TargetFn => (ctx) => {
   const r = Math.max(40, p.r * 1.25)
   return { x: p.x - r, y: p.y - r, w: r * 2, h: r * 2, round: true }
 }
-const starTarget = (statement: string | undefined): TargetFn => (ctx) => {
+const starTarget = (statement: string | undefined): TargetFn => () => {
   if (!statement) return null
   const stars = document.querySelectorAll<SVGGElement>('[data-tour="star"]')
   for (const g of stars) if (g.getAttribute('data-statement') === statement) return g
@@ -130,6 +130,9 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
   const swarm = p.swarm?.id
   const dotId = p.dot?.id
   const dotName = p.dot?.name ?? 'a dot'
+  const openDot = (tab?: 'mind' | 'memory' | 'schedule' | 'model') => () => {
+    if (dotId) ctx.go({ name: 'dot', id: dotId, tab })
+  }
   const goalsSwarm = p.goalsSwarm?.id
   const prog = p.program
   const progSwarm = swarm
@@ -193,11 +196,11 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
       },
       beats: [
         { text: `Tap any dot to open its panel. This is ${dotName}. These buttons wake it, put it to sleep, or stop it.`, show: 'dot-controls' },
-        { text: 'Chat talks to it directly. It answers in its own voice.', point: 'dot-tab-chat', do: () => dotId && ctx.go({ name: 'dot', id: dotId }), show: 'chat-composer' },
-        { text: 'Mind lets you watch it think: each step, what it ran, and what the safety gate said.', point: 'dot-tab-mind', do: () => dotId && ctx.go({ name: 'dot', id: dotId, tab: 'mind' }), show: 'mind-replay' },
-        { text: 'Memory is what it keeps privately. You can search it, or retire things it should forget.', point: 'dot-tab-memory', do: () => dotId && ctx.go({ name: 'dot', id: dotId, tab: 'memory' }), show: 'memory-spaces' },
-        { text: 'Schedule is when it wakes itself up, and when it naps.', point: 'dot-tab-schedule', do: () => dotId && ctx.go({ name: 'dot', id: dotId, tab: 'schedule' }), show: 'schedule-wakeups' },
-        { text: 'And Model picks its AI model, its personality and its spending cap.', point: 'dot-tab-model', do: () => dotId && ctx.go({ name: 'dot', id: dotId, tab: 'model' }), show: 'model-list' },
+        { text: 'Chat talks to it directly. It answers in its own voice.', point: 'dot-tab-chat', do: openDot(), show: 'chat-composer' },
+        { text: 'Mind lets you watch it think: each step, what it ran, and what the safety gate said.', point: 'dot-tab-mind', do: openDot('mind'), show: 'mind-replay' },
+        { text: 'Memory is what it keeps privately. You can search it, or retire things it should forget.', point: 'dot-tab-memory', do: openDot('memory'), show: 'memory-spaces' },
+        { text: 'Schedule is when it wakes itself up, and when it naps.', point: 'dot-tab-schedule', do: openDot('schedule'), show: 'schedule-wakeups' },
+        { text: 'And Model picks its AI model, its personality and its spending cap.', point: 'dot-tab-model', do: openDot('model'), show: 'model-list' },
       ],
     },
     {

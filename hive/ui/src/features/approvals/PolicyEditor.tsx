@@ -63,9 +63,9 @@ export default function PolicyEditor() {
   )
 }
 
-function Card({ title, icon, children, className }: { title: string; icon?: Parameters<typeof Icon>[0]['name']; children: ReactNode; className?: string }) {
+function Card({ title, icon, children, className, tour }: { title: string; icon?: Parameters<typeof Icon>[0]['name']; children: ReactNode; className?: string; tour?: string }) {
   return (
-    <section className={cx('rounded-[20px] border border-line bg-white/[0.025] p-4', className)} aria-label={title}>
+    <section className={cx('rounded-[20px] border border-line bg-white/[0.025] p-4', className)} aria-label={title} data-tour={tour}>
       <h2 className="eyebrow mb-3 flex items-center gap-1.5">
         {icon && <Icon name={icon} size={13} />}
         {title}
@@ -97,7 +97,7 @@ function RuleList({ rules }: { rules: PolicyRule[] }) {
   if (!rules.length) return <EmptyState icon="rules" title="No rules yet" body="Only the defaults apply. Add a rule to allow, ask or deny a skill for the hive, a swarm or one dot." />
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-tour="policy-rules">
       <Group title="Hive" sub="Every dot" lead={<span className="flex size-6 items-center justify-center rounded-lg bg-white/[0.06] text-ink-2"><Icon name="hive" size={14} /></span>} rules={groups.hive} />
       {groups.bySwarm.length > 0 && <div className="eyebrow px-1 pt-1">Swarms</div>}
       {groups.bySwarm.map(([id, list]) => {
@@ -230,7 +230,7 @@ function AddRule() {
   }
 
   return (
-    <Card title="Add a rule" icon="plus">
+    <Card title="Add a rule" icon="plus" tour="policy-add">
       <form onSubmit={submit} className="space-y-3">
         <div>
           <span className="mb-1.5 block text-[12px] text-ink-3">Scope</span>
@@ -347,7 +347,7 @@ function Tester({ rules }: { rules: PolicyRule[] }) {
                 ? `${swarms[a.swarm_id!]?.name ?? 'Swarm'} rule ${d.rule!.skill}`
                 : `${a.name}'s rule ${d.rule!.skill}`
   return (
-    <Card title="Try it" icon="sparkles">
+    <Card title="Try it" icon="sparkles" tour="policy-try">
       <div className="grid grid-cols-[1fr_1fr] gap-2">
         <select aria-label="Dot" value={a?.id ?? ''} onChange={(e) => setAgentId(e.target.value)} className={selectCls} style={{ backgroundImage: chevronBg }}>
           {list.map((x) => (

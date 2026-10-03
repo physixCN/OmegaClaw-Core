@@ -33,6 +33,7 @@ export default function ApprovalsView() {
         <div className="sticky top-0 z-[2] -mx-3 bg-[#0a0a1f] px-3 pt-1 pb-3 shadow-[0_14px_18px_-6px_#0a0a1f] md:-mx-6 md:bg-[#090920] md:px-6 md:shadow-[0_14px_18px_-6px_#090920]">
           <Segmented<ApprovalsTab>
             label="Approvals section"
+            tour="approvals-tab"
             value={tab}
             onChange={(t) => navigate({ name: 'approvals', tab: t }, { replace: true })}
             className="w-full md:w-auto"
@@ -195,6 +196,7 @@ function ApprovalCard({
     >
       <article
         aria-label={`${name} asks to run ${a.skill}`}
+        data-tour="approval-card"
         className={cx('relative overflow-hidden rounded-[22px] border bg-white/[0.025] transition-[border-color,box-shadow] duration-300', focused ? 'border-warn/50' : 'border-line')}
         style={{
           borderColor: shown ? `${DECISION[shown].color}88` : undefined,
@@ -255,7 +257,7 @@ function ApprovalCard({
             </span>
           </p>
 
-          <div className={cx('mt-4 gap-2', desktop ? 'flex items-center justify-end' : 'grid grid-cols-2')}>
+          <div className={cx('mt-4 gap-2', desktop ? 'flex items-center justify-end' : 'grid grid-cols-2')} data-tour="approval-actions">
             <Button variant="danger" icon="x" disabled={busy} onClick={() => run('deny')} className={desktop ? 'mr-auto' : 'order-3'}>
               {deciding === 'deny' ? 'Denying…' : 'Deny'}
             </Button>

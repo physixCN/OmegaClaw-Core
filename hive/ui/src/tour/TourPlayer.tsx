@@ -4,7 +4,7 @@ import { cx } from '../lib/cx'
 import { useIsDesktop, useReducedMotion } from '../lib/hooks'
 import { navigate, type Route } from '../lib/router'
 import { useScene } from '../scene/sceneStore'
-import { newSession, sessionKey } from '../store/programSession'
+import { newSession, sessionKey, type ProgramSession } from '../store/programSession'
 import { useHive } from '../store/store'
 import { Icon, type IconName } from '../ui/Icon'
 import { useIntro, type TourRequest } from './introStore'
@@ -45,6 +45,9 @@ function aim(b: Box) {
   if (b.round || (b.w < 260 && b.h < 150)) return { x: b.x + b.w / 2, y: b.y + b.h / 2 }
   return { x: b.x + Math.min(b.w / 2, 120), y: b.y + Math.min(b.h / 2, 46) }
 }
+
+/** The app's real route, store and storage, for the snapshot taken before the tour and restored after. */
+const restoreEnv = () => browserRestoreEnv({ getState: () => useHive.getState(), setState: (p) => useHive.setState(p) })
 
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 
@@ -87,7 +90,7 @@ export default function TourPlayer({ request }: { request: TourRequest }) {
   const [clicks, setClicks] = useState(0)
 
   const runner = useRef<TourRunner<Chapter> | null>(null)
-  const snap = useRef<Snapshot | null>(null)
+  const snap = useRef<Snapshot<ProgramSession> | null>(null)
   const finished = useRef(false)
   const report = useRef<ReportRow[]>([])
   const rateRef = useRef(rate)
@@ -128,7 +131,7 @@ export default function TourPlayer({ request }: { request: TourRequest }) {
         const fresh = newSession(programId, swarmId)
         if (old?.graph) {
           fresh.graph = old.graph
-          fresh.trail = [{ stage: 'unfold', focus: old.graph.focus }]
+          fresh.trail = [{ stage: 'unfold', focus: old.graph.focus ?? null }]
         }
         useHive.setState((s) => ({ programSessions: { ...s.programSessions, [key]: fresh } }))
       },
@@ -238,7 +241,7 @@ export default function TourPlayer({ request }: { request: TourRequest }) {
       if (finished.current) return
       finished.current = true
       runner.current?.destroy()
-      if (snap.current) restoreSnapshot(browserRestoreEnv(useHive), snap.current)
+      if (snap.current) restoreSnapshot(restoreEnv(), snap.current)
       if (window.__hiveTour) window.__hiveTour.done = true
       endTour()
       const toast = useHive.getState().toast
@@ -250,7 +253,7 @@ export default function TourPlayer({ request }: { request: TourRequest }) {
 
   // ---- start: snapshot, voices, runner
   useEffect(() => {
-    snap.current = takeSnapshot(browserRestoreEnv(useHive), request.returnTo)
+    snap.current = takeSnapshot(restoreEnv(), request.returnTo)
     report.current = []
     let alive = true
     window.__hiveTour = {
@@ -295,7 +298,7 @@ export default function TourPlayer({ request }: { request: TourRequest }) {
       if (!finished.current) {
         finished.current = true
         runner.current?.destroy()
-        if (snap.current) restoreSnapshot(browserRestoreEnv(useHive), snap.current)
+        if (snap.current) restoreSnapshot(restoreEnv(), snap.current)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
