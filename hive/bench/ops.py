@@ -268,11 +268,18 @@ def run():
             ok = bool(got) and abs(got["f"] - f) < 1e-6 and abs(got["c"] - conf) < 1e-6
             correct += ok
             checks.append((len(checks), 1 if ok else 0))
-        reply, _ = hive.say(agents["Orion"]["id"], "ask (Current (--> comet-a $x) $tv $st)")
-        recalled = bool(reply) and "icy" in reply
+        orion = agents["Orion"]["id"]
+        seen = len(hive.out(orion))
+        c.post(f"/api/agents/{orion}/messages", json={"text": "ask (Current (--> comet-a $x) $tv $st)"})
+        # The mock model acknowledges and runs the query but never relays its result, so check what the
+        # query returned in the dot's own trace.
+        _ = seen
+        recalled = bool(_wait(lambda: any("HIVE-QUERY" in str(t) and "icy" in str(t)
+                                          for t in c.get(f"/api/agents/{orion}/traces", params={"limit": 50}).json()),
+                              90))
         note(_case("accuracy", "Task accuracy", "accuracy", "accuracy", start,
                    [metric("beliefs stored exactly", 100 * correct / len(tasks), "%", "higher", 100),
-                    metric("answered from the commons", recalled, "", "equal", 1)],
+                    metric("query returned the belief", recalled, "", "equal", 1)],
                    [series("task correct", checks, "", "bar", "task")],
                    notes="Mock model: this checks that instructions reach the commons exactly and come back on "
                          "request. Reasoning accuracy needs a real model (set HIVE_BENCH_MODEL)."))
