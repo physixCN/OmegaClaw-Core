@@ -1,7 +1,7 @@
 (= (initAgentverseOrgan)
    (progn (register-space "agentverse" &agentverse memory)
           (register-space-alias agentverse "agentverse")
-          (register-space-persistence "agentverse" (library OmegaClaw-Core ./memory/agentverse.metta) runtime-state)
+          (register-space-persistence "agentverse" (memory-file "agentverse.metta") runtime-state)
           (load-runtime-space "agentverse")
           (AgentverseOrganReady (agentverse-status))))
 

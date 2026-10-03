@@ -562,11 +562,11 @@ class ArchitectureSurfaceTests(unittest.TestCase):
         self.assertIn("!(bind! &activity (new-space))", lib)
         self.assertIn("!(bind! &cleanup (new-space))", lib)
         self.assertIn(
-            '(register-space-persistence "activity" (library OmegaClaw-Core ./memory/activity.metta) runtime-state)',
+            '(register-space-persistence "activity" (memory-file "activity.metta") runtime-state)',
             skills,
         )
         self.assertIn(
-            '(register-space-persistence "cleanup" (library OmegaClaw-Core ./memory/cleanup.metta) runtime-state)',
+            '(register-space-persistence "cleanup" (memory-file "cleanup.metta") runtime-state)',
             skills,
         )
         self.assertIn("(load-runtime-spaces-by-role memory)", memory)

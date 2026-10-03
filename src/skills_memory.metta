@@ -265,17 +265,3 @@
 (= (events-recent)
    (repr (takeK 12 (collapse (match &events (Event $source $kind $summary $confidence)
                                     (Event $source $kind $summary $confidence))))))
-
-(= (export! $space $file)
-   (progn (write-file $file "")
-          (collapse (let $x (get-atoms $space)
-                         (append-file $file (repr $x))))))
-
-(= (bound-space! $space $limit)
-   (progn (change-state! &exportchars 0)
-          (collapse (let* (($x (get-atoms $space))
-                           ($y (repr $x))
-                           ($l (string_length $y))
-                           ($_ (change-state! &exportchars (+ (get-state &exportchars) $l))))
-                          (if (> (get-state &exportchars) $limit)
-                              (remove-atom $space $x) _)))))

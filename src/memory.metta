@@ -60,7 +60,7 @@
        (useGPTEmbedding (string-safe $str))))
 
 (= (appendToHistory $addition)
-   (append-file (library OmegaClaw-Core ./memory/history.metta) (swrite $addition)))
+   (append-file (memory-file "history.metta") (swrite $addition)))
 
 (= (remember $str)
    (progn (py-call (lib_chromadb.remember $str (embed $str) (get_time_as_string)))

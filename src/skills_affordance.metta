@@ -11,7 +11,7 @@
 !(bind! &skill_triggers (new-space))
 !(register-space "skill-triggers" &skill_triggers memory)
 !(register-space-alias skill-triggers "skill-triggers")
-!(register-space-persistence "skill-triggers" (library OmegaClaw-Core ./memory/skill-triggers.metta) runtime-state)
+!(register-space-persistence "skill-triggers" (memory-file "skill-triggers.metta") runtime-state)
 
 ; Registry schema:
 ; (Skill "name")

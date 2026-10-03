@@ -124,7 +124,7 @@
 (= (initAssumeOrgan)
    (progn (register-space "assume" &assume prediction)
           (register-space-alias assume "assume")
-          (register-space-persistence "assume" (library OmegaClaw-Core ./memory/assume.metta) runtime-state)
+          (register-space-persistence "assume" (memory-file "assume.metta") runtime-state)
           (load-runtime-space "assume")
           (py-call (assume_client.start))))
 

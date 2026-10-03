@@ -3,6 +3,7 @@
 !(import! &self (library OmegaClaw-Core ./src/helper.py))
 !(import! &self (library OmegaClaw-Core ./modules/assume/entry.metta))
 !(import! &self (library OmegaClaw-Core ./src/skills_core.metta))
+!(import! &self (library OmegaClaw-Core ./src/skills_runtime_spaces.metta))
 !(import! &self (library OmegaClaw-Core ./src/skills_memory.metta))
 !(bind! &assume (new-space))
 !(bind! &assume_reload_test (new-space))

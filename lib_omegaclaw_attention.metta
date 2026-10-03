@@ -8,7 +8,7 @@
 !(import! &self (car-atom (collapse (library OmegaClaw-Core ./src/attention_spin.metta))))
 !(register-space "attention" &attention immune)
 !(register-space-alias attention "attention")
-!(register-space-persistence "attention" (library OmegaClaw-Core ./memory/attention.metta) runtime-state)
+!(register-space-persistence "attention" (memory-file "attention.metta") runtime-state)
 !(attention-spin-init)
 
 ; Keep this as a symbolic runtime-hook atom. Registering through eval would

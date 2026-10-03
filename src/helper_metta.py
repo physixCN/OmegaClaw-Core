@@ -425,6 +425,22 @@ def context_last_results(results, max_chars=8000):
 _SAFE_MEMORY_NAME = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
+_SAFE_MEMORY_FILE = re.compile(r"^[A-Za-z0-9_-]+\.(metta|txt|jsonl|json)$")
+
+
+def memory_file(name):
+    """Absolute path of a runtime memory file under the configured memory dir.
+
+    MeTTa persistence declarations call this instead of a fixed library path,
+    so each agent's OMEGACLAW_MEMORY_DIR keeps its memory separate.
+    """
+    name = str(name or "").strip()
+    if not _SAFE_MEMORY_FILE.fullmatch(name):
+        raise ValueError(f"unsafe memory file name: {name!r}")
+    MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+    return str(MEMORY_DIR / name)
+
+
 def ensure_runtime_memory_files(names=""):
     """Create empty ignored runtime MeTTa memory files when absent.
 

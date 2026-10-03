@@ -217,14 +217,16 @@ class PatchBoundaryContractTests(unittest.TestCase):
         for space in ("persistent", "agenda", "beliefs", "world", "events", "activity"):
             self.assertIn(f"!(bind! &{space} (new-space))", libs)
             self.assertIn(
-                f'(register-space-persistence "{space}" (library OmegaClaw-Core ./memory/{space}.metta) runtime-state)',
+                f'(register-space-persistence "{space}" (memory-file "{space}.metta") runtime-state)',
                 runtime_spaces,
             )
         self.assertIn("(register-default-runtime-spaces)", memory)
         self.assertIn("(load-runtime-spaces-by-role memory)", memory)
-        self.assertIn('(register-space-persistence "attention" (library OmegaClaw-Core ./memory/attention.metta) runtime-state)', libs)
+        self.assertIn('(register-space-persistence "attention" (memory-file "attention.metta") runtime-state)', libs)
         self.assertIn('(load-runtime-space "attention")', attention)
         self.assertIn("def ensure_runtime_memory_files", helper)
+        self.assertIn("def memory_file", helper)
+        self.assertNotRegex(libs + runtime_spaces + memory, r"OmegaClaw-Core \./memory/")
         self.assertNotIn('allowed = {"persistent"', helper)
         self.assertNotIn("_DEFAULT_RUNTIME_MEMORY_NAMES", helper)
 

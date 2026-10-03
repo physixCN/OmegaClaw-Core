@@ -1,5 +1,22 @@
 !(import_prolog_function string_length)
 
+; export! and bound-space! live here, before the runtime-space functions that
+; call them: PeTTa compiles calls at import time, so a definition imported later
+; leaves the call as an inert literal and nothing is saved or bounded.
+(= (export! $space $file)
+   (progn (write-file $file "")
+          (collapse (let $x (get-atoms $space)
+                         (append-file $file (repr $x))))))
+
+(= (bound-space! $space $limit)
+   (progn (change-state! &exportchars 0)
+          (collapse (let* (($x (get-atoms $space))
+                           ($y (repr $x))
+                           ($l (string_length $y))
+                           ($_ (change-state! &exportchars (+ (get-state &exportchars) $l))))
+                          (if (> (get-state &exportchars) $limit)
+                              (remove-atom $space $x) _)))))
+
 (= (register-space $name $handle $role)
    (progn (collapse (match &self (SpaceRegistry $name $oldhandle $oldrole)
                            (remove-atom &self (SpaceRegistry $name $oldhandle $oldrole))))
@@ -61,13 +78,13 @@
           (register-space-limit "world" &maxWorldAtomsChars)
           (register-space-limit "events" &maxEventAtomsChars)
           (register-space-limit "activity" &maxActivityAtomsChars)
-          (register-space-persistence "persistent" (library OmegaClaw-Core ./memory/persistent.metta) runtime-state)
-          (register-space-persistence "agenda" (library OmegaClaw-Core ./memory/agenda.metta) runtime-state)
-          (register-space-persistence "beliefs" (library OmegaClaw-Core ./memory/beliefs.metta) runtime-state)
-          (register-space-persistence "world" (library OmegaClaw-Core ./memory/world.metta) runtime-state)
-          (register-space-persistence "events" (library OmegaClaw-Core ./memory/events.metta) runtime-state)
-          (register-space-persistence "activity" (library OmegaClaw-Core ./memory/activity.metta) runtime-state)
-          (register-space-persistence "cleanup" (library OmegaClaw-Core ./memory/cleanup.metta) runtime-state)
+          (register-space-persistence "persistent" (memory-file "persistent.metta") runtime-state)
+          (register-space-persistence "agenda" (memory-file "agenda.metta") runtime-state)
+          (register-space-persistence "beliefs" (memory-file "beliefs.metta") runtime-state)
+          (register-space-persistence "world" (memory-file "world.metta") runtime-state)
+          (register-space-persistence "events" (memory-file "events.metta") runtime-state)
+          (register-space-persistence "activity" (memory-file "activity.metta") runtime-state)
+          (register-space-persistence "cleanup" (memory-file "cleanup.metta") runtime-state)
           DefaultRuntimeSpacesRegistered))
 
 (= (space-canonical-name $name)

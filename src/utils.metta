@@ -31,6 +31,11 @@
    (let $Len (string_length $String)
         (sub_string $String (max 0 (- $Len $N)) $_ 0)))
 
+; Absolute path of a runtime memory file under OMEGACLAW_MEMORY_DIR (default
+; <core>/memory), so several agents can run from one checkout.
+(= (memory-file $name)
+   (py-call (helper.memory_file $name)))
+
 (= (configure $name $default)
    (let $atom (sread (py-call (helper.config_assignment_atom $name $default)))
         (add-atom &self $atom)))

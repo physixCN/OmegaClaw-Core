@@ -44,11 +44,19 @@ if [ ! -f "$PETTA_DIR/src/main.pl" ]; then
   git clone -q --depth 1 https://github.com/trueagi-io/PeTTa "$PETTA_DIR"
 fi
 
-mkdir -p "$RUNTIME_DIR"
+mkdir -p "$RUNTIME_DIR/repos"
+# Smokes git-import! OmegaClaw-Core into ./repos; link this checkout there so
+# they exercise local code instead of cloning the upstream repository.
+CORE_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+rm -rf "$RUNTIME_DIR/repos/OmegaClaw-Core"
+ln -sfn "$CORE_DIR" "$RUNTIME_DIR/repos/OmegaClaw-Core"
+if [ ! -d "$RUNTIME_DIR/repos/petta_lib_chromadb" ]; then
+  git clone -q --depth 1 https://github.com/patham9/petta_lib_chromadb.git "$RUNTIME_DIR/repos/petta_lib_chromadb"
+fi
 cat > "$RUNTIME_DIR/run.sh" <<RUN
 #!/bin/sh
 export LANG=\${LANG:-C.UTF-8}
 exec sh "$PETTA_DIR/run.sh" "\$@"
 RUN
 chmod +x "$RUNTIME_DIR/run.sh"
-echo "Runtime ready: OMEGACLAW_ROOT=$RUNTIME_DIR"
+echo "Runtime ready: OMEGACLAW_ROOT=$RUNTIME_DIR (repos/OmegaClaw-Core -> $CORE_DIR)"
