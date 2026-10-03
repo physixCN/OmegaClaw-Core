@@ -6,6 +6,10 @@ import type {
   Goal,
   HiveEvent,
   HiveInfo,
+  LabCase,
+  LabHistory,
+  LabRunSummary,
+  LabSuite,
   Message,
   PolicyRule,
   Swarm,
@@ -21,6 +25,7 @@ export const ACTIVITY_CAP = 40
 export const MESSAGE_CAP = 300
 export const TRACE_CAP = 120
 export const APPROVAL_CAP = 300
+export const LAB_LOG_CAP = 300
 
 export type ActivityKind = 'belief' | 'message' | 'status' | 'error' | 'birth' | 'approval' | 'goal' | 'wakeup'
 
@@ -65,6 +70,17 @@ export interface HiveData {
   wakeups: Record<string, Wakeup>
   /** Last time each wakeup fired (ms), for a pulse in the schedule. */
   wakeFired: Record<string, number>
+  // ---- Lab
+  /** null until the suites have been fetched (or on a server without the Lab). */
+  labSuites: LabSuite[] | null
+  /** Every run summary seen, by id. */
+  labRuns: Record<string, LabRunSummary>
+  /** Cases per run, in arrival order, unique by case id. */
+  labCases: Record<string, LabCase[]>
+  /** Live log lines per run (lab.log). */
+  labLogs: Record<string, string[]>
+  /** Per-suite history (oldest first), kept current as runs finish. */
+  labHistory: Record<string, LabHistory>
 }
 
 export const emptyData = (): HiveData => ({
@@ -87,6 +103,11 @@ export const emptyData = (): HiveData => ({
   traces: {},
   wakeups: {},
   wakeFired: {},
+  labSuites: null,
+  labRuns: {},
+  labCases: {},
+  labLogs: {},
+  labHistory: {},
 })
 
 const pulseKey = (swarmId: string, statement: string) => `${swarmId}\u0000${statement}`
@@ -319,9 +340,76 @@ export function reduce(s: HiveData, e: HiveEvent): HiveData {
         ...pushActivity(s, { at: e.at, kind: 'wakeup', agent_id: e.agent_id, swarm_id: s.agents[e.agent_id]?.swarm_id ?? null, text: 'woke on schedule' }),
       }
 
+    case 'lab.run': {
+      const run = e.run
+      const labSuites = s.labSuites?.map((x) =>
+        x.id === run.suite && (!x.last_run || x.last_run.id === run.id || x.last_run.started_at <= run.started_at) ? { ...x, last_run: run } : x,
+      ) ?? null
+      const next: HiveData = { ...s, labRuns: { ...s.labRuns, [run.id]: run }, labSuites }
+      const h = s.labHistory[run.suite]
+      if (!h || run.status === 'running') return next
+      return { ...next, labHistory: { ...s.labHistory, [run.suite]: foldRunIntoHistory(h, run, s.labCases[run.id] ?? []) } }
+    }
+
+    case 'lab.case':
+      return { ...s, labCases: { ...s.labCases, [e.case.run_id]: upsertCase(s.labCases[e.case.run_id], e.case) } }
+
+    case 'lab.log': {
+      const cur = s.labLogs[e.run_id] ?? []
+      const next = cur.length >= LAB_LOG_CAP ? [...cur.slice(cur.length - LAB_LOG_CAP + 1), e.text] : [...cur, e.text]
+      return { ...s, labLogs: { ...s.labLogs, [e.run_id]: next } }
+    }
+
     default:
       return s
   }
+}
+
+export const isTerminal = (r: Pick<LabRunSummary, 'status'>) => r.status !== 'running'
+
+export function upsertCase(list: LabCase[] | undefined, c: LabCase): LabCase[] {
+  const cur = list ?? []
+  const idx = cur.findIndex((x) => x.id === c.id)
+  if (idx < 0) return [...cur, c]
+  const next = cur.slice()
+  next[idx] = c
+  return next
+}
+
+/** Add (or replace) a finished run and its metric values in a suite's history. Pure. */
+export function foldRunIntoHistory(h: LabHistory, run: LabRunSummary, cases: LabCase[]): LabHistory {
+  const runs = [...h.runs.filter((r) => r.id !== run.id), run].sort((a, b) => a.started_at.localeCompare(b.started_at))
+  const metrics = h.metrics.map((m) => ({ ...m, points: m.points.filter((p) => p.run_id !== run.id) }))
+  for (const c of cases) {
+    for (const mt of c.metrics) {
+      let entry = metrics.find((m) => m.case_id === c.id && m.metric === mt.name)
+      if (!entry) {
+        entry = { case_id: c.id, case: c.name, metric: mt.name, unit: mt.unit, better: mt.better, target: mt.target, points: [] }
+        metrics.push(entry)
+      }
+      entry.points.push({ run_id: run.id, at: run.started_at, value: mt.value, ok: mt.ok })
+      entry.points.sort((a, b) => a.at.localeCompare(b.at))
+    }
+  }
+  return { ...h, runs, metrics }
+}
+
+/** Overall Lab health from each suite's last run. */
+export function labHealth(suites: LabSuite[] | null): { state: 'unknown' | 'running' | 'passing' | 'failing'; passing: number; total: number; ran: number } {
+  if (!suites?.length) return { state: 'unknown', passing: 0, total: 0, ran: 0 }
+  let passing = 0
+  let ran = 0
+  let failing = false
+  let running = false
+  for (const x of suites) {
+    const r = x.last_run
+    if (!r) continue
+    if (r.status === 'running') running = true
+    else ran++
+    if (r.status === 'passed') passing++
+    if (r.status === 'failed' || r.status === 'error') failing = true
+  }
+  return { state: failing ? 'failing' : running ? 'running' : ran ? 'passing' : 'unknown', passing, total: suites.length, ran }
 }
 
 function omit<T>(rec: Record<string, T>, key: string): Record<string, T> {

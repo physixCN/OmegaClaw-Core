@@ -9,6 +9,7 @@ import { useHive } from '../store/store'
 import { Icon, type IconName } from '../ui/Icon'
 import { CountBadge, Kbd, Orb } from '../ui/primitives'
 import { cx } from '../lib/cx'
+import { LabBadge } from './LabBadge'
 
 function AnimatedNumber({ value, format }: { value: number; format: (n: number) => string }) {
   const mv = useMotionValue(value)
@@ -118,6 +119,7 @@ export function TopBar() {
           style={{ opacity: panel ? 0 : 1, pointerEvents: panel ? 'none' : undefined, transition: 'opacity 200ms' }}
           aria-hidden={panel || undefined}
         >
+          <LabBadge />
           <InboxButton />
           <button
             onClick={() => setPalette(true)}
@@ -142,6 +144,8 @@ export function TopBar() {
       <div className="pointer-events-auto flex items-center justify-between gap-2">
         <Brand />
         <div className="flex items-center gap-2">
+          {/* phones have room for one status pill: approvals waiting outrank the Lab */}
+          <MobileLab />
           <InboxButton compactMode />
           <button onClick={() => setPalette(true)} className="glass flex size-11 items-center justify-center rounded-2xl text-ink-2" aria-label="Search and commands">
             <Icon name="search" size={19} />
@@ -257,6 +261,11 @@ function InboxButton({ compactMode }: { compactMode?: boolean }) {
   )
 }
 
+function MobileLab() {
+  const pending = useHive((s) => countPending(s.approvals))
+  return pending > 0 ? null : <LabBadge compactMode />
+}
+
 interface MenuItem {
   label: string
   icon: IconName
@@ -290,6 +299,7 @@ function OverflowMenu() {
     { label: 'Approvals inbox', icon: 'inbox', run: go(() => navigate({ name: 'approvals' })), badge: pending },
     { label: 'Policy rules', icon: 'rules', run: go(() => navigate({ name: 'approvals', tab: 'rules' })) },
     { label: 'Goals board', icon: 'target', run: go(() => navigate({ name: 'goals' })) },
+    { label: 'Lab · tests & benchmarks', icon: 'flask', run: go(() => navigate({ name: 'lab' })) },
     null,
     { label: 'Stop all dots…', icon: 'power', run: go(() => setStopAll(true)), danger: true, hint: `${awake} running` },
   ]

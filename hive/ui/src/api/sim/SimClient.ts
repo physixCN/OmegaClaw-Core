@@ -36,6 +36,7 @@ import type {
 import { cronError, isValidTz, nextRun } from '../../lib/cron'
 import { commandSkill, resolvePolicy, skillRisk } from '../../lib/policy'
 import { LOG_TEMPLATES, NAME_IDEAS, SEED_AGENTS, SEED_SWARMS, SIM_MODELS, SKILLS, type SeedAgent } from './data'
+import { SimLab, type LabRecord } from './lab'
 import { overlaps, revise, round3, unionCapped } from './nal'
 import { generateReply, PEER_LINES, PEER_REPLIES } from './replies'
 import {
@@ -69,6 +70,10 @@ export interface SimOptions {
   historyDays?: number
   /** Extra generated dots on top of the seeded cast (stress testing). */
   extraDots?: number
+  /** Lab: load a recording other than the bundled fixture (tests). */
+  labRecord?: () => Promise<LabRecord>
+  /** Lab: longest a replay may take (ms). */
+  labReplayMs?: number
 }
 
 type Voice = SeedAgent['voice']
@@ -98,7 +103,8 @@ const ID_CHARS = 'abcdefghijkmnpqrstuvwxyz23456789'
 export class SimClient implements HiveClient {
   readonly mode = 'sim' as const
   readonly rng: () => number
-  private opts: Required<SimOptions>
+  private opts: Required<Omit<SimOptions, 'labRecord' | 'labReplayMs'>>
+  readonly lab: SimLab
 
   readonly agents = new Map<string, Agent>()
   readonly swarms = new Map<string, Swarm>()
@@ -131,6 +137,15 @@ export class SimClient implements HiveClient {
   constructor(options: SimOptions = {}) {
     this.opts = { seed: 7, autoStart: true, speed: 1, latency: true, historyDays: 30, extraDots: 0, ...options }
     this.rng = mulberry32(this.opts.seed)
+    this.lab = new SimLab({
+      emit: (e) => this.emit(e),
+      // its own stream, so the Lab never perturbs the living hive's reproducible sequence
+      rng: mulberry32(this.opts.seed + 0x1ab),
+      latency: this.opts.latency,
+      load: options.labRecord,
+      maxReplayMs: options.labReplayMs,
+      minReplayMs: options.labReplayMs ? Math.min(2500, options.labReplayMs / 2) : undefined,
+    })
     this.seed()
   }
 
@@ -1255,6 +1270,7 @@ export class SimClient implements HiveClient {
       awake: agents.filter((a) => a.status === 'awake').length,
       beliefs,
       spent_usd: round6(agents.reduce((s, a) => s + a.spent_usd, 0)),
+      limits: { goal_lease_minutes: LEASE_MINUTES, hive_budget_usd: 0, max_llm_calls_per_minute: 60 },
     }
   }
 
@@ -1732,6 +1748,27 @@ export class SimClient implements HiveClient {
     })
   }
 
+  // ------------------------------------------------------------------ Lab (recorded results)
+
+  listLabSuites() {
+    return this.lab.suites()
+  }
+  listLabRuns(opts?: { suite?: string; limit?: number }) {
+    return this.lab.listRuns(opts)
+  }
+  startLabRun(suite: string) {
+    return this.lab.start(suite)
+  }
+  getLabRun(id: string) {
+    return this.lab.get(id)
+  }
+  cancelLabRun(id: string) {
+    return this.lab.cancel(id)
+  }
+  getLabHistory(suite: string, limit?: number) {
+    return this.lab.history(suite, limit)
+  }
+
   connect() {
     if (this.state === 'open') return
     this.setState('connecting')
@@ -1748,6 +1785,7 @@ export class SimClient implements HiveClient {
     this.running = false
     for (const t of this.timers) clearTimeout(t)
     this.timers.clear()
+    this.lab.stop()
     this.setState('idle')
   }
   subscribe(fn: (e: HiveEvent) => void) {

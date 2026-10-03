@@ -3,7 +3,7 @@ import { isTypingTarget } from '../lib/hooks'
 import { navigate } from '../lib/router'
 import { useHive } from '../store/store'
 
-/** Global keyboard shortcuts: ⌘K / Ctrl+K, g h, g s, g i, g g, g u, n, /. Esc is handled by the escape stack. */
+/** Global keyboard shortcuts: ⌘K / Ctrl+K, g h, g s, g i, g g, g u, g l, n, /. Esc is handled by the escape stack. */
 export function useShortcuts(): void {
   useEffect(() => {
     let g = 0
@@ -25,6 +25,7 @@ export function useShortcuts(): void {
         else if (k === 'u') navigate({ name: 'usage' })
         else if (k === 'i') navigate({ name: 'approvals' })
         else if (k === 'g') navigate({ name: 'goals' })
+        else if (k === 'l') navigate({ name: 'lab' })
         else return
         e.preventDefault()
         return

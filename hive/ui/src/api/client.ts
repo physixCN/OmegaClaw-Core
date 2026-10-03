@@ -14,6 +14,10 @@ import type {
   Goal,
   HiveEvent,
   HiveInfo,
+  LabHistory,
+  LabRun,
+  LabRunSummary,
+  LabSuite,
   MemoryAtom,
   MemorySpace,
   Message,
@@ -94,6 +98,16 @@ export interface HiveClient {
   /** Global kill switch. */
   stopAll(): Promise<{ stopped: number }>
 
+  // ---- Lab ----
+  listLabSuites(): Promise<LabSuite[]>
+  /** Newest first. */
+  listLabRuns(opts?: { suite?: string; limit?: number }): Promise<LabRunSummary[]>
+  /** 409 already_running, 400 missing_requirements. */
+  startLabRun(suite: string): Promise<LabRun>
+  getLabRun(id: string): Promise<LabRun>
+  cancelLabRun(id: string): Promise<{ cancelling: true }>
+  getLabHistory(suite: string, limit?: number): Promise<LabHistory>
+
   /** Open the live event stream. Safe to call more than once. */
   connect(): void
   disconnect(): void
@@ -134,6 +148,8 @@ export class Emitter<T> {
 
 /** True when the app should run against the in-browser simulator. */
 export function wantsSim(): boolean {
+  // the static demo build has no backend at all
+  if (import.meta.env.MODE === 'demo') return true
   const params = new URLSearchParams(window.location.search)
   if (params.get('sim') === '1') return true
   if (params.get('sim') === '0') return false

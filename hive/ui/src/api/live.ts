@@ -30,6 +30,10 @@ import type {
   CreateSwarmBody,
   HiveEvent,
   HiveInfo,
+  LabHistory,
+  LabRun,
+  LabRunSummary,
+  LabSuite,
   Message,
   ModelOption,
   PatchAgentBody,
@@ -202,6 +206,22 @@ export class LiveClient implements HiveClient {
     this.request<{ queued: true }>('POST', `/api/agents/${enc(agentId)}/memory/${enc(space)}/retire`, { atom })
   resetMemory = (agentId: string) => this.request<{ queued: true }>('POST', `/api/agents/${enc(agentId)}/memory/reset`, {})
   stopAll = () => this.request<{ stopped: number }>('POST', '/api/hive/stop-all', {})
+
+  // ---------- Lab ----------
+
+  listLabSuites = () => this.request<LabSuite[]>('GET', '/api/lab/suites')
+  listLabRuns = (opts: { suite?: string; limit?: number } = {}) => {
+    const q = new URLSearchParams()
+    if (opts.suite) q.set('suite', opts.suite)
+    if (opts.limit) q.set('limit', String(opts.limit))
+    const qs = q.toString()
+    return this.request<LabRunSummary[]>('GET', `/api/lab/runs${qs ? `?${qs}` : ''}`)
+  }
+  startLabRun = (suite: string) => this.request<LabRun>('POST', '/api/lab/runs', { suite })
+  getLabRun = (id: string) => this.request<LabRun>('GET', `/api/lab/runs/${enc(id)}`)
+  cancelLabRun = (id: string) => this.request<{ cancelling: true }>('POST', `/api/lab/runs/${enc(id)}/cancel`, {})
+  getLabHistory = (suite: string, limit = 30) =>
+    this.request<LabHistory>('GET', `/api/lab/history/${enc(suite)}?limit=${limit}`)
 
   // ---------- WebSocket ----------
 

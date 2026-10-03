@@ -16,6 +16,7 @@ import { Chat } from './Chat'
 import { MemoryInspector } from './MemoryInspector'
 import { MindTimeline } from './MindTimeline'
 import { Schedule } from './Schedule'
+import { LabGuards } from '../../shell/LabBadge'
 
 type Tab = DotTab
 
@@ -378,6 +379,11 @@ function ModelSettings({ agent }: { agent: Agent }) {
             className="hue-range flex-1"
           />
         </div>
+      </section>
+
+      <section aria-labelledby="guards-h">
+        <h3 id="guards-h" className="eyebrow mb-2">Hive guards</h3>
+        <LabGuards />
       </section>
 
       <section aria-labelledby="budget-h">

@@ -33,6 +33,9 @@ export default function CommandPalette() {
   const act = useHive((s) => s.agentAction)
   const pending = useHive((s) => countPending(s.approvals))
   const setStopAll = useHive((s) => s.setStopAll)
+  const labSuites = useHive((s) => s.labSuites)
+  const startLab = useHive((s) => s.startLab)
+  const runAllLab = useHive((s) => s.runAllLab)
   const desktop = useIsDesktop()
   const [q, setQ] = useState('')
   const [sel, setSel] = useState(0)
@@ -57,11 +60,30 @@ export default function CommandPalette() {
       { id: 'nav-inbox', group: 'Navigate', label: 'Open the approvals inbox', icon: 'inbox', keys: ['G', 'I'], hint: pending ? `${pending} waiting` : undefined, keywords: 'approve deny pending gate', run: go(() => navigate({ name: 'approvals' })) },
       { id: 'nav-goals', group: 'Navigate', label: 'Go to goals', icon: 'target', keys: ['G', 'G'], keywords: 'kanban tasks board work', run: go(() => navigate({ name: 'goals' })) },
       { id: 'nav-usage', group: 'Navigate', label: 'Go to usage', icon: 'chart', keys: ['G', 'U'], run: go(() => navigate({ name: 'usage' })) },
+      { id: 'nav-lab', group: 'Navigate', label: 'Open the Lab', icon: 'flask', keys: ['G', 'L'], keywords: 'tests benchmarks bench ci suites health', run: go(() => navigate({ name: 'lab' })) },
       { id: 'nav-rules', group: 'Navigate', label: 'Edit policy rules', icon: 'rules', keywords: 'allow ask deny skills glob policy', searchOnly: true, run: go(() => navigate({ name: 'approvals', tab: 'rules' })) },
       { id: 'new', group: 'Actions', label: 'Create a new dot', icon: 'plus', keys: ['N'], keywords: 'add spawn birth', run: go(() => navigate({ name: 'new' })) },
       { id: 'stop-all', group: 'Actions', label: 'Stop all dots…', icon: 'power', keywords: 'kill switch emergency halt stop-all panic', run: go(() => setStopAll(true)) },
       { id: 'recenter', group: 'Actions', label: 'Recenter the camera', icon: 'locate', keywords: 'overview fit zoom', run: go(() => (navigate({ name: 'hive' }), useScene.getState().engine?.overview())) },
     ]
+    for (const x of labSuites ?? []) {
+      const running = x.last_run?.status === 'running'
+      list.push({
+        id: `lab-run-${x.id}`,
+        group: 'Actions',
+        label: `Run ${/^(Epistemic|Omega)/.test(x.title) ? x.title : x.title.charAt(0).toLowerCase() + x.title.slice(1)}`,
+        icon: 'flask',
+        searchOnly: true,
+        hint: running ? 'running now' : !x.runnable ? 'unavailable' : x.kind === 'bench' ? 'benchmark' : 'tests',
+        keywords: `lab ${x.id} ${x.kind === 'bench' ? 'benchmark bench' : 'tests test'} ${x.description}`,
+        run: go(() => {
+          if (x.runnable && !running) void startLab(x.id)
+          navigate({ name: 'lab', suite: x.id })
+        }),
+      })
+      list.push({ id: `lab-history-${x.id}`, group: 'Navigate', label: `${x.title} history`, icon: 'history', searchOnly: true, keywords: `lab trend ${x.id} ${x.kind}`, run: go(() => navigate({ name: 'lab', suite: x.id, tab: 'history' })) })
+    }
+    if (labSuites?.length) list.push({ id: 'lab-run-all', group: 'Actions', label: 'Run every test and benchmark', icon: 'flask', searchOnly: true, keywords: 'lab run all everything suites ci', run: go(() => (void runAllLab(), navigate({ name: 'lab' }))) })
     const sorted = Object.values(agents).sort((a, b) => a.name.localeCompare(b.name))
     for (const a of sorted) {
       list.push({
@@ -93,7 +115,7 @@ export default function CommandPalette() {
     }
     return list
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agents, swarms, pending])
+  }, [agents, swarms, pending, labSuites])
 
   const results = useMemo(() => {
     const query = q.trim()

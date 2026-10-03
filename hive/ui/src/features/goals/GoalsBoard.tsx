@@ -278,7 +278,8 @@ function GoalCard({ goal: g, subgoals, agents, swarmHue }: { goal: Goal; subgoal
   const fresh = g.updated_at !== baseline
   const stalled = g.status === 'stalled'
   const waiting = g.status === 'waiting'
-  const lease = leaseOf(g, now)
+  const leaseMinutes = useHive((s) => s.hive?.limits?.goal_lease_minutes)
+  const lease = leaseOf(g, now, leaseMinutes || 60)
   const accent = stalled ? STALLED : waiting ? WAITING : col === 'failed' ? '#fb7185' : priorityColor(g.priority)
 
   return (

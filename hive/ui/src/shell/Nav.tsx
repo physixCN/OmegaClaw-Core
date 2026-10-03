@@ -5,7 +5,7 @@ import { useHive } from '../store/store'
 import { Icon, type IconName } from '../ui/Icon'
 import { CountBadge, Kbd } from '../ui/primitives'
 import { cx } from '../lib/cx'
-import { countPending } from '../store/reducer'
+import { countPending, labHealth } from '../store/reducer'
 
 interface Item {
   key: string
@@ -23,6 +23,7 @@ const ITEMS: Item[] = [
   { key: 'inbox', label: 'Inbox', icon: 'inbox', route: { name: 'approvals' }, match: ['approvals'], keys: ['G', 'I'], badge: true },
   { key: 'goals', label: 'Goals', icon: 'target', route: { name: 'goals' }, match: ['goals'], keys: ['G', 'G'] },
   { key: 'usage', label: 'Usage', icon: 'chart', route: { name: 'usage' }, match: ['usage'], keys: ['G', 'U'] },
+  { key: 'lab', label: 'Lab', icon: 'flask', route: { name: 'lab' }, match: ['lab'], keys: ['G', 'L'] },
 ]
 const byKey = (k: string) => ITEMS.find((i) => i.key === k)!
 
@@ -68,7 +69,7 @@ export function Nav() {
           <CreateButton />
         </div>
         {ITEMS.slice(2).map((it) => (
-          <RailButton key={it.key} it={it} active={it.match.includes(route.name)} badge={it.badge ? pending : 0} />
+          <RailButton key={it.key} it={it} active={it.match.includes(route.name)} badge={it.badge ? pending : 0} dot={it.key === 'lab' ? <LabDot /> : null} />
         ))}
       </nav>
     )
@@ -112,7 +113,22 @@ function TabButton({ it, active, badge = 0 }: { it: Item; active: boolean; badge
   )
 }
 
-function RailButton({ it, active, badge = 0 }: { it: Item; active: boolean; badge?: number }) {
+/** The Lab's last-run state as a tiny status dot on the rail icon. */
+function LabDot() {
+  const suites = useHive((s) => s.labSuites)
+  const health = labHealth(suites)
+  if (health.state === 'unknown') return null
+  const color = health.state === 'failing' ? '#fb7185' : health.state === 'running' ? '#7dd3fc' : '#4ade80'
+  return (
+    <span
+      className={cx('pointer-events-none absolute top-2 right-2 size-2 rounded-full', health.state === 'running' && 'animate-pulse')}
+      style={{ background: color, boxShadow: `0 0 0 2px rgb(8 8 28), 0 0 8px ${color}` }}
+      aria-hidden="true"
+    />
+  )
+}
+
+function RailButton({ it, active, badge = 0, dot }: { it: Item; active: boolean; badge?: number; dot?: React.ReactNode }) {
   return (
     <div className="group relative">
       <button
@@ -130,6 +146,7 @@ function RailButton({ it, active, badge = 0 }: { it: Item; active: boolean; badg
         )}
         <Icon name={it.icon} size={20} className="relative" />
         <CountBadge n={badge} className="absolute -top-0.5 -right-0.5" />
+        {dot}
       </button>
       <div className="glass-strong pointer-events-none absolute top-1/2 left-full ml-3 flex -translate-y-1/2 items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100">
         {it.label}

@@ -11,6 +11,7 @@ import type {
   CreateWakeupBody,
   Goal,
   HiveEvent,
+  LabRun,
   Message,
   ModelOption,
   PatchAgentBody,
@@ -19,7 +20,7 @@ import type {
   Wakeup,
 } from '../api/types'
 import type { IconName } from '../ui/Icon'
-import { emptyData, mergeMessages, mergeTraces, reduce, upsertMessage, type HiveData } from './reducer'
+import { emptyData, isTerminal, mergeMessages, mergeTraces, reduce, upsertCase, upsertMessage, type HiveData } from './reducer'
 
 export interface PendingMessage {
   tempId: string
@@ -74,6 +75,14 @@ export interface UIState {
   retired: Record<string, true>
   resetQueued: Record<string, true>
   stopAllOpen: boolean
+  // ---- Lab
+  labLoaded: boolean
+  /** The stored stdout tail of finished runs (GET /api/lab/runs/{id}). */
+  labRunLog: Record<string, string>
+  /** "Run everything": suites still to start, one after another. */
+  labQueue: string[]
+  /** Runs started or watched in this session (they toast when they finish). */
+  labWatched: Record<string, true>
 }
 
 export interface Actions {
@@ -112,6 +121,15 @@ export interface Actions {
   resetMemory(agentId: string): Promise<boolean>
   stopAll(): Promise<number | null>
   setStopAll(open: boolean): void
+  // ---- Lab
+  loadLab(): Promise<void>
+  loadLabRun(id: string): Promise<LabRun | null>
+  loadLabHistory(suite: string): Promise<void>
+  startLab(suite: string): Promise<LabRun | null>
+  cancelLab(id: string): Promise<void>
+  /** Queue every runnable suite (tests first) and run them one at a time. */
+  runAllLab(): Promise<void>
+  stopLabQueue(): void
 }
 
 export type Store = HiveData & UIState & Actions
@@ -151,6 +169,10 @@ export const useHive = create<Store>()((set, get) => ({
   retired: {},
   resetQueued: {},
   stopAllOpen: false,
+  labLoaded: false,
+  labRunLog: {},
+  labQueue: [],
+  labWatched: {},
 
   apply(e) {
     set((s) => {
@@ -161,6 +183,7 @@ export const useHive = create<Store>()((set, get) => ({
       return data
     })
     hiveBus.emit(e)
+    if (e.type === 'lab.run' && isTerminal(e.run)) onLabRunFinished(e.run.id)
   },
 
   async init(client) {
@@ -195,7 +218,7 @@ export const useHive = create<Store>()((set, get) => ({
       // Commons are small in Phase 1: load all of them so the scene can show belief motes.
       await Promise.all(swarms.map((s) => get().loadBeliefs(s.id)))
       // Phase 2 surfaces are optional: a Phase 1 server simply leaves them empty.
-      await Promise.allSettled([get().loadApprovals(), ...swarms.map((s) => get().loadGoals(s.id))])
+      await Promise.allSettled([get().loadApprovals(), ...swarms.map((s) => get().loadGoals(s.id)), get().loadLab()])
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         set({ ready: false, bootError: null })
@@ -505,10 +528,144 @@ export const useHive = create<Store>()((set, get) => ({
   setStopAll(open) {
     set({ stopAllOpen: open })
   },
+
+  // ------------------------------------------------------------ Lab
+
+  async loadLab() {
+    const client = get().client
+    if (!client) return
+    const [suites, runs] = await Promise.all([client.listLabSuites(), client.listLabRuns({ limit: 200 })])
+    set((s) => {
+      const labRuns = { ...s.labRuns }
+      // a live update newer than the snapshot wins
+      for (const r of runs) if (!labRuns[r.id] || !(labRuns[r.id].status !== 'running' && r.status === 'running')) labRuns[r.id] = r
+      for (const x of suites) if (x.last_run && !labRuns[x.last_run.id]) labRuns[x.last_run.id] = x.last_run
+      return {
+        labSuites: suites.map((x) => (x.last_run && labRuns[x.last_run.id] ? { ...x, last_run: labRuns[x.last_run.id] } : x)),
+        labRuns,
+        labLoaded: true,
+      }
+    })
+  },
+
+  async loadLabRun(id) {
+    const client = get().client
+    if (!client) return null
+    const run = await client.getLabRun(id)
+    const { log, cases, ...summary } = run
+    set((s) => {
+      // cases that streamed in while the request was in flight are kept
+      let merged = cases
+      for (const c of s.labCases[id] ?? []) if (!merged.some((x) => x.id === c.id)) merged = upsertCase(merged, c)
+      const cur = s.labRuns[id]
+      const keep = cur && cur.status !== 'running' && summary.status === 'running'
+      return {
+        labRuns: { ...s.labRuns, [id]: keep ? cur : summary },
+        labCases: { ...s.labCases, [id]: merged },
+        labRunLog: { ...s.labRunLog, [id]: log },
+      }
+    })
+    return run
+  },
+
+  async loadLabHistory(suite) {
+    const client = get().client
+    if (!client) return
+    const h = await client.getLabHistory(suite, 30)
+    set((s) => {
+      const labRuns = { ...s.labRuns }
+      for (const r of h.runs) if (!labRuns[r.id]) labRuns[r.id] = r
+      return { labHistory: { ...s.labHistory, [suite]: h }, labRuns }
+    })
+  },
+
+  async startLab(suite) {
+    const client = get().client
+    if (!client) return null
+    try {
+      const run = await client.startLabRun(suite)
+      const { log: _log, cases, ...summary } = run
+      void _log
+      set((s) => ({
+        labRuns: { ...s.labRuns, [run.id]: s.labRuns[run.id] && isTerminal(s.labRuns[run.id]) ? s.labRuns[run.id] : summary },
+        labCases: { ...s.labCases, [run.id]: s.labCases[run.id] ?? cases },
+        labSuites: s.labSuites?.map((x) => (x.id === suite && (!x.last_run || x.last_run.started_at <= run.started_at) ? { ...x, last_run: s.labRuns[run.id] ?? summary } : x)) ?? null,
+        labWatched: { ...s.labWatched, [run.id]: true },
+      }))
+      return run
+    } catch (err) {
+      const title = get().labSuites?.find((x) => x.id === suite)?.title ?? suite
+      get().toast({ tone: 'error', title: `Could not run ${title}`, body: errText(err) })
+      return null
+    }
+  },
+
+  async cancelLab(id) {
+    const client = get().client
+    if (!client) return
+    set({ labQueue: [] })
+    try {
+      await client.cancelLabRun(id)
+    } catch (err) {
+      get().toast({ tone: 'error', title: 'Could not cancel the run', body: errText(err) })
+    }
+  },
+
+  async runAllLab() {
+    const suites = get().labSuites ?? []
+    const order = [...suites.filter((x) => x.kind === 'tests'), ...suites.filter((x) => x.kind === 'bench')]
+    const todo = order.filter((x) => x.runnable && x.last_run?.status !== 'running').map((x) => x.id)
+    if (!todo.length) return
+    set({ labQueue: todo.slice(1) })
+    await get().startLab(todo[0])
+  },
+
+  stopLabQueue() {
+    set({ labQueue: [] })
+  },
   dismissToast(id) {
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }))
   },
 }))
+
+const labRefetch = new Map<string, ReturnType<typeof setTimeout>>()
+
+/** A run finished: toast it if this session watched it, start the next queued suite, resync history. */
+function onLabRunFinished(runId: string) {
+  const s = useHive.getState()
+  const run = s.labRuns[runId]
+  if (!run) return
+  const suite = s.labSuites?.find((x) => x.id === run.suite)
+  if (s.labWatched[runId]) {
+    useHive.setState((st) => {
+      const next = { ...st.labWatched }
+      delete next[runId]
+      return { labWatched: next }
+    })
+    const total = run.passed + run.failed + run.skipped + run.errors
+    const good = run.status === 'passed'
+    s.toast({
+      tone: good ? 'success' : run.status === 'cancelled' ? 'info' : 'error',
+      icon: 'flask',
+      title: `${suite?.title ?? run.suite} ${run.status === 'cancelled' ? 'cancelled' : good ? 'passed' : run.status}`,
+      body: run.status === 'cancelled' ? undefined : `${run.passed}/${total} passed${run.failed ? ` · ${run.failed} failed` : ''}${run.errors ? ` · ${run.errors} errors` : ''}`,
+      action: { label: 'Open the run', run: () => (window.location.hash = `#/lab/run/${encodeURIComponent(runId)}`) },
+    })
+  }
+  // "Run everything": the next suite starts when nothing from the queue is running
+  if (s.labQueue.length) {
+    const busy = Object.values(useHive.getState().labRuns).some((r) => r.status === 'running')
+    if (!busy) {
+      const [next, ...rest] = s.labQueue
+      useHive.setState({ labQueue: rest })
+      void s.startLab(next)
+    }
+  }
+  if (s.labHistory[run.suite]) {
+    clearTimeout(labRefetch.get(run.suite))
+    labRefetch.set(run.suite, setTimeout(() => void useHive.getState().loadLabHistory(run.suite).catch(() => undefined), 600))
+  }
+}
 
 function pickNewer(cur: Record<string, import('../api/types').Belief> | undefined, list: { statement: string; updated_at: string }[]) {
   // Keep any live update that is newer than what the REST snapshot returned.

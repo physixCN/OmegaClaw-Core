@@ -104,6 +104,14 @@ export interface HiveInfo {
   awake: number
   beliefs: number
   spent_usd: number
+  /** Server settings the UI needs to draw exact bars (absent on older servers). */
+  limits?: HiveLimits
+}
+
+export interface HiveLimits {
+  goal_lease_minutes: number
+  hive_budget_usd: number
+  max_llm_calls_per_minute: number
 }
 
 // ---- REST bodies ----
@@ -269,6 +277,102 @@ export type CreateWakeupBody = { text: string; tz?: string } & ({ cron: string; 
 
 export type PatchWakeupBody = Partial<Pick<Wakeup, 'enabled' | 'cron' | 'at' | 'tz' | 'text'>>
 
+// ---- The Lab: test suites and benchmarks (hive/core/lab.py) ----
+
+export type LabKind = 'tests' | 'bench'
+export type LabRunStatus = 'running' | 'passed' | 'failed' | 'error' | 'cancelled' | 'skipped'
+export type LabCaseStatus = 'passed' | 'failed' | 'skipped' | 'error'
+export type Better = 'lower' | 'higher' | 'equal'
+
+export interface LabRunSummary {
+  id: string
+  suite: string
+  status: LabRunStatus
+  started_at: string
+  finished_at: string | null
+  duration_ms: number | null
+  passed: number
+  failed: number
+  skipped: number
+  errors: number
+  commit_sha: string | null
+  /**
+   * Simulator only, never sent by a real hive. "recorded": real results from the recording;
+   * "example": synthetic history jittered from the recording; "replay": a recorded run replayed.
+   */
+  demo?: 'recorded' | 'example' | 'replay'
+}
+
+export interface LabSuite {
+  id: string
+  kind: LabKind
+  title: string
+  description: string
+  estimate_s: number
+  needs: string[]
+  missing: string[]
+  runnable: boolean
+  last_run: LabRunSummary | null
+}
+
+export interface LabMetric {
+  name: string
+  value: number
+  unit: string
+  better: Better
+  /** The pass line (lower: <=, higher: >=, equal: ==). Null is informational. */
+  target: number | null
+  ok: boolean | null
+}
+
+export interface LabSeries {
+  name: string
+  unit: string
+  kind: 'line' | 'bar' | 'step'
+  /** x-axis label */
+  x: string
+  points: [number, number][]
+}
+
+export interface LabCase {
+  run_id: string
+  id: string
+  name: string
+  group: string
+  status: LabCaseStatus
+  duration_ms: number | null
+  message: string | null
+  notes: string | null
+  metrics: LabMetric[]
+  series: LabSeries[]
+}
+
+export type LabRun = LabRunSummary & { log: string; cases: LabCase[] }
+
+export interface LabHistoryPoint {
+  run_id: string
+  at: string
+  value: number
+  ok: boolean | null
+}
+
+export interface LabHistoryMetric {
+  case_id: string
+  case: string
+  metric: string
+  unit: string
+  better: Better | null
+  target: number | null
+  points: LabHistoryPoint[]
+}
+
+export interface LabHistory {
+  suite: string
+  /** Oldest first. */
+  runs: LabRunSummary[]
+  metrics: LabHistoryMetric[]
+}
+
 // ---- Live events (WS /api/events) ----
 
 export type ThinkingPhase = 'llm' | 'skills' | 'idle'
@@ -297,6 +401,10 @@ export type HiveEvent =
   | (EventBase<'agent.trace'> & { trace: Trace })
   | (EventBase<'wakeup.updated'> & { wakeup: Wakeup })
   | (EventBase<'wakeup.fired'> & { wakeup_id: string; agent_id: string })
+  // Lab
+  | (EventBase<'lab.run'> & { run: LabRunSummary })
+  | (EventBase<'lab.case'> & { case: LabCase })
+  | (EventBase<'lab.log'> & { run_id: string; text: string })
 
 export type HiveEventType = HiveEvent['type']
 export type EventOf<T extends HiveEventType> = Extract<HiveEvent, { type: T }>

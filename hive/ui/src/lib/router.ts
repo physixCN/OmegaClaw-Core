@@ -14,6 +14,9 @@ export type Route =
   | { name: 'usage' }
   | { name: 'approvals'; tab?: ApprovalsTab; focus?: string }
   | { name: 'goals'; swarm?: string }
+  | { name: 'lab'; suite?: string; run?: string; tab?: LabTab }
+
+export type LabTab = 'run' | 'history'
 
 export function parse(hash: string): Route {
   const raw = hash.replace(/^#/, '') || '/'
@@ -33,6 +36,9 @@ export function parse(hash: string): Route {
       return { name: 'approvals', tab: APPROVAL_TABS.find((t) => t === parts[1]), focus: q.get('id') ?? undefined }
     case 'goals':
       return { name: 'goals', swarm: parts[1] }
+    case 'lab':
+      if (parts[1] === 'run' && parts[2]) return { name: 'lab', run: parts[2] }
+      return parts[1] ? { name: 'lab', suite: parts[1], tab: parts[2] === 'history' ? 'history' : undefined } : { name: 'lab' }
     default:
       return { name: 'hive' }
   }
@@ -56,6 +62,9 @@ export function href(r: Route): string {
       return `#/approvals${r.tab && r.tab !== 'pending' ? `/${r.tab}` : ''}${r.focus ? `?id=${encodeURIComponent(r.focus)}` : ''}`
     case 'goals':
       return `#/goals${r.swarm ? `/${encodeURIComponent(r.swarm)}` : ''}`
+    case 'lab':
+      if (r.run) return `#/lab/run/${encodeURIComponent(r.run)}`
+      return `#/lab${r.suite ? `/${encodeURIComponent(r.suite)}${r.tab === 'history' ? '/history' : ''}` : ''}`
   }
 }
 
