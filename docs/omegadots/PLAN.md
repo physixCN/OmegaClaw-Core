@@ -412,9 +412,9 @@ through `run_metta_smokes.py`, and Playwright for the UI.
 
 ### Phase 0: foundations (start here)
 
-- [x] Dev environment script plus a SessionStart hook: build SWI-Prolog 10.0.2
-      from GitHub, clone PeTTa, add a run.sh shebang wrapper. (I already did this
-      by hand in this session.)
+- [x] Dev environment script (`scripts/dev/setup_petta_env.sh`): SWI-Prolog 10.0.2
+      from GitHub, PeTTa, run.sh wrapper.
+- [ ] SessionStart hook that runs it for cloud sessions.
 - [x] Multi-instance fix: route every memory, history, scratch and chroma path
       through `memoryDirectory` / `OMEGACLAW_MEMORY_DIR`.
 - [x] Standalone `hive` channel mode in `channel_router`, plus the wschat client
