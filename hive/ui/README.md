@@ -144,6 +144,55 @@ Quench every 10) and wake sleeping dots; memory spaces hold atoms built from the
 and retire/reset are applied a few seconds later; paid models with a $0 cap are refused with
 `no_budget`, budget exhaustion and rate limits land in `last_error`.
 
+## Dot programs: the adaptive host
+
+Built against [`../PROGRAMS.md`](../PROGRAMS.md) (contract 0.1). A program returns data only (a work
+graph); the host owns layout, stage transitions, accessibility and the restored trail. Program text is
+always rendered as text, never as HTML.
+
+- **Where.** `#/programs` (nav rail "Programs", `g p`, palette) lists every program with its description,
+  capabilities, source (built-in or plugin dir), enabled/disabled/error state and an operator switch, plus
+  **Reload**. `#/program/<id>[/<swarm>]` opens one (the swarm is remembered per program). The swarm view
+  has **Open in…**, and a dot can host a program in its own panel (`#/dot/<id>/program/<pid>`, the programs
+  button in the dot header) over its swarm.
+- **Four stages, one graph.** Every item is one element keyed by its id, so changing stage (or receiving a
+  new revision) moves items physically to their new places (framer-motion `layout`/`layoutId`; reduced
+  motion turns the travel into a fade). Layouts are pure and deterministic (`features/programs/layout.ts`,
+  tested for stability and no overlaps):
+  - **unfold**: the focus in the centre; linked items in rings by BFS depth and link weight, supporting on
+    the left, opposing on the right, qualifying above, related below; unlinked items in an outer ring. Phones
+    get the same bands stacked.
+  - **map**: one force layout seeded by id hashes for the whole graph, fitted around the followed item; it
+    grows outward as you follow, earlier map foci recede (smaller, dimmer, still clickable).
+  - **compare**: the program's groups (or, for a host-side compare, each chosen item with what supports it)
+    on two sides chosen by the links between groups: conflict on opposite sides, agreement together, gaps as
+    dashed "missing research" slots. Overlapping groups show an item twice, marked "same item" and joined by
+    a dashed line. Nothing is merged or averaged.
+  - **detail**: one item: text, uncertainty, every source field, revisions (prior labels, notes, times),
+    flags explained (which corrected item caused `affected-by-correction`), links in and out, its actions.
+- **Always visible.** The **sources rail** (own sources and those of linked items, grouped by origin, with a
+  "same origin" badge when sources share one; **Open** runs `inspect-source` and shows what came back; URLs
+  are external references in a new tab, the host fetches nothing); **uncertainty** in one language (a ring
+  glyph for NAL f/c and PLN strength/confidence with exact numbers and the method on hover/focus, chips for
+  qualitative and unknown methods, "unassessed" when absent, never converted); **status and flags**
+  (corrected, superseded, retracted look different; `affected-by-correction` is a warning badge); the
+  **trail** (breadcrumb of stage + focus, Back, Backspace / Alt+←, Esc goes back one level, 1–4 switch
+  stage; kept per program and swarm in the store and in `localStorage`); the **revision** chip with a calm
+  notice when it changes; the program's **notes**.
+- **Actions** come from `describe().actions` filtered by `applies_to` for every selected kind, always with
+  `base_revision`. `needs_input` opens an inline form (an `items` need asks for a selection); `started`
+  adds a task chip that follows the goal live (`goal.updated`) with **Cancel** (`PATCH status:"cancelled"`);
+  `stale` replaces the graph, keeps the focus by id and says the action was not applied; `refused` and
+  `error` show the message; `done` with a graph replaces the view (and moves to its stage, since the person
+  just acted). Otherwise `suggested_stage` is only a gentle hint.
+- **Sim and demo.** `api/sim/programs.ts` ports `contract_fixture` and `commons_explorer` faithfully
+  (same ids, sources, groups, actions, revisions, stale, needs_input, started → a sim goal created by
+  `program:<id>`), plus the server's graph/result validation. Commons Explorer runs over the sim's own NAL
+  commons, so a dot publishing makes older actions stale. In sim mode `window.__hiveSim` is the simulator,
+  so a console (or the screenshot script) can act as another client.
+
+`npm run shots programs` captures `20-programs` … `29-program-in-dot` at both sizes.
+
 ## Design decisions
 
 - **2D canvas, not three.js.** The scene is a 2.5D renderer: tilted elliptical orbits give
@@ -197,16 +246,19 @@ and retire/reset are applied a few seconds later; paid models with a $0 cap are 
 
 | Chunk | min | gzip |
 |---|---:|---:|
-| `index` (React, store, scene, shell) | 369.4 KB | **120.2 KB** |
-| `index.css` | 74.9 KB | 15.4 KB |
+| `index` (React, store, scene, shell, program session) | 390.1 KB | **126.3 KB** |
+| `index.css` | 89.0 KB | 17.4 KB |
 | `motionFeatures` (async) | 60.8 KB | 19.1 KB |
 | shared motion runtime for views | 39.9 KB | 14.4 KB |
-| `SimClient` (sim only) | 64.0 KB | 21.7 KB |
-| `live` (live only) | 5.5 KB | 2.0 KB |
-| `DotPanel` (chat, mind, memory, schedule, model) | 59.3 KB | 16.6 KB |
-| `SwarmView` / `GoalsBoard` / `UsageView` / `CreateFlow` | 23.5 / 18.5 / 14.8 / 14.5 KB | 8.0 / 6.2 / 5.3 / 5.2 KB |
+| `SimClient` (sim only; includes both ported programs) | 96.0 KB | 32.9 KB |
+| `live` (live only) | 6.5 KB | 2.2 KB |
+| `ProgramHost` (stages, layouts, rail, detail; lazy) | 77.0 KB | 23.9 KB |
+| `ProgramsIndex` / `ProgramPage` / `OpenIn` | 5.5 / 2.2 / 2.5 KB | 2.3 / 1.1 / 1.2 KB |
+| `DotPanel` (chat, mind, memory, schedule, model) | 61.6 KB | 17.3 KB |
+| `LabView` / `lab-record` (demo recording) | 83.9 / 164.1 KB | 24.4 / 31.6 KB |
+| `SwarmView` / `GoalsBoard` / `UsageView` / `CreateFlow` | 23.6 / 17.7 / 14.8 / 14.5 KB | 8.0 / 5.9 / 5.3 / 5.2 KB |
 | `ApprovalsView` / `PolicyEditor` / `cron` / `ConfirmDialog` / `GoalsPage` / `StopAll` | 14.5 / 13.9 / 4.9 / 3.1 / 2.0 / 1.3 KB | 5.0 / 4.7 / 2.3 / 1.6 / 1.1 / 0.8 KB |
-| `CommandPalette` / `SwarmsIndex` / `TokenReveal` / `Sheet` / `Page` | 7.3 / 4.3 / 3.6 / 3.6 / 1.4 KB | 3.0 / 1.8 / 1.6 / 1.7 / 0.8 KB |
+| `CommandPalette` / `SwarmsIndex` / `TokenReveal` / `Sheet` / `Page` | 9.1 / 4.3 / 3.6 / 3.6 / 1.4 KB | 3.5 / 1.8 / 1.6 / 1.7 / 0.8 KB |
 
 Fonts (latin subsets actually fetched): Inter 48 KB, JetBrains Mono 40 KB, Space Grotesk 22 KB.
 
@@ -227,6 +279,14 @@ deny, goal claim → split → done, lease lapse → open → stalled → re-ope
 memory retire/reset, stop-all, `no_budget`); the store (decide, optimistic goal patch with rollback,
 wakeup toggle/delete rollback, stop-all).
 
+Programs: the sim ports mirror `hive/tests/test_programs_api.py` (fixture question, source, needs_input,
+correction keeping ids and flagging, stale, goals, disable/409; Commons Explorer overview, belief, rivals,
+inspect-source, compare, map, stale after a publish); the session logic (trail push/back/jump/cap, reconcile by
+id, revision notices, suggested stage as a hint, every result status); `program.updated` in the reducer; the
+store against the sim (open → navigate → needs_input → correct → stale reconcile → back → restored trail; started
+→ goal → cancel); the layouts (sides, determinism, no overlaps at 390 and 1100 px, compare sides/overlaps/slots,
+map stability); program routes.
+
 `npm run shots` also captures the Phase 2 views at 390×844 and 1440×900: `10-approvals`,
 `10b-approval-stamp`, `10c-approvals-history`, `11-policy`, `11b-policy-help`, `12-goals-swarm`,
 `12b-goals-page`, `13-mind`, `13b-mind-errors`, `14-memory`, `14b-memory-reset`, `15-wakeups`,
@@ -243,6 +303,24 @@ wakeup toggle/delete rollback, stop-all).
 - Chat sends omit `conversation_id`, so the server picks the default conversation; please document
   that default. Peer messages are recognised by `sender: "agent:<id>"` on `direction: "in"`.
 - `agent.thinking` for `asleep` dots is ignored.
+
+### Program contract questions (PROGRAMS.md v0.1)
+
+- **A view that drops the requested focus.** Commons Explorer answers `view(r:…)` (a report) with the
+  overview, which no longer holds the report. The host keeps its current snapshot when the revision is
+  unchanged and the requested focus would vanish. Should `view()` always include the focus it was asked
+  about (or return 404)?
+- **`stale` returns the starting view.** Both programs return the default graph (focus `q1` / `overview`),
+  not the view the person was on; the host reconciles and then refetches its own step. Returning the view
+  for the same focus and stage would save a round trip.
+- **Compare via action vs groups.** `compare` returns the program's groups; the chosen items are not
+  echoed anywhere in the graph, so the host cannot highlight "what you picked" inside the program's groups.
+- **`needs` keys.** `needs: {items: …}` (Commons Explorer) names a selection, not a param; the host treats
+  the key `items` specially. A reserved key (or a `kind` per need) would make this explicit.
+- **Action `stage`** is shown as `"detail?"` in the contract text; the host treats it as a hint only.
+- **Link direction** is not defined for polarity (does `e3 contradicts c1` oppose c1, or do they oppose each
+  other?). The host treats polarity as symmetric for placement and draws the arrow from `from` to `to`.
+- **`program.updated`** carries only the list entry; a describe() change after reload is fetched again.
 
 ### Phase 2 questions
 

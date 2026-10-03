@@ -214,3 +214,13 @@ describe('store · program session against the sim', () => {
     expect(useHive.getState().goals[task.id].status).toBe('cancelled')
   })
 })
+
+describe('program routes', async () => {
+  const { parse, href } = await import('../lib/router')
+  it('round-trips the index, a program, a program in a swarm, and a dot hosting one', () => {
+    for (const r of [{ name: 'programs' }, { name: 'program', id: 'contract-fixture' }, { name: 'program', id: 'commons-explorer', swarm: 's_lyra' }, { name: 'dot', id: 'a_vega01', program: 'commons-explorer' }] as const) {
+      expect(parse(href(r))).toEqual({ swarm: undefined, ...r })
+    }
+    expect(parse('#/program')).toEqual({ name: 'programs' })
+  })
+})

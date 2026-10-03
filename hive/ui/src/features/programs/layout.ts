@@ -559,7 +559,7 @@ export function layoutMap(input: LayoutInput, gi: GraphIndex): SceneLayout {
   const s = sizes(width)
   const focus = input.step.focus && gi.items.has(input.step.focus) ? input.step.focus : (graph.focus && gi.items.has(graph.focus) ? graph.focus : graph.items[0]?.id ?? null)
   if (!focus) return { nodes: [], edges: [], lanes: [], same: [], width, height, focusKey: null }
-  const pos = forceLayout(graph, s.narrow ? 205 : 250)
+  const pos = forceLayout(graph, s.narrow ? 185 : 250)
   const tier = new Map<string, Tier>([[focus, 'focus']])
   const parent = new Map<string, string>()
   const reveal = (id: string, t: Tier, from: string) => {
@@ -569,7 +569,7 @@ export function layoutMap(input: LayoutInput, gi: GraphIndex): SceneLayout {
   }
   const n1 = (gi.adj.get(focus) ?? []).map((e) => e.other)
   for (const id of n1) reveal(id, 'near', focus)
-  if (graph.items.length <= 48 || n1.length < 6) {
+  if (s.narrow ? n1.length < 3 : graph.items.length <= 48 || n1.length < 6) {
     for (const a of n1) for (const e of gi.adj.get(a) ?? []) reveal(e.other, 'far', a)
   }
   // earlier map steps: their foci and neighbours recede but stay clickable
@@ -581,10 +581,10 @@ export function layoutMap(input: LayoutInput, gi: GraphIndex): SceneLayout {
   const nodes: NodeBox[] = []
   const box = { focus: { w: 240, h: 124 }, near: { w: 204, h: 100 }, far: { w: 188, h: 96 }, context: { w: 160, h: 60 } }
   if (s.narrow) {
-    box.focus = { w: 204, h: 120 }
-    box.near = { w: 170, h: 100 }
-    box.far = { w: 160, h: 96 }
-    box.context = { w: 144, h: 60 }
+    box.focus = { w: 196, h: 120 }
+    box.near = { w: 156, h: 100 }
+    box.far = { w: 148, h: 96 }
+    box.context = { w: 136, h: 60 }
   }
   for (const it of graph.items) {
     const t = tier.get(it.id)
@@ -607,7 +607,7 @@ export function layoutMap(input: LayoutInput, gi: GraphIndex): SceneLayout {
     maxW = Math.max(maxW, n.w)
     maxH = Math.max(maxH, n.h)
   }
-  const sc = Math.max(0.7, Math.min(1, (width / 2 - s.pad - maxW / 2) / (spanX || 1), (height / 2 - s.pad - maxH / 2 - (s.narrow ? 0 : 20)) / (spanY || 1)))
+  const sc = Math.max(s.narrow ? 0.5 : 0.7, Math.min(1, (width / 2 - s.pad - maxW / 2) / (spanX || 1), (height / 2 - s.pad - maxH / 2 - (s.narrow ? 0 : 20)) / (spanY || 1)))
   const scale = (x: number, y: number, w: number, h: number) => ({ x: fpos.x + (x + w / 2 - fpos.x) * sc - w / 2, y: fpos.y + (y + h / 2 - fpos.y) * sc - h / 2 })
   for (const n of nodes) {
     const p = scale(n.x, n.y, n.w, n.h)
@@ -615,23 +615,23 @@ export function layoutMap(input: LayoutInput, gi: GraphIndex): SceneLayout {
     n.x = p.x
     n.y = p.y
   }
-  for (let pass = 0; pass < 40; pass++) {
-    let moved = false
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const A = nodes[i]
-        const B = nodes[j]
-        if (!overlaps(A, B, 22)) continue
-        moved = true
-        const ox = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x) + 22
-        const oy = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y) + 22
-        // the focus stays put; the other card moves
-        const [mover, still] = B.tier === 'focus' ? [A, B] : [B, A]
-        if (ox / A.w < oy / A.h) mover.x += (mover.x + mover.w / 2 >= still.x + still.w / 2 ? 1 : -1) * Math.ceil(ox)
-        else mover.y += (mover.y + mover.h / 2 >= still.y + still.h / 2 ? 1 : -1) * Math.ceil(oy)
+  // place greedily, nearest to the focus first: a card that would overlap takes the nearest free spot
+  const TIER_RANK: Record<Tier, number> = { focus: 0, near: 1, far: 2, context: 3 }
+  const order = [...nodes].sort((p, q) => TIER_RANK[p.tier] - TIER_RANK[q.tier] || Math.hypot(p.x - fpos.x, p.y - fpos.y) - Math.hypot(q.x - fpos.x, q.y - fpos.y) || (p.key < q.key ? -1 : 1))
+  const placed: NodeBox[] = []
+  for (const n of order) {
+    const x0 = n.x
+    const y0 = n.y
+    search: for (let r = 0; r <= 2400; r += 18) {
+      const steps = r === 0 ? 1 : Math.max(8, Math.round((2 * Math.PI * r) / 40))
+      for (let k = 0; k < steps; k++) {
+        const a = (k / steps) * Math.PI * 2
+        n.x = x0 + Math.cos(a) * r
+        n.y = y0 + Math.sin(a) * r * 0.75
+        if (!placed.some((p) => overlaps(p, n, 18))) break search
       }
     }
-    if (!moved) break
+    placed.push(n)
   }
   const ext = finish(nodes, [], s, width, height)
   const visible = new Set(nodes.map((n) => n.id))

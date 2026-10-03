@@ -51,7 +51,7 @@ export function Detail({
   const flags = item.flags ?? []
   const revisions = [...(item.revisions ?? [])].reverse()
   const corrected = (other: WorkItem) => other.status === 'corrected'
-  const causes = flags.includes('affected-by-correction') ? [...out, ...inn].map((l) => gi.items.get(l.from === id ? l.to : l.from)!).filter(corrected) : []
+  const causes = flags.includes('affected-by-correction') ? [...new Set([...out, ...inn].map((l) => (l.from === id ? l.to : l.from)))].map((o) => gi.items.get(o)!).filter(corrected) : []
 
   return (
     <div className="thin-scroll absolute inset-0 overflow-y-auto overscroll-contain">
@@ -135,7 +135,7 @@ export function Detail({
           </div>
         )}
 
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
           <LinkList title="Links out" empty="It points at nothing." links={out.map((l) => ({ l, other: l.to, morph: true }))} gi={gi} scope={scope} onOpen={onOpen} dir="out" />
           <LinkList title="Links in" empty="Nothing points at it." links={inn.map((l) => ({ l, other: l.from, morph: !out.some((o) => o.to === l.from) }))} gi={gi} scope={scope} onOpen={onOpen} dir="in" />
         </div>
@@ -148,7 +148,7 @@ export function Detail({
           {(item.sources?.length ?? 0) === 0 ? (
             <p className="rounded-xl border border-dashed border-line-2 px-3 py-2.5 text-[12.5px] text-ink-3">This item cites no source of its own. The sources rail shows what the linked items cite.</p>
           ) : (
-            <ul className="grid gap-2.5 md:grid-cols-2">
+            <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5 md:grid-cols-2">
               {item.sources!.map((s) => {
                 const returned = sourceDetail?.items.includes(id) ? sourceDetail.sources.find((x) => x.id === s.id) : undefined
                 const shared = s.origin ? graph.items.filter((o) => o.id !== id && o.sources?.some((x) => x.origin === s.origin && x.id !== s.id)) : []
@@ -238,7 +238,7 @@ export function Detail({
 
 function LinkList({ title, empty, links, gi, scope, onOpen, dir }: { title: string; empty: string; links: { l: { id: string; rel: string; weight?: number }; other: string; morph: boolean }[]; gi: GraphIndex; scope: string; onOpen(id: string): void; dir: 'in' | 'out' }) {
   return (
-    <section aria-label={title}>
+    <section aria-label={title} className="min-w-0">
       <div className="mb-2 flex items-baseline gap-2">
         <h3 className="eyebrow">{title}</h3>
         <span className="text-[11.5px] text-ink-4">{links.length}</span>
@@ -260,15 +260,15 @@ function LinkList({ title, empty, links, gi, scope, onOpen, dir }: { title: stri
                   style={{ background: SURFACE }}
                   aria-label={`${dir === 'out' ? 'This item' : o.label} ${gi.relLabel(l.rel)} ${dir === 'out' ? o.label : 'this item'}. Open it.`}
                 >
-                  <m.span layout="position" className="flex min-w-0 flex-1 items-center gap-2.5">
+                  <m.span layout="position" className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
                     <span className="shrink-0 rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold whitespace-nowrap" style={{ color: pol.color, background: `color-mix(in srgb, ${pol.color} 13%, transparent)` }}>
                       {dir === 'in' ? '← ' : ''}
                       {gi.relLabel(l.rel)}
                       {dir === 'out' ? ' →' : ''}
                     </span>
-                    <span className="min-w-0 flex-1">
+                    <span className="min-w-0 flex-1 overflow-hidden">
                       <span className="block truncate text-[13px] text-ink">{o.label}</span>
-                      <span className="flex items-center gap-1.5">
+                      <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
                         <RoleMark role={gi.role(o.kind)} kindLabel={gi.kindLabel(o.kind)} />
                         <UMini u={o.uncertainty} />
                         <StatusChip status={o.status} compact />

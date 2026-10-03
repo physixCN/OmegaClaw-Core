@@ -282,7 +282,7 @@ function Host({ programId, swarmId, variant, onExit, width }: HostProps & { widt
       {narrow && <div className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-5 bg-gradient-to-b from-[#07071a] to-transparent" aria-hidden="true" />}
       {overlays}
       {!narrow && step.stage !== 'detail' && !session.notice && !session.input && <Legend />}
-      {step.stage !== 'detail' && !selection.length && !reduced && !session.notice && !session.input && (
+      {!narrow && step.stage !== 'detail' && !selection.length && !reduced && !session.notice && !session.input && (
         <div className="pointer-events-none absolute right-3 bottom-3 rounded-lg bg-black/30 px-2 py-1 text-[11px] text-ink-4">{narrow ? 'Tap to select · tap again to open' : 'Click to select · shift-click to add · double-click to open'}</div>
       )}
     </div>
@@ -441,7 +441,7 @@ function Legend() {
     ['neutral', '1 5'],
   ]
   return (
-    <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap items-center gap-3 rounded-xl bg-black/30 px-2.5 py-1.5 text-[11px] text-ink-3 backdrop-blur" aria-hidden="true">
+    <div className="pointer-events-none absolute bottom-3 left-3 z-[4] flex flex-wrap items-center gap-3 rounded-xl border border-line bg-[#08081c]/90 px-2.5 py-1.5 text-[11px] text-ink-3" aria-hidden="true">
       {rows.map(([p, dash]) => (
         <span key={p} className="inline-flex items-center gap-1.5">
           <svg width="22" height="6">
