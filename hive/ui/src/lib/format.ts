@@ -38,3 +38,37 @@ export function modelLabel(id: string): string {
 }
 
 export const tvText = (f: number, c: number) => `f ${f.toFixed(2)} · c ${c.toFixed(2)}`
+
+/** "in 3h", "in 12m", "in 2d" for future times. */
+export function until(iso: string | null | undefined, now = Date.now()): string {
+  if (!iso) return 'never'
+  const s = Math.round((Date.parse(iso) - now) / 1000)
+  if (s <= 0) return 'now'
+  if (s < 60) return `in ${s}s`
+  const m = Math.round(s / 60)
+  if (m < 60) return `in ${m}m`
+  const h = Math.round(m / 60)
+  if (h < 36) return `in ${h}h`
+  return `in ${Math.round(h / 24)}d`
+}
+
+/** Local wall-clock date and time, e.g. "Mon 6 Oct, 09:00". */
+export function localWhen(iso: string): string {
+  return new Date(iso).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+export function tokens(n: number | null | undefined): string {
+  if (n == null) return '–'
+  return n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n)
+}
+
+export function bytes(n: number): string {
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(n < 10 * 1024 ? 1 : 0)} KB`
+  return `${(n / 1024 / 1024).toFixed(1)} MB`
+}
+
+export function seconds(ms: number | null | undefined): string {
+  if (ms == null) return '–'
+  return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(ms < 10_000 ? 2 : 1)} s`
+}

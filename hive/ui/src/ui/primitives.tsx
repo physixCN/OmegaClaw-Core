@@ -146,12 +146,15 @@ export function Segmented<T extends string>({
   onChange,
   label,
   className,
+  dense,
 }: {
   value: T
-  options: { value: T; label: string }[]
+  options: { value: T; label: string; badge?: ReactNode }[]
   onChange: (v: T) => void
   label: string
   className?: string
+  /** Tighter padding for 4-5 options on a phone. */
+  dense?: boolean
 }) {
   return (
     <div role="radiogroup" aria-label={label} className={cx('relative inline-flex rounded-xl border border-line bg-white/[0.03] p-1', className)}>
@@ -163,7 +166,11 @@ export function Segmented<T extends string>({
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.value)}
-            className={cx('relative min-h-9 flex-1 rounded-lg px-3 text-[13px] font-medium whitespace-nowrap transition-colors', on ? 'text-ink' : 'text-ink-3 hover:text-ink-2')}
+            className={cx(
+              'relative min-h-9 flex-1 rounded-lg font-medium whitespace-nowrap transition-colors',
+              dense ? 'px-1.5 text-[12.5px]' : 'px-3 text-[13px]',
+              on ? 'text-ink' : 'text-ink-3 hover:text-ink-2',
+            )}
           >
             {on && (
               <m.span
@@ -172,7 +179,10 @@ export function Segmented<T extends string>({
                 transition={{ type: 'spring', stiffness: 500, damping: 38 }}
               />
             )}
-            <span className="relative">{o.label}</span>
+            <span className="relative inline-flex items-center gap-1">
+              {o.label}
+              {o.badge}
+            </span>
           </button>
         )
       })}
