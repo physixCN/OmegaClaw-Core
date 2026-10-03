@@ -19,6 +19,8 @@
 (= (SL_BOT_TOKEN) (empty))
 (= (SL_CHANNEL_ID) (empty))
 (= (SL_POLL_INTERVAL) (empty))
+(= (HIVE_WS_URL) (empty))
+(= (HIVE_WS_TOKEN) (empty))
 
 ;Connect all the channels:
 !(change-state! &channelsInitialized false)
@@ -33,6 +35,10 @@
               (if (and (!= (OMEGACLAW_PRIMARY_CHANNEL) "") (!= (OMEGACLAW_PRIMARY_CHANNEL) (commchannel)))
                   (progn (println! (CHANNEL-CONFIGURATION-MISMATCH commchannel=(commchannel) primary=(OMEGACLAW_PRIMARY_CHANNEL)))
                          (Error CHANNEL-CONFIGURATION-MISMATCH (OMEGACLAW_PRIMARY_CHANNEL) (commchannel)))
+                  (if (== (commchannel) hive)
+                      (progn (configure HIVE_WS_URL "")
+                             (configure HIVE_WS_TOKEN "")
+                             (println! (CHANNEL-READY hive (py-call (hive_channel.start_hive (HIVE_WS_URL) (HIVE_WS_TOKEN))))))
                   (if (== (commchannel) irc)
                       (py-call (irc.start_irc (IRC_channel) (IRC_server) (IRC_port) (IRC_user)))
                   (if (== (commchannel) telegram)
@@ -64,10 +70,12 @@
                                                  (py-call (mattermost.start_mattermost (MM_URL) (MM_CHANNEL_ID) (MM_BOT_TOKEN))))
                                           (if (== (OMEGACLAW_PRIMARY_CHANNEL) mock)
                                               (py-call (mock.start_mock))
-                                              (Error CHANNEL-FALLBACK-REFUSED (commchannel)))))))))))))
+                                              (Error CHANNEL-FALLBACK-REFUSED (commchannel))))))))))))))
 
 ;Receive the latest user message considering all communication channels:
 (= (receive)
+   (if (== (commchannel) hive)
+       (py-call (hive_channel.getLastMessage))
    (if (== (commchannel) irc)
        (py-call (irc.getLastMessage))
            (if (== (commchannel) telegram)
@@ -80,7 +88,7 @@
                        (py-call (slack.getLastMessage))
                        (if (== (commchannel) mattermost)
                            (py-call (mattermost.getLastMessage))
-                           (py-call (mock.getLastMessage)))))))))
+                           (py-call (mock.getLastMessage))))))))))
 
 ;Send a message to the active or control channel. In multi-channel mode,
 ;router chooses the latest primary source: web OS, WhatsApp primary, or Telegram.
@@ -90,6 +98,8 @@
        (progn (change-state! &lastsend $msg)
               (let $safemsg (string-replace $msg  "
 " "\n")
+                   (if (== (commchannel) hive)
+                       (let $temp (cut) (py-call (hive_channel.send_message $safemsg)))
                    (if (== (commchannel) irc)
                        (py-call (irc.send_message $safemsg))
                        (if (== (commchannel) telegram)
@@ -102,7 +112,7 @@
                                        (let $temp (cut) (py-call (slack.send_message $safemsg)))
                                        (if (== (commchannel) mattermost)
                                            (let $temp (cut) (py-call (mattermost.send_message $safemsg)))
-                                           (let $temp (cut) (py-call (mock.send_message $safemsg))))))))))) _))
+                                           (let $temp (cut) (py-call (mock.send_message $safemsg)))))))))))) _))
 
 (= (send-control $msg)
    (send $msg))
@@ -138,6 +148,8 @@
                LIST-INBOX-ONLY-SUPPORTED-FOR-TELEGRAM-OR-WHATSAPP))))
 
 (= (channel-status)
-   (if (== (commchannel) telegram)
-       (py-call (telegram.status))
-       (repr (ChannelStatus (commchannel)))))
+   (if (== (commchannel) hive)
+       (py-call (hive_channel.status))
+       (if (== (commchannel) telegram)
+           (py-call (telegram.status))
+           (repr (ChannelStatus (commchannel))))))
