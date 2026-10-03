@@ -41,7 +41,6 @@ export function ActivityTicker() {
           return (
             <m.div
               key={a.id}
-              layout
               initial={{ opacity: 0, y: 14, filter: 'blur(4px)' }}
               animate={{ opacity: 1 - i * 0.22, y: 0, filter: 'blur(0px)' }}
               exit={{ opacity: 0, transition: { duration: 0.2 } }}
