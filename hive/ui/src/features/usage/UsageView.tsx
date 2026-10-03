@@ -9,7 +9,8 @@ import { Icon } from '../../ui/Icon'
 import { EmptyState, ErrorState, Orb, Segmented, Skeleton } from '../../ui/primitives'
 import { cx } from '../../lib/cx'
 import { Page } from '../../ui/Page'
-import { SIM_COST_NOTE, SimChip, useSim } from '../../ui/SimChip'
+import { SimChip } from '../../ui/SimChip'
+import { SIM_COST_NOTE, useSim } from '../../lib/sim'
 
 /**
  * Categorical slots: the dataviz reference palette's dark steps, validated with

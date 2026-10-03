@@ -632,15 +632,14 @@ function Caption({ text, spokenTo }: { text: string; spokenTo: number }) {
 
 function Progress({ chapters, totals, frac, current, onPick }: { chapters: Chapter[]; totals: number[]; frac: number; current: number; onPick: (i: number) => void }) {
   const total = totals.reduce((a, b) => a + b, 0) || 1
-  let acc = 0
+  const lefts = totals.map((_, i) => totals.slice(0, i).reduce((a, b) => a + b, 0) / total)
   return (
     <div className="relative mx-1 flex h-4 items-center" role="group" aria-label="Tour progress">
       <div className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 overflow-hidden rounded-full bg-white/[0.09]">
         <div className="h-full rounded-full transition-[width] duration-700 ease-out" style={{ width: `${Math.max(0, Math.min(1, frac)) * 100}%`, background: 'linear-gradient(90deg, #a493ff, #6ee7ff)', boxShadow: '0 0 10px rgb(110 231 255 / 0.6)' }} />
       </div>
       {chapters.map((c, i) => {
-        const left = acc / total
-        acc += totals[i]
+        const left = lefts[i]
         return (
           <button
             key={c.id}

@@ -1,9 +1,5 @@
 import { cx } from '../lib/cx'
-import { useHive } from '../store/store'
-
-export const SIM_COST_NOTE = 'Costs here are simulated: made-up token counts × list prices. No model was called and nothing was charged.'
-
-export const useSim = () => useHive((s) => s.client?.mode === 'sim')
+import { SIM_COST_NOTE, useSim } from '../lib/sim'
 
 /** Marks a dollar figure as simulated (sim and demo mode only). The tooltip says what that means. */
 export function SimChip({ className, label = 'sim' }: { className?: string; label?: string }) {

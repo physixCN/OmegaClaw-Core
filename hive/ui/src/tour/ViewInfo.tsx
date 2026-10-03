@@ -64,31 +64,28 @@ export function ViewInfo({ view, className, size = 'md' }: { view: ViewKey; clas
     const t = setTimeout(() => setHint(false), 9000)
     return () => clearTimeout(t)
   }, [hint])
-  useEffect(() => {
-    if (busy) {
-      setHint(false)
-      setOpen(false)
-    }
-  }, [busy])
+  // the welcome or the tour hides both, without forgetting
+  const cardOpen = open && !busy
+  const hintShown = hint && !busy
 
   useLayoutEffect(() => {
-    if (!open && !hint) return
-    const update = () => setPlace(placeFor(btn.current, open ? 340 : 300))
+    if (!cardOpen && !hintShown) return
+    const update = () => setPlace(placeFor(btn.current, cardOpen ? 340 : 300))
     update()
     window.addEventListener('resize', update)
     return () => window.removeEventListener('resize', update)
-  }, [open, hint])
+  }, [cardOpen, hintShown])
 
-  useEscape(() => setOpen(false), open)
+  useEscape(() => setOpen(false), cardOpen)
   useEffect(() => {
-    if (!open) return
+    if (!cardOpen) return
     const onDown = (e: PointerEvent) => {
       const t = e.target as Node
       if (!card.current?.contains(t) && !btn.current?.contains(t)) setOpen(false)
     }
     window.addEventListener('pointerdown', onDown)
     return () => window.removeEventListener('pointerdown', onDown)
-  }, [open])
+  }, [cardOpen])
 
   const toggle = () => {
     setHint(false)
@@ -101,22 +98,22 @@ export function ViewInfo({ view, className, size = 'md' }: { view: ViewKey; clas
         ref={btn}
         onClick={toggle}
         aria-label={`What's this? About ${help.title.toLowerCase()}`}
-        aria-expanded={open}
+        aria-expanded={cardOpen}
         title="What's this?"
         data-tour={`info-${view}`}
         className={cx(
           'relative inline-flex shrink-0 items-center justify-center rounded-xl text-ink-3 transition-colors hover:bg-white/[0.07] hover:text-ink',
           size === 'sm' ? 'size-9' : 'size-11',
-          open && 'bg-white/[0.08] text-ink',
+          cardOpen && 'bg-white/[0.08] text-ink',
           className,
         )}
       >
         <Icon name="question" size={size === 'sm' ? 17 : 19} />
-        {hint && <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-accent-2 shadow-[0_0_8px_#6ee7ff]" aria-hidden="true" />}
+        {hintShown && <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-accent-2 shadow-[0_0_8px_#6ee7ff]" aria-hidden="true" />}
       </button>
       {createPortal(
         <AnimatePresence>
-          {open && place && (
+          {cardOpen && place && (
             <m.div
               ref={card}
               key="card"
@@ -163,7 +160,7 @@ export function ViewInfo({ view, className, size = 'md' }: { view: ViewKey; clas
               </div>
             </m.div>
           )}
-          {hint && !open && place && (
+          {hintShown && !cardOpen && place && (
             <m.div
               key="hint"
               role="status"

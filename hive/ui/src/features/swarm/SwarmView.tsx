@@ -17,7 +17,7 @@ import { GoalsBoard } from '../goals/GoalsBoard'
 import { Constellation, ConstellationLegend } from './Constellation'
 import { Provenance } from './Provenance'
 import { OpenIn } from '../programs/OpenIn'
-import { SIM_COST_NOTE, useSim } from '../../ui/SimChip'
+import { SIM_COST_NOTE, useSim } from '../../lib/sim'
 
 type Tab = 'commons' | 'members' | 'vocab'
 type View = 'sky' | 'list' | 'goals'

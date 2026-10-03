@@ -1,5 +1,5 @@
 import { AnimatePresence, m } from 'framer-motion'
-import { useState, type FormEvent } from 'react'
+import { lazy, Suspense, useState, type FormEvent } from 'react'
 import type { AssertionOutcome } from '../api/types'
 import { useIsDesktop } from '../lib/hooks'
 import { navigate, useRoute } from '../lib/router'
@@ -10,7 +10,9 @@ import { MeTTa } from '../ui/MeTTa'
 import { Button, Orb } from '../ui/primitives'
 import { cx } from '../lib/cx'
 import { Brand } from './Hud'
-import { ViewInfo } from '../tour/ViewInfo'
+
+// the explainer (copy for every view) loads with the views, not with the shell
+const ViewInfo = lazy(() => import('../tour/ViewInfo').then((r) => ({ default: r.ViewInfo })))
 
 const OUTCOME_VERB: Record<AssertionOutcome, string> = {
   adopted: 'introduced',
@@ -81,15 +83,19 @@ export function SceneControls() {
         <button onClick={() => engine.overview()} className="glass flex size-11 items-center justify-center rounded-2xl text-ink-2" aria-label="Recenter the hive">
           <Icon name="locate" size={19} />
         </button>
-        <div className="glass rounded-2xl">
-          <ViewInfo view="hive" />
+        <div className="glass min-h-11 rounded-2xl">
+          <Suspense fallback={<span className="block size-11" />}>
+            <ViewInfo view="hive" />
+          </Suspense>
         </div>
       </div>
     )
   }
   return (
     <div className="glass fixed right-4 bottom-5 z-10 flex flex-col rounded-2xl p-1" role="group" aria-label="Camera">
-      <ViewInfo view="hive" />
+      <Suspense fallback={<span className="block size-11" />}>
+        <ViewInfo view="hive" />
+      </Suspense>
       <button onClick={() => engine.zoomBy(1.3)} className="flex size-11 items-center justify-center rounded-xl text-ink-2 hover:bg-white/[0.06] hover:text-ink" aria-label="Zoom in">
         <Icon name="zoomIn" size={19} />
       </button>
