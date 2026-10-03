@@ -324,7 +324,12 @@ export function ProgressRing({ value, total, size = 30, hue = 152, label }: { va
   const c = 2 * Math.PI * r
   const pct = total ? value / total : 0
   return (
-    <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }} role="img" aria-label={label ?? `${value} of ${total} done`}>
+    <span
+      className="relative inline-flex shrink-0 items-center justify-center rounded-full"
+      style={{ width: size, height: size, boxShadow: pct > 0 ? `0 0 12px -3px ${hsl(hue, 100, 60, 0.6)}` : undefined }}
+      role="img"
+      aria-label={label ?? `${value} of ${total} done`}
+    >
       <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgb(255 255 255 / 0.1)" strokeWidth={2.5} />
         <m.circle
@@ -339,7 +344,6 @@ export function ProgressRing({ value, total, size = 30, hue = 152, label }: { va
           initial={false}
           animate={{ strokeDashoffset: c * (1 - pct) }}
           transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-          style={{ filter: `drop-shadow(0 0 4px ${hsl(hue, 100, 60, 0.7)})` }}
         />
       </svg>
       <span className="absolute font-mono text-[9px] font-semibold text-ink-2 tabular-nums">

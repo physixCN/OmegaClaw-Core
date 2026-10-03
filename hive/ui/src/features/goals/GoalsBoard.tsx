@@ -79,6 +79,17 @@ export function GoalsBoard({ swarmId, className }: { swarmId: string; className?
     return () => el.removeEventListener('scroll', onScroll)
   }, [desktop])
 
+  // phones: open on the first column that has something in it
+  const firstFull = COLS.find((c) => byCol[c.key].length > 0)?.key ?? 'open'
+  const landed = useRef(false)
+  useEffect(() => {
+    if (landed.current || desktop || !loaded) return
+    landed.current = true
+    if (firstFull === 'open') return
+    const el = scroller.current?.querySelector<HTMLElement>(`[data-col="${firstFull}"]`)
+    if (el && scroller.current) scroller.current.scrollLeft = el.offsetLeft - 12
+  }, [desktop, loaded, firstFull])
+
   if (err && !loaded) return <ErrorState title="Could not load goals" body={err} onRetry={() => load(swarmId, true).then(() => setErr(null), () => undefined)} />
 
   const jump = (c: Col) => {
@@ -111,7 +122,7 @@ export function GoalsBoard({ swarmId, className }: { swarmId: string; className?
           ref={scroller}
           className={cx(
             'min-h-0 flex-1',
-            desktop ? 'grid grid-cols-4 gap-3' : 'no-scrollbar -mx-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto scroll-px-3 px-3 pb-2',
+            desktop ? 'grid grid-cols-4 gap-3' : 'no-scrollbar -mx-3 flex snap-x snap-mandatory items-start gap-2.5 overflow-x-auto scroll-px-3 px-3 pb-2',
           )}
         >
           {COLS.map((c) => (
@@ -166,22 +177,24 @@ function QuickAdd({ swarmId, swarmName, hue }: { swarmId: string; swarmName: str
     if (g) setTitle('')
   }
   return (
-    <form onSubmit={submit} className="mb-3 flex flex-wrap items-center gap-2 rounded-[18px] border border-line bg-black/20 p-1.5 focus-within:border-line-2">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl" style={{ background: hsl(hue, 80, 55, 0.15), color: hsl(hue, 100, 80) }}>
-        <Icon name="plus" size={18} />
-      </span>
-      <label htmlFor={`goal-${swarmId}`} className="sr-only">
-        New goal title
-      </label>
-      <input
-        id={`goal-${swarmId}`}
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder={`Add a goal for ${swarmName}…`}
-        className="min-h-10 min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink-4"
-        enterKeyHint="send"
-      />
-      <div role="radiogroup" aria-label="Priority" className="flex gap-1">
+    <form onSubmit={submit} className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-[18px] border border-line bg-black/20 p-1.5 focus-within:border-line-2 md:flex-nowrap">
+      <div className="flex min-w-0 basis-full items-center gap-2 md:basis-auto md:flex-1">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl" style={{ background: hsl(hue, 80, 55, 0.15), color: hsl(hue, 100, 80) }}>
+          <Icon name="plus" size={18} />
+        </span>
+        <label htmlFor={`goal-${swarmId}`} className="sr-only">
+          New goal title
+        </label>
+        <input
+          id={`goal-${swarmId}`}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder={`Add a goal for ${swarmName}…`}
+          className="min-h-10 min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink-4"
+          enterKeyHint="send"
+        />
+      </div>
+      <div role="radiogroup" aria-label="Priority" className="flex flex-1 gap-1 md:flex-none">
         {PRIORITIES.map((p) => {
           const on = priority === p.value
           return (
@@ -200,7 +213,7 @@ function QuickAdd({ swarmId, swarmName, hue }: { swarmId: string; swarmName: str
           )
         })}
       </div>
-      <Button type="submit" variant="primary" hue={hue} disabled={!title.trim() || busy} className="min-h-10 px-3.5">
+      <Button type="submit" variant={title.trim() ? 'primary' : 'subtle'} hue={hue} disabled={!title.trim() || busy} className="min-h-10 px-3.5">
         {busy ? 'Adding…' : 'Add'}
       </Button>
     </form>

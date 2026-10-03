@@ -24,6 +24,10 @@ export interface SceneData {
   swarms: Swarm[]
   thinking: Record<string, ThinkingPhase>
   beliefs: Record<string, Record<string, Belief>>
+  /** Phase 2: every goal id → its claimant while claimed, else null (task glyphs orbit claimants). */
+  claims?: Record<string, string | null>
+  /** Phase 2: pending approvals per agent (an amber "asking" halo). */
+  asking?: Record<string, number>
 }
 
 export interface Insets {
@@ -60,6 +64,12 @@ interface Dot {
   glitchUntil: number
   glitchX: number
   phase: number
+  // phase 2: claimed goals, pending approvals, scheduled wake pulse
+  tasks: number
+  taskVis: number
+  asking: number
+  askVis: number
+  wake: number
   // derived per frame
   x: number
   y: number
@@ -100,7 +110,7 @@ interface Core {
   hover: number
 }
 
-type ParticleKind = 'belief' | 'msg' | 'peer'
+type ParticleKind = 'belief' | 'msg' | 'peer' | 'task'
 interface Particle {
   kind: ParticleKind
   from: () => V2 | null
@@ -115,9 +125,11 @@ interface Particle {
   f?: number
   key?: string
   done?: boolean
+  /** Dot the particle lands on (task particles spark there). */
+  target?: string
 }
 
-type EffectKind = 'ripple' | 'choice' | 'adopt' | 'quarantine' | 'duplicate' | 'birth' | 'spark'
+type EffectKind = 'ripple' | 'choice' | 'adopt' | 'quarantine' | 'duplicate' | 'birth' | 'spark' | 'wake'
 interface Effect {
   kind: EffectKind
   at: () => V2 | null
@@ -140,6 +152,9 @@ interface Dust {
 }
 
 const TAU = Math.PI * 2
+/** Task glyphs and goal light: a warm gold that reads apart from thinking rings and belief motes. */
+const TASK_HUE = 44
+const WAKE_HUE = 40
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v))
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const damp = (a: number, b: number, k: number, dt: number) => lerp(a, b, 1 - Math.exp(-k * dt))
@@ -197,6 +212,8 @@ export class HiveEngine {
   private dust: Dust[] = []
   private inFlight = new Map<string, number>()
   private convPeer = new Map<string, string>()
+  /** Last claimant the engine has seen per goal, to tell a fresh claim from a re-send. */
+  private claimSeen = new Map<string, string | null>()
 
   private w = 0
   private h = 0
@@ -384,6 +401,7 @@ export class HiveEngine {
             glitchUntil: 0,
             glitchX: 0,
             phase: h * TAU,
+            tasks: 0, taskVis: 0, asking: 0, askVis: 0, wake: 0,
             x: 0, y: 0, z: 0, sx: 0, sy: 0, sr: 0, ox: 0, oy: 0,
           }
           this.dots.set(a.id, dot)
@@ -396,7 +414,18 @@ export class HiveEngine {
         const newSwarm = k === '__wander' ? null : k
         if (dot.swarmId !== newSwarm) dot.swarmId = newSwarm
         dot.thinking = d.thinking[a.id] ?? null
+        dot.asking = d.asking?.[a.id] ? 1 : 0
+        dot.tasks = 0
       })
+    }
+    if (d.claims) {
+      // The store pushes data before the event reaches handleEvent, so only goals the engine has
+      // never seen are seeded here; transitions of known goals are left for handleEvent to compare.
+      for (const [goalId, agentId] of Object.entries(d.claims)) {
+        const dot = agentId ? this.dots.get(agentId) : undefined
+        if (dot) dot.tasks++
+        if (!this.claimSeen.has(goalId)) this.claimSeen.set(goalId, agentId)
+      }
     }
     for (const [id, dot] of this.dots) if (!seen.has(id) && dot.dying === 0) dot.dying = 0.0001
     this.wanderCore.members = bySwarm.get('__wander')?.length ?? 0
@@ -644,9 +673,61 @@ export class HiveEngine {
         if (dot && e.agent.status === 'error' && dot.status !== 'error') dot.glitchUntil = this.time + 0.4
         break
       }
+      case 'goal.updated': {
+        const g = e.goal
+        const prev = this.claimSeen.get(g.id) ?? null
+        const now = g.status === 'claimed' ? g.claimed_by : null
+        this.claimSeen.set(g.id, now)
+        if (now && now !== prev) {
+          // the task leaves the commons and lands on its claimant
+          const dot = this.dots.get(now)
+          const core = this.cores.get(g.swarm_id)
+          if (dot && core) {
+            this.addParticle({
+              kind: 'task',
+              from: () => ({ x: core.x, y: core.y }),
+              to: () => (this.dots.has(dot.id) ? { x: dot.x, y: dot.y } : null),
+              t: 0,
+              dur: this.reduced ? 1.4 : 1.05,
+              hue: TASK_HUE,
+              bend: (Math.random() - 0.5) * 0.8,
+              trail: [],
+              target: dot.id,
+            })
+          }
+        } else if ((g.status === 'done' || g.status === 'failed') && (g.claimed_by || prev)) {
+          const dot = this.dots.get((g.claimed_by ?? prev)!)
+          if (dot) this.dotSpark(dot, g.status === 'done' ? TASK_HUE : 350, g.status === 'done' ? 10 : 5)
+        }
+        break
+      }
+      case 'wakeup.fired': {
+        const dot = this.dots.get(e.agent_id)
+        if (!dot) break
+        dot.wake = 1
+        this.effects.push({ kind: 'wake', at: this.dotAt(dot), t: 0, dur: this.reduced ? 2 : 1.8, hue: WAKE_HUE, seed: Math.random() })
+        break
+      }
+      case 'approval.created': {
+        const dot = this.dots.get(e.approval.agent_id)
+        if (dot) this.dotSpark(dot, 38, 6)
+        break
+      }
       default:
         break
     }
+  }
+
+  private dotAt(dot: Dot): () => V2 | null {
+    return () => (this.dots.has(dot.id) ? { x: dot.x, y: dot.y } : null)
+  }
+
+  private dotSpark(dot: Dot, hue: number, n: number) {
+    if (this.reduced) n = Math.min(n, 3)
+    this.effects.push({
+      kind: 'spark', at: this.dotAt(dot), t: 0, dur: 0.9, hue, seed: Math.random(),
+      sparks: Array.from({ length: n }, () => ({ a: Math.random() * TAU, v: 26 + Math.random() * 34, s: 0.4 + Math.random() * 0.6 })),
+    })
   }
 
   private dotToDot(a: Dot, b: Dot): Particle {
@@ -680,6 +761,10 @@ export class HiveEngine {
         else this.inFlight.set(p.key, n)
       }
       this.coreEffect(p.swarmId, p.outcome ?? 'revised', p.hue, p.f)
+    }
+    if (p.kind === 'task' && p.target) {
+      const dot = this.dots.get(p.target)
+      if (dot) this.dotSpark(dot, TASK_HUE, 7)
     }
   }
 
@@ -986,6 +1071,9 @@ export class HiveEngine {
       d.size = damp(d.size, STATUS_SIZE[d.status], 3, dt)
       d.ring = damp(d.ring, d.thinking && d.thinking !== 'idle' ? 1 : 0, 5, dt)
       d.errorMix = damp(d.errorMix, d.status === 'error' ? 1 : 0, 4, dt)
+      d.taskVis = damp(d.taskVis, Math.min(3, d.tasks), 3, dt)
+      d.askVis = damp(d.askVis, d.asking, 4, dt)
+      d.wake = Math.max(0, d.wake - dt * 0.55)
       const hovered = (this.hoverTarget?.kind === 'dot' && this.hoverTarget.id === id) || this.selected === id
       d.hover = damp(d.hover, hovered ? 1 : 0, 10, dt)
       if (d.birth < 1) d.birth = Math.min(1, d.birth + dt / (this.reduced ? 1.2 : 2.4))
@@ -1352,6 +1440,60 @@ export class HiveEngine {
       }
     }
 
+    // scheduled wake: a warm sunrise bloom that fades
+    if (d.wake > 0.01) {
+      const W = G * (1.1 + (1 - d.wake) * 0.9)
+      ctx.globalAlpha = d.wake * 0.55 * fade
+      ctx.drawImage(glowSprite(WAKE_HUE, 100, false), sx - W, sy - W, W * 2, W * 2)
+    }
+
+    // waiting on a human: a dashed amber halo that breathes
+    if (d.askVis > 0.02) {
+      const rr = r * 5 + 8
+      const pulse = this.reduced ? 0.7 : 0.55 + 0.45 * Math.sin(t * 3.2 + d.phase)
+      ctx.globalAlpha = d.askVis * pulse * 0.75 * fade
+      ctx.strokeStyle = 'hsl(40 100% 66%)'
+      ctx.lineWidth = 1.3
+      ctx.setLineDash([2.5, 4])
+      ctx.lineDashOffset = -t * (this.reduced ? 2 : 9)
+      ctx.beginPath()
+      ctx.arc(sx, sy, rr, 0, TAU)
+      ctx.stroke()
+      ctx.setLineDash([])
+      ctx.lineDashOffset = 0
+    }
+
+    // claimed goals: little gold diamonds on a slow, flatter orbit of their own
+    if (d.taskVis > 0.02) {
+      const n = Math.ceil(d.taskVis - 0.001)
+      const rr = r * 4.3 + 9
+      const tilt = 0.55
+      const spin = t * (this.reduced ? 0.25 : 0.85) + d.phase
+      for (let i = 0; i < n; i++) {
+        const vis = clamp(d.taskVis - i, 0, 1)
+        const a = spin + (i * TAU) / Math.max(n, 1)
+        const ex = Math.cos(a) * rr
+        const ey = Math.sin(a) * rr * 0.36
+        const px = sx + ex * Math.cos(tilt) - ey * Math.sin(tilt)
+        const py = sy + ex * Math.sin(tilt) + ey * Math.cos(tilt)
+        const behind = Math.sin(a) < 0
+        const k = vis * fade * (behind ? 0.45 : 1)
+        const S = 11 + r * 0.8
+        ctx.globalAlpha = k * 0.85
+        ctx.drawImage(glowSprite(TASK_HUE, 100), px - S, py - S, S * 2, S * 2)
+        const q = 3.1 + r * 0.24
+        ctx.globalAlpha = k
+        ctx.fillStyle = 'hsl(46 100% 88%)'
+        ctx.beginPath()
+        ctx.moveTo(px, py - q)
+        ctx.lineTo(px + q * 0.8, py)
+        ctx.lineTo(px, py + q)
+        ctx.lineTo(px - q * 0.8, py)
+        ctx.closePath()
+        ctx.fill()
+      }
+    }
+
     // selection reticle
     if (this.selected === d.id) {
       const rr = r * 4.2 + 6 + Math.sin(t * 2.4) * 1.5
@@ -1413,6 +1555,18 @@ export class HiveEngine {
     const H = (p.kind === 'msg' ? 16 : 12) * zs
     ctx.globalAlpha = quarantine && p.t > 0.8 ? 1 - (p.t - 0.8) / 0.2 : 1
     ctx.drawImage(glowSprite(hue, 100), s.x - H, s.y - H, H * 2, H * 2)
+    if (p.kind === 'task') {
+      const q = 3.4 * zs + 1
+      ctx.globalAlpha = 1
+      ctx.fillStyle = 'hsl(46 100% 90%)'
+      ctx.beginPath()
+      ctx.moveTo(s.x, s.y - q)
+      ctx.lineTo(s.x + q * 0.8, s.y)
+      ctx.lineTo(s.x, s.y + q)
+      ctx.lineTo(s.x - q * 0.8, s.y)
+      ctx.closePath()
+      ctx.fill()
+    }
     if (p.kind === 'belief' && p.f !== undefined) {
       const [r, g, b] = freqRgb(p.f)
       ctx.globalAlpha = 0.9
@@ -1532,6 +1686,35 @@ export class HiveEngine {
         ctx.arc(s.x, s.y, r, e.seed * TAU, e.seed * TAU + TAU)
         ctx.stroke()
         ctx.setLineDash([])
+        break
+      }
+      case 'wake': {
+        // sunrise: two warm rings swell out of the dot, with short rays
+        for (let i = 0; i < (this.reduced ? 1 : 2); i++) {
+          const u = clamp(t * 1.3 - i * 0.25, 0, 1)
+          if (u <= 0) continue
+          const r = (10 + easeOut(u) * 46) * zs
+          ctx.globalAlpha = (1 - u) * 0.8
+          ctx.strokeStyle = `hsl(${e.hue} 100% 72%)`
+          ctx.lineWidth = 1.8 * (1 - u) + 0.4
+          ctx.beginPath()
+          ctx.arc(s.x, s.y, r, 0, TAU)
+          ctx.stroke()
+        }
+        if (!this.reduced) {
+          const u = easeOut(Math.min(1, t * 1.6))
+          ctx.globalAlpha = Math.pow(1 - t, 2) * 0.7
+          ctx.lineWidth = 1.2
+          for (let i = 0; i < 8; i++) {
+            const a = e.seed * TAU + (i * TAU) / 8
+            const r0 = (12 + u * 16) * zs
+            const r1 = (18 + u * 30) * zs
+            ctx.beginPath()
+            ctx.moveTo(s.x + Math.cos(a) * r0, s.y + Math.sin(a) * r0)
+            ctx.lineTo(s.x + Math.cos(a) * r1, s.y + Math.sin(a) * r1)
+            ctx.stroke()
+          }
+        }
         break
       }
       case 'duplicate': {

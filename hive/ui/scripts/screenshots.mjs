@@ -118,6 +118,124 @@ async function run(name, viewport, opts) {
   await page.keyboard.type('wa')
   await sleep(500)
   await shot('08-palette')
+  await page.keyboard.press('Escape')
+  await sleep(300)
+
+  // ---------------------------------------------------------------- Phase 2
+  const clearToasts = async () => {
+    for (const b of await page.getByRole('button', { name: 'Dismiss' }).all()) await b.click().catch(() => undefined)
+    await sleep(250)
+  }
+  const expandSheet = async () => {
+    if (!mobile) return
+    const b = page.getByRole('button', { name: 'Expand panel' })
+    if (await b.count()) await b.first().click()
+    await sleep(700)
+  }
+
+  // the approvals inbox with pending items, then the confirmation stamp
+  await go('#/approvals')
+  await sleep(1600)
+  await clearToasts()
+  await shot('10-approvals')
+  await page.getByRole('button', { name: 'Approve once' }).first().click()
+  await sleep(mobile ? 420 : 380)
+  await shot('10b-approval-stamp')
+  await sleep(1200)
+  await page.getByRole('radio', { name: 'History' }).click()
+  await sleep(800)
+  await clearToasts()
+  await shot('10c-approvals-history')
+
+  // policy rules editor with the defaults help open
+  await go('#/approvals/rules')
+  await sleep(1400)
+  await clearToasts()
+  await shot('11-policy')
+  await page.getByRole('button', { name: /How the gate decides/ }).click()
+  await sleep(600)
+  await page.getByRole('button', { name: /How the gate decides/ }).scrollIntoViewIfNeeded()
+  await sleep(300)
+  await shot('11b-policy-help')
+
+  // goals board in the swarm view, and as its own route
+  await go('#/swarms/s_forge')
+  await sleep(1500)
+  await page.getByRole('radio', { name: 'Goals' }).click()
+  await sleep(1200)
+  await clearToasts()
+  await shot('12-goals-swarm')
+  await go('#/goals/s_kelp')
+  await sleep(1500)
+  await page.getByPlaceholder(/Add a goal for/).fill('Count sunflower stars at the north reef')
+  await page.getByPlaceholder(/Add a goal for/).press('Enter')
+  await sleep(5200)
+  await clearToasts()
+  await shot('12b-goals-page')
+
+  // the Mind timeline ("watch it think")
+  await go('#/dot/a_anvl09/mind')
+  await sleep(1800)
+  await expandSheet()
+  await clearToasts()
+  await shot('13-mind')
+  await page.getByRole('radio', { name: 'Errors' }).click()
+  await sleep(700)
+  await shot('13b-mind-errors')
+
+  // memory inspector with a search and a queued retirement
+  await go('#/dot/a_vega01/memory')
+  await sleep(1500)
+  await expandSheet()
+  await page.getByPlaceholder(/Search atoms/).fill('vega')
+  await sleep(900)
+  await page.getByRole('button', { name: /Retire atom/ }).first().click()
+  await sleep(300)
+  await page.getByRole('button', { name: 'Retire', exact: true }).click()
+  await sleep(700)
+  await clearToasts()
+  await shot('14-memory')
+  await page.getByRole('button', { name: 'Reset…' }).click()
+  await sleep(400)
+  await page.getByPlaceholder('Vega', { exact: true }).fill('Vega')
+  await sleep(300)
+  await shot('14b-memory-reset')
+  await page.keyboard.press('Escape')
+  await sleep(400)
+
+  // wakeups + idle auto-sleep, then the composer
+  await go('#/dot/a_anvl09/schedule')
+  await sleep(1500)
+  await expandSheet()
+  await clearToasts()
+  await shot('15-wakeups')
+  await page.getByRole('button', { name: 'New wakeup' }).click()
+  await sleep(600)
+  await page.getByPlaceholder(/Pull fresh photometry/).fill('Check the retry queue and drain it if it is over 100.')
+  await sleep(300)
+  await shot('15b-wakeup-composer')
+
+  // scene cues: gold task glyphs on claimants, amber halo on dots waiting for a human
+  await go('#/')
+  await sleep(1200)
+  await page.evaluate(() => window.__hiveScene?.focus('a_anvl09'))
+  await sleep(2500)
+  await clearToasts()
+  await shot('16-scene-cues')
+
+  // global kill switch from the command palette
+  if (mobile) await page.getByRole('button', { name: 'Search and commands' }).first().click()
+  else await page.keyboard.press('Control+k')
+  await sleep(400)
+  await page.keyboard.type('stop all')
+  await sleep(300)
+  await page.keyboard.press('Enter')
+  await sleep(600)
+  await page.getByPlaceholder('stop all', { exact: true }).fill('stop all')
+  await sleep(300)
+  await shot('17-stop-all')
+  await page.keyboard.press('Escape')
+  await sleep(300)
 
   await ctx.close()
 }

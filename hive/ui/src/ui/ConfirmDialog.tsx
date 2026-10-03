@@ -71,8 +71,7 @@ export function ConfirmDialog({
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-28" style={{ background: 'radial-gradient(70% 100% at 50% 0%, rgb(251 113 133 / 0.22), transparent)' }} />
         <div className="relative flex items-start gap-3.5">
-          <span className="relative flex size-11 shrink-0 items-center justify-center rounded-2xl border border-bad/30 bg-bad/10 text-bad">
-            <span className="absolute inset-0 animate-ping rounded-2xl border border-bad/30 [animation-duration:2.2s]" aria-hidden="true" />
+          <span className="relative flex size-11 shrink-0 items-center justify-center rounded-2xl border border-bad/30 bg-bad/10 text-bad shadow-[0_0_24px_-4px_rgb(251_113_133/0.55)]">
             <Icon name={icon} size={21} />
           </span>
           <div className="min-w-0">

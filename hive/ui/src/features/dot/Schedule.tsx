@@ -100,6 +100,8 @@ function IdleSleep({ agent }: { agent: Agent }) {
   const [saving, setSaving] = useState<number | null>(null)
   const supported = agent.idle_sleep_minutes !== undefined
   const cur = saving ?? agent.idle_sleep_minutes ?? 0
+  // a value set elsewhere (API, CLI) that is not a preset still gets its own chip
+  const options = IDLE.some((o) => o.value === cur) ? IDLE : [...IDLE, { label: cur >= 60 && cur % 60 === 0 ? `${cur / 60}h` : `${cur}m`, value: cur }].sort((a, b) => a.value - b.value)
   const set = async (v: number) => {
     if (v === agent.idle_sleep_minutes) return
     setSaving(v)
@@ -123,8 +125,8 @@ function IdleSleep({ agent }: { agent: Agent }) {
           </p>
         </div>
       </div>
-      <div role="radiogroup" aria-labelledby="idle-h" className="mt-3 grid grid-cols-6 gap-1">
-        {IDLE.map((o) => {
+      <div role="radiogroup" aria-labelledby="idle-h" className="mt-3 grid gap-1" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+        {options.map((o) => {
           const on = o.value === cur
           return (
             <button
@@ -200,7 +202,13 @@ function WakeupCard({ w, hue }: { w: Wakeup; hue: number }) {
             {w.enabled && w.next_run_at ? (
               <span className="inline-flex items-center gap-1" title={new Date(w.next_run_at).toString()}>
                 <span className="size-1.5 rounded-full" style={{ background: hsl(sun, 100, 65), boxShadow: `0 0 6px ${hsl(sun, 100, 60)}` }} />
-                Next {until(w.next_run_at, now)} · <span className="text-ink-2">{localWhen(w.next_run_at)}</span>
+                Next {until(w.next_run_at, now)}
+                {w.cron && (
+                  <>
+                    {' '}
+                    · <span className="text-ink-2">{localWhen(w.next_run_at)}</span>
+                  </>
+                )}
               </span>
             ) : (
               <span>{w.enabled ? 'No upcoming run' : w.at && w.last_run_at ? 'Done' : 'Paused'}</span>

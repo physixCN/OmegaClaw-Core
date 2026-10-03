@@ -29,8 +29,8 @@ export default function ApprovalsView() {
 
   return (
     <Page label="Approvals" eyebrow="Policy gate" title="Approvals" onClose={() => navigate({ name: 'hive' })}>
-      <div className="mx-auto w-full max-w-[1180px] px-3 pb-[calc(var(--sab)+96px)] md:px-6 md:pb-10">
-        <div className="sticky top-0 z-[2] -mx-3 bg-gradient-to-b from-[#0a0a20] via-[#0a0a20]/95 to-transparent px-3 pt-1 pb-3 md:-mx-6 md:px-6">
+      <div className="w-full max-w-[1220px] px-3 pb-[calc(var(--sab)+96px)] md:px-6 md:pb-10">
+        <div className="sticky top-0 z-[2] -mx-3 bg-[#0a0a1f] px-3 pt-1 pb-3 shadow-[0_14px_18px_-6px_#0a0a1f] md:-mx-6 md:bg-[#090920] md:px-6 md:shadow-[0_14px_18px_-6px_#090920]">
           <Segmented<ApprovalsTab>
             label="Approvals section"
             value={tab}
@@ -213,19 +213,19 @@ function ApprovalCard({
                 <span className="text-[13px] text-ink-3">wants to run</span>
                 <span className="rounded-md border border-line-2 bg-white/[0.05] px-1.5 py-px font-mono text-[12px] text-ink">{a.skill}</span>
               </div>
-              <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-ink-4">
+              <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[12px] whitespace-nowrap text-ink-4">
                 {swarm && (
                   <>
-                    <span className="size-1.5 rounded-full" style={{ background: hsl(swarm.hue, 90, 65) }} />
-                    <span>{swarm.name}</span>
+                    <span className="size-1.5 shrink-0 rounded-full" style={{ background: hsl(swarm.hue, 90, 65) }} />
+                    <span className="truncate">{swarm.name}</span>
                     <span aria-hidden="true">·</span>
                   </>
                 )}
                 <time dateTime={a.created_at} title={new Date(a.created_at).toLocaleString()}>
                   {ago(a.created_at, now)}
                 </time>
-                <span aria-hidden="true">·</span>
-                <span className="font-mono">{a.id}</span>
+                <span aria-hidden="true" className="hidden sm:inline">·</span>
+                <span className="hidden font-mono sm:inline">{a.id}</span>
               </div>
             </div>
             <RiskChip risk={a.risk} compact={!desktop} />
@@ -279,16 +279,17 @@ function Stamp({ decision }: { decision: Decision }) {
   const d = DECISION[decision]
   return (
     <m.div
-      className="absolute inset-0 flex items-center justify-center gap-3 backdrop-blur-[2px]"
+      className="absolute inset-0 flex items-center justify-center gap-3 backdrop-blur-[6px]"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18 }}
-      style={{ background: `color-mix(in srgb, ${d.color} 9%, rgb(8 8 26 / 0.82))` }}
+      style={{ background: `color-mix(in srgb, ${d.color} 10%, rgb(8 8 26 / 0.9))` }}
       role="status"
     >
-      <m.svg width="46" height="46" viewBox="0 0 46 46" initial={{ scale: 0.6 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 520, damping: 18 }}>
-        <m.circle cx="23" cy="23" r="20" fill="none" stroke={d.color} strokeWidth="2.2" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.35, ease: 'easeOut' }} style={{ filter: `drop-shadow(0 0 8px ${d.color})` }} />
+      <m.span className="rounded-full" initial={{ scale: 0.6 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 520, damping: 18 }} style={{ boxShadow: `0 0 26px -2px ${d.color}88` }}>
+      <svg width="46" height="46" viewBox="0 0 46 46" className="block">
+        <m.circle cx="23" cy="23" r="20" fill="none" stroke={d.color} strokeWidth="2.2" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.35, ease: 'easeOut' }} />
         <m.path
           d={d.icon === 'check' ? 'M14.5 23.5l6 6L32 17' : 'M16 16l14 14 M30 16 16 30'}
           fill="none"
@@ -300,7 +301,8 @@ function Stamp({ decision }: { decision: Decision }) {
           animate={{ pathLength: 1 }}
           transition={{ duration: 0.28, delay: 0.2, ease: 'easeOut' }}
         />
-      </m.svg>
+      </svg>
+      </m.span>
       <m.span initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }} className="font-display text-[16px] font-semibold" style={{ color: d.color }}>
         {d.label}
       </m.span>
@@ -351,7 +353,7 @@ function History() {
   }, [list, now])
 
   return (
-    <div className="mx-auto max-w-[860px]">
+    <div className="max-w-[860px]">
       <div className="mb-3 flex items-center justify-between gap-2">
         <span className="text-[13px] text-ink-3">{list.length} decisions</span>
         <Segmented

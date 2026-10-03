@@ -8,5 +8,5 @@ interface ImportMeta {
 }
 
 interface Window {
-  __hiveScene?: { screenPos(id: string): { x: number; y: number; r: number } | null }
+  __hiveScene?: { screenPos(id: string): { x: number; y: number; r: number } | null; focus(id: string): void }
 }

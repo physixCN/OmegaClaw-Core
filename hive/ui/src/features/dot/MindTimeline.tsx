@@ -113,7 +113,7 @@ export function MindTimeline({ agent }: { agent: Agent }) {
             </span>
             {live ? 'Live' : `Replay ${at + 1}/${filtered.length}`}
           </button>
-          <span className="truncate text-[11px] text-ink-4">
+          <span className="hidden truncate text-[11px] text-ink-4 sm:inline">
             {traces.length} iterations · {tokens(totals.tok)} tok · avg {seconds(totals.avg ? Math.round(totals.avg) : null)}
           </span>
           <Segmented<Filter>
@@ -314,11 +314,15 @@ function TraceItem({ trace: t, hue, head, expanded, onToggle, animateIn }: { tra
                     {textLines.map((l, i) => (
                       <TypeOn key={`t${i}`} text={l} run={animateIn && head} className="text-ink-2" />
                     ))}
-                    {cmdLines.map((l, i) => (
-                      <div key={`c${i}`} className="font-mono">
-                        <MeTTa src={l} />
+                    {cmdLines.length > 0 && (
+                      <div className={cx('space-y-0.5 font-mono text-[11.5px] opacity-70', textLines.length > 0 && 'mt-1.5 border-t border-line pt-1.5')}>
+                        {cmdLines.map((l, i) => (
+                          <div key={`c${i}`} className="truncate">
+                            <MeTTa src={l} wrap={false} />
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
                 {t.commands.length > 0 && (

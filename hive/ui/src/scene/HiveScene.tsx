@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ago, modelLabel, money } from '../lib/format'
 import { useFinePointer, useNow, useReducedMotion } from '../lib/hooks'
 import { navigate, useRoute } from '../lib/router'
+import { askingByAgent } from '../store/reducer'
 import { hiveBus, useHive } from '../store/store'
 import { Icon } from '../ui/Icon'
 import { Orb, StatusPill } from '../ui/primitives'
@@ -73,7 +74,7 @@ export function HiveScene() {
     engineRef.current = engine
     setEngine(engine)
     // read-only hook for automated UI checks (screenshots, perf)
-    window.__hiveScene = { screenPos: (id: string) => engine.screenPos(id) }
+    window.__hiveScene = { screenPos: (id: string) => engine.screenPos(id), focus: (id: string) => engine.flyToDot(id) }
     engine.start()
     const ro = new ResizeObserver(() => engine.resize())
     ro.observe(canvas)
@@ -81,11 +82,20 @@ export function HiveScene() {
     // sync store → engine without re-rendering React
     const push = () => {
       const s = useHive.getState()
-      engine.setData({ agents: Object.values(s.agents), swarms: Object.values(s.swarms), thinking: s.thinking, beliefs: s.beliefs })
+      const claims: Record<string, string | null> = {}
+      for (const g of Object.values(s.goals)) claims[g.id] = g.status === 'claimed' ? g.claimed_by : null
+      engine.setData({
+        agents: Object.values(s.agents),
+        swarms: Object.values(s.swarms),
+        thinking: s.thinking,
+        beliefs: s.beliefs,
+        claims,
+        asking: askingByAgent(s.approvals),
+      })
     }
     push()
     const unsub = useHive.subscribe((s, p) => {
-      if (s.agents !== p.agents || s.swarms !== p.swarms || s.thinking !== p.thinking || s.beliefs !== p.beliefs) push()
+      if (s.agents !== p.agents || s.swarms !== p.swarms || s.thinking !== p.thinking || s.beliefs !== p.beliefs || s.goals !== p.goals || s.approvals !== p.approvals) push()
     })
     return () => {
       unsub()

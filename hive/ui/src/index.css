@@ -198,3 +198,43 @@
   0% { r: 4; opacity: 0.9; }
   100% { r: 34; opacity: 0; }
 }
+
+/* Timeline scrubber: a thin hue track that fills up to the replay cursor. */
+.scrub {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 32px;
+  background: transparent;
+  cursor: pointer;
+}
+.scrub:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.scrub::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, hsl(var(--hue) 100% 75%) var(--fill), rgb(255 255 255 / 0.1) var(--fill));
+}
+.scrub::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, hsl(var(--hue) 100% 75%) var(--fill), rgb(255 255 255 / 0.1) var(--fill));
+}
+.scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 4px hsl(var(--hue) 100% 70% / 0.3), 0 0 14px hsl(var(--hue) 100% 70% / 0.8);
+}
+.scrub::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 4px hsl(var(--hue) 100% 70% / 0.3), 0 0 14px hsl(var(--hue) 100% 70% / 0.8);
+}

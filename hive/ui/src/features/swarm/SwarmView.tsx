@@ -52,7 +52,8 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
   const select = (st: string | undefined) => navigate({ name: 'swarm', id, statement: st }, { replace: true })
 
   const commons = (
-    <div className="flex h-full min-h-0 flex-col">
+    // on phones the goals board grows with the page instead of scrolling inside a fixed box
+    <div className={cx('flex min-h-0 flex-col', (desktop || view !== 'goals') && 'h-full')}>
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-2">
         <div className="flex items-baseline gap-2">
           <h2 className="eyebrow">{view === 'goals' ? 'Goals' : 'Commons'}</h2>
@@ -70,7 +71,7 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
         />
       </div>
       {view === 'goals' ? (
-        <GoalsBoard swarmId={id} className="min-h-0 flex-1" />
+        <GoalsBoard swarmId={id} className={desktop ? 'min-h-0 flex-1' : undefined} />
       ) : (
         <div className="relative min-h-0 flex-1 overflow-hidden rounded-[20px] border border-line" style={{ background: `radial-gradient(70% 70% at 50% 50%, ${hsl(swarm.hue, 80, 30, 0.22)}, rgb(4 4 16 / 0.6))` }}>
           {err && !beliefs.length ? (
