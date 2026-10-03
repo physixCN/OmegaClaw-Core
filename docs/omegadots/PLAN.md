@@ -669,6 +669,56 @@ project with its own repo, hive and funding.
       the gate, the panel appears live in its members' UI, and the project is
       exported to a fresh hive where the panel and its history still work.
 
+### Adaptive host: dot programs that become the work (direction; not started)
+
+A **dot program** (provisional name) is a plugin that runs inside a dot's UI.
+The host, not the program, owns the adaptive experience: the dot morphs into
+the work itself. A question unfolds into its evidence, following a connection
+grows a map, and comparing explanations reshapes the space around agreement,
+conflict and missing research. Programs supply the content and the meaning;
+the host supplies the form, motion and navigation, so every program feels
+like one product.
+
+The host always shows, in every program:
+- **sources**: every item can open its provenance;
+- **uncertainty**: a consistent visual encoding of truth value and evidence
+  weight, never hidden by layout;
+- **where you are**: a trail of how you got here;
+- **a clear way back**: one step, or to the start, with state restored.
+
+Stages the host morphs between, chosen by what the person does:
+
+| Person does | Stage | What the space shows |
+|---|---|---|
+| asks | unfold | the question at the center; evidence arrives around it, ordered by weight |
+| follows a link | map | the graph grows outward from the followed edge; earlier context recedes but stays reachable |
+| compares | compare | explanations side by side; the layout clusters agreement, separates conflict and leaves visible gaps where research is missing |
+| inspects | detail | one item with its sources, derivation and history |
+
+Small program interface (a sketch; a program owner's private contract maps
+onto it):
+- `describe()` gives the item kinds the program uses (e.g. question, claim,
+  evidence, source, explanation, gap), the relations (supports, contradicts,
+  derived-from, missing) and the actions it offers.
+- `view(focus, stage)` gives a slice of a typed work graph. Items carry a
+  truth value, sources and timestamps; relations carry a weight. The program
+  may suggest a stage.
+- `act(action, items)` runs a program action such as expand, compare or
+  request research. Results come back as graph changes, never as layout.
+- The host owns layout, transitions, the navigation stack and the persistent
+  chrome above. The program never draws its own navigation.
+
+Plan items:
+- [ ] Work-graph schema shared by host and programs (built on the commons
+      atom and provenance model).
+- [ ] Host stages (unfold, map, compare, detail) with morphing transitions,
+      reduced-motion variants, and the persistent sources, uncertainty, trail
+      and back controls.
+- [ ] Program interface plus a small public example program in this repo, to
+      prove it.
+- [ ] Private programs live in their owners' repositories and load only into
+      their owners' local hives; the host never copies their data out.
+
 ### Self-improving UI: building Dot platform in Dot platform
 
 The web UI is a Crucible target like any agent code. The swarm can propose
