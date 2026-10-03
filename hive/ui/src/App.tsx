@@ -10,6 +10,7 @@ import { Toasts, TopBar } from './shell/Hud'
 import { Nav } from './shell/Nav'
 import { useShortcuts } from './shell/shortcuts'
 import { useHive } from './store/store'
+import { IntroLayer } from './tour/IntroLayer'
 
 const DotPanel = lazy(() => import('./features/dot/DotPanel'))
 const SwarmsIndex = lazy(() => import('./features/swarm/SwarmsIndex'))
@@ -181,6 +182,7 @@ export function App() {
           </>
         )}
         <Toasts />
+        <IntroLayer />
       </MotionConfig>
     </LazyMotion>
   )

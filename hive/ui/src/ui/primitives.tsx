@@ -148,6 +148,7 @@ export function Segmented<T extends string>({
   label,
   className,
   dense,
+  tour,
 }: {
   value: T
   options: { value: T; label: string; badge?: ReactNode }[]
@@ -156,9 +157,11 @@ export function Segmented<T extends string>({
   className?: string
   /** Tighter padding for 4-5 options on a phone. */
   dense?: boolean
+  /** Tour anchor: the group gets this data-tour name and each option `${tour}-${value}`. */
+  tour?: string
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className={cx('relative inline-flex rounded-xl border border-line bg-white/[0.03] p-1', className)}>
+    <div role="radiogroup" aria-label={label} data-tour={tour} className={cx('relative inline-flex rounded-xl border border-line bg-white/[0.03] p-1', className)}>
       {options.map((o) => {
         const on = o.value === value
         return (
@@ -166,6 +169,7 @@ export function Segmented<T extends string>({
             key={o.value}
             role="radio"
             aria-checked={on}
+            data-tour={tour ? `${tour}-${o.value}` : undefined}
             onClick={() => onChange(o.value)}
             className={cx(
               'relative min-h-9 flex-1 rounded-lg font-medium whitespace-nowrap transition-colors',

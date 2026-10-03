@@ -88,7 +88,7 @@ export function MemoryInspector({ agent }: { agent: Agent }) {
         )}
       </AnimatePresence>
 
-      <section aria-labelledby="spaces-h">
+      <section aria-labelledby="spaces-h" data-tour="memory-spaces">
         <div className="mb-2 flex items-baseline justify-between">
           <h3 id="spaces-h" className="eyebrow">
             Spaces

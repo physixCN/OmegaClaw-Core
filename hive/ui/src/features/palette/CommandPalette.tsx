@@ -7,6 +7,7 @@ import { fuzzy } from '../../lib/fuzzy'
 import { countPending } from '../../store/reducer'
 import { useScene } from '../../scene/sceneStore'
 import { useHive } from '../../store/store'
+import { useIntro } from '../../tour/introStore'
 import { Icon, type IconName } from '../../ui/Icon'
 import { Kbd, Orb } from '../../ui/primitives'
 import { cx } from '../../lib/cx'
@@ -66,6 +67,8 @@ export default function CommandPalette() {
       { id: 'nav-rules', group: 'Navigate', label: 'Edit policy rules', icon: 'rules', keywords: 'allow ask deny skills glob policy', searchOnly: true, run: go(() => navigate({ name: 'approvals', tab: 'rules' })) },
       { id: 'new', group: 'Actions', label: 'Create a new dot', icon: 'plus', keys: ['N'], keywords: 'add spawn birth', run: go(() => navigate({ name: 'new' })) },
       { id: 'stop-all', group: 'Actions', label: 'Stop all dots…', icon: 'power', keywords: 'kill switch emergency halt stop-all panic', run: go(() => setStopAll(true)) },
+      { id: 'tour', group: 'Actions', label: 'Replay the tour', icon: 'compass', hint: 'about 2 min', keywords: 'guide walkthrough intro help tutorial video onboarding learn', run: () => (close(), useIntro.getState().startTour({})) },
+      { id: 'help', group: 'Actions', label: 'Help and keyboard shortcuts', icon: 'question', keys: ['?'], keywords: 'keys shortcuts help hotkeys', run: () => (close(), useIntro.getState().setHelp(true)) },
       { id: 'recenter', group: 'Actions', label: 'Recenter the camera', icon: 'locate', keywords: 'overview fit zoom', run: go(() => (navigate({ name: 'hive' }), useScene.getState().engine?.overview())) },
     ]
     for (const x of labSuites ?? []) {

@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import { useEscape, useReducedMotion } from '../lib/hooks'
 import { IconButton } from './primitives'
 import { cx } from '../lib/cx'
+import { ViewInfo } from '../tour/ViewInfo'
+import type { ViewKey } from '../tour/views'
 
 /** A full-screen glass view over the dimmed hive (swarms, usage). */
 export function Page({
@@ -15,6 +17,7 @@ export function Page({
   className,
   label,
   onEscape,
+  info,
 }: {
   title: ReactNode
   eyebrow?: ReactNode
@@ -26,6 +29,8 @@ export function Page({
   label: string
   /** What Esc does when it should differ from Back/Close (e.g. back one step in a trail). */
   onEscape?: () => void
+  /** The view's "What's this?" explainer. */
+  info?: ViewKey
 }) {
   const reduced = useReducedMotion()
   useEscape(onEscape ?? onBack ?? onClose)
@@ -54,6 +59,7 @@ export function Page({
           <h1 className="truncate font-display text-[22px] font-semibold tracking-tight md:text-[26px]">{title}</h1>
         </div>
         {actions}
+        {info && <ViewInfo view={info} />}
         <IconButton icon="x" label="Close" onClick={onClose} />
       </header>
       <div className="thin-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>

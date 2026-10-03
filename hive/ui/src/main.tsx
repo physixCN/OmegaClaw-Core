@@ -7,9 +7,14 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { createClient } from './api/client'
 import { useHive } from './store/store'
+import { useIntro, welcomeNeeded } from './tour/introStore'
 
-// The static demo opens on the Lab: it exists to review the recorded tests and benchmarks.
-if (import.meta.env.MODE === 'demo' && !window.location.hash) history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/lab`)
+// The static demo opens on the Lab: it exists to review the recorded tests and benchmarks. On a first
+// visit the welcome comes first, over the living hive; the Lab follows once it is answered.
+if (import.meta.env.MODE === 'demo' && !window.location.hash) {
+  if (welcomeNeeded()) useIntro.setState({ afterWelcome: '#/lab' })
+  else history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/lab`)
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

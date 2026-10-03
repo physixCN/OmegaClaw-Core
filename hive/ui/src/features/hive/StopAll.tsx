@@ -15,6 +15,7 @@ export default function StopAll() {
       title="Stop every dot?"
       icon="power"
       phrase="stop all"
+      tour="stop-all-dialog"
       confirmLabel={running.length ? `Stop ${running.length} dot${running.length === 1 ? '' : 's'}` : 'Stop all'}
       onClose={() => setOpen(false)}
       onConfirm={async () => {

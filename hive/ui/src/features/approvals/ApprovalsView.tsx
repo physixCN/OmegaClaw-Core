@@ -28,7 +28,7 @@ export default function ApprovalsView() {
   }, [load])
 
   return (
-    <Page label="Approvals" eyebrow="Policy gate" title="Approvals" onClose={() => navigate({ name: 'hive' })}>
+    <Page label="Approvals" eyebrow="Policy gate" title="Approvals" onClose={() => navigate({ name: 'hive' })} info={tab === 'rules' ? 'policy' : 'approvals'}>
       <div className="w-full max-w-[1220px] px-3 pb-[calc(var(--sab)+96px)] md:px-6 md:pb-10">
         <div className="sticky top-0 z-[2] -mx-3 bg-[#0a0a1f] px-3 pt-1 pb-3 shadow-[0_14px_18px_-6px_#0a0a1f] md:-mx-6 md:bg-[#090920] md:px-6 md:shadow-[0_14px_18px_-6px_#090920]">
           <Segmented<ApprovalsTab>

@@ -19,6 +19,8 @@ import { Schedule } from './Schedule'
 import { LabGuards } from '../../shell/LabBadge'
 import { OpenIn } from '../programs/OpenIn'
 import { sessionKey } from '../../store/programSession'
+import { ViewInfo } from '../../tour/ViewInfo'
+import { SimChip } from '../../ui/SimChip'
 
 const ProgramHost = lazy(() => import('../programs/ProgramHost'))
 
@@ -89,6 +91,7 @@ export default function DotPanel({ id, tab: routeTab, program }: { id: string; t
           <m.div
             key={tab}
             custom={dir}
+            data-tour={`dot-body-${tab}`}
             className={cx('flex min-h-0 flex-1 flex-col', tab !== 'chat' && tab !== 'mind' && 'thin-scroll overflow-y-auto')}
             variants={{ in: (d: number) => ({ opacity: 0, x: 14 * d }), on: { opacity: 1, x: 0 }, out: (d: number) => ({ opacity: 0, x: -14 * d }) }}
             initial="in"
@@ -124,7 +127,7 @@ function PanelHeader({ agent, onClose, tab, setTab }: { agent: Agent; onClose: (
   })
   const swarm = useHive((s) => (agent.swarm_id ? s.swarms[agent.swarm_id] : undefined))
   return (
-    <div className="relative shrink-0 px-4 pt-1 md:pt-4">
+    <div className="relative shrink-0 px-4 pt-1 md:pt-4" data-tour="dot-header">
       <div className="pointer-events-none absolute inset-x-0 -top-10 h-40 opacity-70" style={{ background: `radial-gradient(60% 100% at 20% 0%, ${hsl(agent.hue, 90, 55, 0.28)}, transparent)` }} />
       <div className="relative flex items-center gap-3">
         <Orb hue={agent.hue} status={agent.status} thinking={thinking} size={42} />
@@ -148,6 +151,7 @@ function PanelHeader({ agent, onClose, tab, setTab }: { agent: Agent; onClose: (
             <span className="truncate font-mono text-[11px]">{agent.model}</span>
           </div>
         </div>
+        <ViewInfo view={`dot-${tab}`} size="sm" />
         <OpenIn iconOnly onPick={(pid) => navigate({ name: 'dot', id: agent.id, program: pid })} />
         <IconButton icon="x" label="Close panel" onClick={onClose} className="-mr-2" />
       </div>
@@ -159,6 +163,7 @@ function PanelHeader({ agent, onClose, tab, setTab }: { agent: Agent; onClose: (
       <Segmented<Tab>
         dense
         label="Panel section"
+        tour="dot-tab"
         value={tab}
         onChange={setTab}
         className="mt-2.5 mb-1.5 w-full"
@@ -197,6 +202,7 @@ function DotProgram({ agent, programId, onClose }: { agent: Agent; programId: st
           <div className="eyebrow truncate">{agent.name} · program</div>
           <h2 className="truncate font-display text-[18px] leading-tight font-semibold tracking-tight">{program?.name ?? programId}</h2>
         </div>
+        <ViewInfo view="program" size="sm" />
         <IconButton icon="x" label="Close panel" onClick={onClose} className="-mr-2" />
       </div>
     </div>
@@ -240,7 +246,7 @@ function Controls({ agent }: { agent: Agent }) {
     setBusy(null)
   }
   return (
-    <div className="flex shrink-0 gap-1.5" role="group" aria-label="Status controls">
+    <div className="flex shrink-0 gap-1.5" role="group" aria-label="Status controls" data-tour="dot-controls">
       {available.map((a, i) => (
         <Button key={a} variant={i === 0 ? 'primary' : 'subtle'} hue={agent.hue} icon={ACTIONS[a].icon} onClick={() => run(a)} disabled={!!busy} className="px-3.5" aria-label={`${ACTIONS[a].label} ${agent.name}`}>
           {busy === a ? '…' : ACTIONS[a].label}
@@ -270,6 +276,7 @@ function LastError({ agent, onFix }: { agent: Agent; onFix: () => void }) {
                 {info.status} {info.code}
               </code>
             )}
+            {budgetish && <SimChip className="self-center" />}
           </div>
           <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-ink-3" title={agent.last_error ?? undefined}>
             {info.hint}
@@ -289,10 +296,11 @@ function Budget({ agent }: { agent: Agent }) {
   const unlimited = agent.budget_usd <= 0
   const pct = unlimited ? 0 : agent.spent_usd / agent.budget_usd
   return (
-    <div className="flex min-w-0 flex-1 flex-col justify-center rounded-xl border border-line bg-white/[0.025] px-3 py-1.5">
+    <div className="flex min-w-0 flex-1 flex-col justify-center rounded-xl border border-line bg-white/[0.025] px-3 py-1.5" data-tour="dot-budget">
       <div className="mb-1.5 flex items-baseline justify-between gap-2 text-[11px] whitespace-nowrap">
         <span className="flex items-center gap-1 text-ink-3">
           Budget
+          <SimChip />
           {!unlimited && pct > 0.85 && (
             <span className="inline-flex items-center gap-0.5 text-warn">
               <Icon name="alert" size={11} /> {Math.round(pct * 100)}%
@@ -340,7 +348,7 @@ function ModelSettings({ agent }: { agent: Agent }) {
 
   return (
     <div className="space-y-6 px-4 pt-2 pb-6">
-      <section aria-labelledby="model-h">
+      <section aria-labelledby="model-h" data-tour="model-list">
         <h3 id="model-h" className="eyebrow mb-2">Model</h3>
         {models.length === 0 ? (
           <div className="text-sm text-ink-3">No models available.</div>
@@ -431,7 +439,7 @@ function ModelSettings({ agent }: { agent: Agent }) {
         <LabGuards />
       </section>
 
-      <section aria-labelledby="budget-h">
+      <section aria-labelledby="budget-h" data-tour="model-budget">
         <h3 id="budget-h" className="eyebrow mb-2">Budget cap</h3>
         <div className="flex items-center gap-2">
           <div className="flex min-h-11 flex-1 items-center rounded-xl border border-line bg-black/25 px-3 focus-within:border-line-2">

@@ -8,6 +8,7 @@ import { useHive } from '../../store/store'
 import { Icon } from '../../ui/Icon'
 import { Button, EmptyState, Orb } from '../../ui/primitives'
 import { Page } from '../../ui/Page'
+import { SimChip } from '../../ui/SimChip'
 
 export default function SwarmsIndex() {
   const swarms = useHive((s) => s.swarms)
@@ -77,7 +78,10 @@ function SwarmCard({ swarm, agents, beliefCount, index }: { swarm: Swarm; agents
               ['Spend', money(spend)],
             ].map(([k, v]) => (
               <div key={k as string}>
-                <dt className="text-ink-4">{k}</dt>
+                <dt className="flex items-center gap-1 text-ink-4">
+                  {k}
+                  {k === 'Spend' && <SimChip />}
+                </dt>
                 <dd className="font-display text-[15px] font-semibold text-ink">{v}</dd>
               </div>
             ))}

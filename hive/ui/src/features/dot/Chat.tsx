@@ -183,6 +183,7 @@ export function Chat({ agent }: { agent: Agent }) {
       </div>
 
       <form
+        data-tour="chat-composer"
         className="shrink-0 border-t border-line px-3 pt-2.5 pb-3"
         onSubmit={(e) => {
           e.preventDefault()

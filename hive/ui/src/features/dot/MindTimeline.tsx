@@ -133,7 +133,7 @@ export function MindTimeline({ agent }: { agent: Agent }) {
             ]}
           />
         </div>
-        <div className="flex items-center gap-0.5" role="group" aria-label="Replay">
+        <div className="flex items-center gap-0.5" role="group" aria-label="Replay" data-tour="mind-replay">
           <IconButton icon="first" label="First iteration" size={17} onClick={() => (setPlaying(false), setCursor(0))} disabled={!filtered.length} className="size-10" />
           <IconButton icon="stepBack" label="Previous iteration" size={17} onClick={() => step(-1)} disabled={at <= 0} className="size-10" />
           <button

@@ -10,6 +10,7 @@ import { Icon, type IconName } from '../ui/Icon'
 import { CountBadge, Kbd, Orb } from '../ui/primitives'
 import { cx } from '../lib/cx'
 import { LabBadge } from './LabBadge'
+import { useIntro } from '../tour/introStore'
 
 function AnimatedNumber({ value, format }: { value: number; format: (n: number) => string }) {
   const mv = useMotionValue(value)
@@ -84,7 +85,7 @@ export function Stats() {
     { label: 'Spend', value: stats.spent, fmt: (n: number) => money(n) },
   ]
   return (
-    <div className="glass flex items-stretch rounded-2xl" role="group" aria-label="Hive statistics">
+    <div className="glass flex items-stretch rounded-2xl" role="group" aria-label="Hive statistics" data-tour="hud-stats">
       {items.map((it, i) => (
         <div key={it.label} className={cx('flex min-w-0 flex-1 flex-col justify-center px-3 py-2 md:px-4', i > 0 && 'border-l border-line')}>
           <div className="flex items-center gap-1.5 text-[10px] font-medium tracking-[0.12em] text-ink-3 uppercase">
@@ -125,6 +126,7 @@ export function TopBar() {
             onClick={() => setPalette(true)}
             tabIndex={panel ? -1 : undefined}
             className="glass flex min-h-11 items-center gap-3 rounded-2xl px-3.5 text-sm text-ink-3 transition-colors hover:text-ink"
+            data-tour="hud-search"
             aria-label="Open command palette"
           >
             <Icon name="search" size={17} />
@@ -147,7 +149,7 @@ export function TopBar() {
           {/* phones have room for one status pill: approvals waiting outrank the Lab */}
           <MobileLab />
           <InboxButton compactMode />
-          <button onClick={() => setPalette(true)} className="glass flex size-11 items-center justify-center rounded-2xl text-ink-2" aria-label="Search and commands">
+          <button onClick={() => setPalette(true)} data-tour="hud-search" className="glass flex size-11 items-center justify-center rounded-2xl text-ink-2" aria-label="Search and commands">
             <Icon name="search" size={19} />
           </button>
           <OverflowMenu />
@@ -273,6 +275,7 @@ interface MenuItem {
   danger?: boolean
   badge?: number
   hint?: string
+  tour?: string
 }
 
 /** HUD overflow: secondary destinations and the global kill switch. */
@@ -301,12 +304,16 @@ function OverflowMenu() {
     { label: 'Goals board', icon: 'target', run: go(() => navigate({ name: 'goals' })) },
     { label: 'Lab · tests & benchmarks', icon: 'flask', run: go(() => navigate({ name: 'lab' })) },
     null,
-    { label: 'Stop all dots…', icon: 'power', run: go(() => setStopAll(true)), danger: true, hint: `${awake} running` },
+    { label: 'Replay the tour', icon: 'compass', run: go(() => useIntro.getState().startTour({})), hint: '2 min', tour: 'menu-tour' },
+    { label: 'Help & shortcuts', icon: 'question', run: go(() => useIntro.getState().setHelp(true)), hint: '?', tour: 'menu-help' },
+    null,
+    { label: 'Stop all dots…', icon: 'power', run: go(() => setStopAll(true)), danger: true, hint: `${awake} running`, tour: 'menu-stop-all' },
   ]
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
+        data-tour="hud-more"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="More"
@@ -330,6 +337,7 @@ function OverflowMenu() {
                 <button
                   key={it.label}
                   role="menuitem"
+                  data-tour={it.tour}
                   onClick={it.run}
                   className={cx(
                     'flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[14px] transition-colors',

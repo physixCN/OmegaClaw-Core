@@ -90,7 +90,7 @@ export function Provenance({ swarmId, statement, onClose }: { swarmId: string; s
           </div>
         ) : (
           <>
-            <section className="mt-4 rounded-2xl border border-line bg-white/[0.02] p-4" aria-label="Current truth value">
+            <section className="mt-4 rounded-2xl border border-line bg-white/[0.02] p-4" aria-label="Current truth value" data-tour="prov-truth">
               <div className="mb-2.5 flex items-baseline justify-between">
                 <span className="eyebrow">Current truth</span>
                 <span className="text-[11px] text-ink-4">updated {ago(detail.updated_at, now)}</span>
@@ -98,7 +98,7 @@ export function Provenance({ swarmId, statement, onClose }: { swarmId: string; s
               <TruthBars f={detail.tv.f} c={detail.tv.c} />
             </section>
 
-            <section className="mt-4" aria-labelledby="src-h">
+            <section className="mt-4" aria-labelledby="src-h" data-tour="prov-sources">
               <h3 id="src-h" className="eyebrow mb-2">
                 Sources
               </h3>
@@ -119,7 +119,7 @@ export function Provenance({ swarmId, statement, onClose }: { swarmId: string; s
               <StampChips stamp={detail.stamp} hue={hue} />
             </section>
 
-            <section className="mt-6" aria-labelledby="tl-h">
+            <section className="mt-6" aria-labelledby="tl-h" data-tour="prov-assertions">
               <h3 id="tl-h" className="eyebrow mb-3">
                 Assertions · {detail.assertions.length} · newest first
               </h3>
@@ -163,7 +163,7 @@ export function Provenance({ swarmId, statement, onClose }: { swarmId: string; s
             </section>
 
             {detail.choices.length > 0 && (
-              <section className="mt-2" aria-labelledby="ch-h">
+              <section className="mt-2" aria-labelledby="ch-h" data-tour="prov-choices">
                 <h3 id="ch-h" className="eyebrow mb-2">
                   Choices · {detail.choices.length}
                 </h3>

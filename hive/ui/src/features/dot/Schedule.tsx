@@ -50,7 +50,7 @@ export function Schedule({ agent }: { agent: Agent }) {
     <div className="space-y-6 px-4 pt-2 pb-6">
       <IdleSleep agent={agent} />
 
-      <section aria-labelledby="wake-h">
+      <section aria-labelledby="wake-h" data-tour="schedule-wakeups">
         <div className="mb-2 flex items-center justify-between">
           <h3 id="wake-h" className="eyebrow">
             Wakeups {loaded ? `· ${list.length}` : ''}
@@ -109,7 +109,7 @@ function IdleSleep({ agent }: { agent: Agent }) {
     setSaving(null)
   }
   return (
-    <section aria-labelledby="idle-h" className="rounded-2xl border border-line bg-white/[0.025] p-3.5">
+    <section aria-labelledby="idle-h" className="rounded-2xl border border-line bg-white/[0.025] p-3.5" data-tour="schedule-idle">
       <div className="flex items-start gap-3">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-xl" style={{ background: hsl(235, 70, 55, 0.16), color: '#a5b4fc' }}>
           <Icon name="moon" size={18} />

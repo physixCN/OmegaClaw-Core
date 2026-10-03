@@ -37,6 +37,7 @@ function CreateButton({ big }: { big?: boolean }) {
   return (
     <button
       onClick={() => navigate({ name: 'new' })}
+      data-tour="nav-create"
       aria-label="Create a new dot"
       title="New dot (N)"
       className={cx(
@@ -88,7 +89,7 @@ export function Nav() {
       <CreateButton big />
       <TabButton it={byKey('inbox')} active={route.name === 'approvals'} badge={pending} />
       <TabButton it={byKey('usage')} active={route.name === 'usage'} />
-      <button onClick={() => setPalette(true)} className="flex min-h-12 min-w-14 flex-col items-center justify-center gap-0.5 text-ink-3" aria-label="Search and commands">
+      <button onClick={() => setPalette(true)} data-tour="nav-jump" className="flex min-h-12 min-w-14 flex-col items-center justify-center gap-0.5 text-ink-3" aria-label="Search and commands">
         <Icon name="command" size={20} />
         <span className="text-[10px] font-medium">Jump</span>
       </button>
@@ -100,6 +101,7 @@ function TabButton({ it, active, badge = 0 }: { it: Item; active: boolean; badge
   return (
     <button
       onClick={() => navigate(it.route)}
+      data-tour={`nav-${it.key}`}
       aria-current={active ? 'page' : undefined}
       aria-label={badge ? `${it.label}, ${badge} waiting` : undefined}
       className={cx('relative flex min-h-12 min-w-14 flex-col items-center justify-center gap-0.5 transition-colors', active ? 'text-ink' : 'text-ink-3')}
@@ -134,6 +136,7 @@ function RailButton({ it, active, badge = 0, dot }: { it: Item; active: boolean;
     <div className="group relative">
       <button
         onClick={() => navigate(it.route)}
+        data-tour={`nav-${it.key}`}
         aria-label={badge ? `${it.label}, ${badge} waiting` : it.label}
         aria-current={active ? 'page' : undefined}
         className={cx('relative flex size-11 items-center justify-center rounded-xl transition-colors', active ? 'text-ink' : 'text-ink-3 hover:bg-white/[0.06] hover:text-ink')}

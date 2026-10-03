@@ -17,6 +17,7 @@ import { GoalsBoard } from '../goals/GoalsBoard'
 import { Constellation, ConstellationLegend } from './Constellation'
 import { Provenance } from './Provenance'
 import { OpenIn } from '../programs/OpenIn'
+import { SIM_COST_NOTE, useSim } from '../../ui/SimChip'
 
 type Tab = 'commons' | 'members' | 'vocab'
 type View = 'sky' | 'list' | 'goals'
@@ -63,6 +64,7 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
         </div>
         <Segmented<View>
           label="Commons view"
+          tour="commons-view"
           value={view}
           onChange={setView}
           options={[
@@ -75,7 +77,7 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
       {view === 'goals' ? (
         <GoalsBoard swarmId={id} className={desktop ? 'min-h-0 flex-1' : undefined} />
       ) : (
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-[20px] border border-line" style={{ background: `radial-gradient(70% 70% at 50% 50%, ${hsl(swarm.hue, 80, 30, 0.22)}, rgb(4 4 16 / 0.6))` }}>
+        <div className="relative min-h-0 flex-1 overflow-hidden rounded-[20px] border border-line" data-tour="swarm-sky" style={{ background: `radial-gradient(70% 70% at 50% 50%, ${hsl(swarm.hue, 80, 30, 0.22)}, rgb(4 4 16 / 0.6))` }}>
           {err && !beliefs.length ? (
             <ErrorState title="Could not load the commons" body={err} onRetry={() => loadBeliefs(id, true).then(() => setErr(null), () => undefined)} />
           ) : !loaded && !beliefs.length ? (
@@ -91,7 +93,7 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
           )}
         </div>
       )}
-      {view === 'sky' && beliefs.length > 0 && <ConstellationLegend className="px-1 pt-2.5" />}
+      {view === 'sky' && beliefs.length > 0 && <ConstellationLegend className="px-1 pt-2.5" tour="sky-legend" />}
     </div>
   )
 
@@ -108,6 +110,7 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
         title={swarm.name}
         onClose={() => navigate({ name: 'hive' })}
         onBack={() => navigate({ name: 'swarms' })}
+        info="swarm"
         actions={
           <div className="flex items-center gap-2">
             <OpenIn onPick={(pid) => navigate({ name: 'program', id: pid, swarm: id })} iconOnly={!desktop} />
@@ -133,6 +136,7 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
             <p className="px-1 pb-3 text-[13px] leading-relaxed text-ink-3">{swarm.description}</p>
             <Segmented<Tab>
               label="Swarm section"
+              tour="swarm-tab"
               value={tab}
               onChange={setTab}
               className="mb-3 w-full"
@@ -155,9 +159,10 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
 
 function Members({ members }: { members: Agent[] }) {
   const thinking = useHive((s) => s.thinking)
+  const sim = useSim()
   const now = useNow(15_000)
   return (
-    <section aria-labelledby="mem-h">
+    <section aria-labelledby="mem-h" data-tour="swarm-members">
       <h2 id="mem-h" className="eyebrow mb-2 px-1">
         Members · {members.length}
       </h2>
@@ -172,7 +177,8 @@ function Members({ members }: { members: Agent[] }) {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{a.name}</span>
                   <span className="block truncate text-[11px] text-ink-4">
-                    {a.kind} · {money(a.spent_usd)} · {ago(a.last_active_at, now)}
+                    {a.kind} · {money(a.spent_usd)}
+                    {sim && <span className="text-warn/80" title={SIM_COST_NOTE}> sim</span>} · {ago(a.last_active_at, now)}
                   </span>
                 </span>
                 <StatusPill status={a.status} thinking={thinking[a.id]} />

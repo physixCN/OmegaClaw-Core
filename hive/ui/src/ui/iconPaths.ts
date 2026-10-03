@@ -71,6 +71,11 @@ export const PATHS = {
   doc: 'M6 3.5h8l4 4v13H6z M14 3.5v4h4 M9 12h6 M9 16h4',
   external: 'M14 4h6v6 M20 4l-8.5 8.5 M18 14v6H4V6h6',
   layers: 'M12 4 3 8.5l9 4.5 9-4.5L12 4Z M3 13l9 4.5 9-4.5',
+  volume: 'M4 9.5h3.5L12 5.5v13l-4.5-4H4z M15.5 9a4 4 0 0 1 0 6 M18.2 6.5a7.6 7.6 0 0 1 0 11',
+  volumeOff: 'M4 9.5h3.5L12 5.5v13l-4.5-4H4z M16 9.5l5 5 M21 9.5l-5 5',
+  captions: 'M3.5 5.5h17v13h-17z M10.6 10.3a2.3 2.3 0 1 0 0 3.4 M17 10.3a2.3 2.3 0 1 0 0 3.4',
+  list: 'M9 6.5h11 M9 12h11 M9 17.5h11 M4.5 6.5h.01 M4.5 12h.01 M4.5 17.5h.01',
+  compass: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M15.6 8.4l-2.1 5.1-5.1 2.1 2.1-5.1 5.1-2.1Z',
 } as const
 
 export type IconName = keyof typeof PATHS

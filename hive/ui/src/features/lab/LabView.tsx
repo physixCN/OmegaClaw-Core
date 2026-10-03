@@ -68,6 +68,7 @@ export default function LabView() {
       title={title}
       onClose={() => navigate({ name: 'hive' })}
       onBack={back}
+      info="lab"
       actions={suite && view !== 'overview' && suite.last_run?.status !== 'running' ? <RunButton suite={suite} className="mr-1" /> : undefined}
     >
       <div className="mx-auto w-full max-w-[1280px] px-3 pb-[calc(var(--sab)+96px)] md:px-6 md:pb-10">

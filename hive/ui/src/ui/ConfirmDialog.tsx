@@ -16,6 +16,7 @@ export function ConfirmDialog({
   onConfirm,
   onClose,
   icon = 'alert',
+  tour,
 }: {
   title: string
   body: ReactNode
@@ -24,6 +25,8 @@ export function ConfirmDialog({
   onConfirm: () => Promise<boolean | void> | boolean | void
   onClose: () => void
   icon?: IconName
+  /** Tour anchor (data-tour) on the dialog. */
+  tour?: string
 }) {
   const desktop = useIsDesktop()
   const [text, setText] = useState('')
@@ -58,6 +61,7 @@ export function ConfirmDialog({
     >
       <m.form
         role="alertdialog"
+        data-tour={tour}
         aria-modal="true"
         aria-labelledby={`${id}-t`}
         aria-describedby={`${id}-b`}

@@ -2,8 +2,9 @@ import { useEffect } from 'react'
 import { isTypingTarget } from '../lib/hooks'
 import { navigate } from '../lib/router'
 import { useHive } from '../store/store'
+import { useIntro } from '../tour/introStore'
 
-/** Global keyboard shortcuts: ⌘K / Ctrl+K, g h, g s, g i, g g, g u, g l, g p, n, /. Esc is handled by the escape stack. */
+/** Global keyboard shortcuts: ⌘K / Ctrl+K, g h, g s, g i, g g, g u, g l, g p, n, /, ? (help). Esc is handled by the escape stack. */
 export function useShortcuts(): void {
   useEffect(() => {
     let g = 0
@@ -17,6 +18,12 @@ export function useShortcuts(): void {
       }
       if (e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) return
       if (useHive.getState().paletteOpen) return
+      if (e.key === '?') {
+        e.preventDefault()
+        const intro = useIntro.getState()
+        if (!intro.tour && !intro.welcome) intro.setHelp(!intro.help)
+        return
+      }
       const now = performance.now()
       if (g && now - g < 1200) {
         g = 0

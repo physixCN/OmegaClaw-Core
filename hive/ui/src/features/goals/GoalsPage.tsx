@@ -22,7 +22,7 @@ export default function GoalsPage({ swarm }: { swarm?: string }) {
   }, [goals])
 
   return (
-    <Page label="Goals" eyebrow="Swarm work" title="Goals" onClose={() => navigate({ name: 'hive' })}>
+    <Page label="Goals" eyebrow="Swarm work" title="Goals" onClose={() => navigate({ name: 'hive' })} info="goals">
       <div className="flex h-full min-h-[600px] flex-col px-3 pb-[calc(var(--sab)+92px)] md:px-6 md:pb-6">
         {list.length === 0 ? (
           <EmptyState icon="target" title="No swarms yet" body="Goals belong to a swarm. Create a dot with a swarm first." />

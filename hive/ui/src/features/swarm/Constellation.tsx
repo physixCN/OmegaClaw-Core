@@ -221,6 +221,8 @@ export function Constellation({
               transition={{ type: 'spring', stiffness: 120, damping: 18, delay: Math.min(0.6, i * 0.015) }}
               role="button"
               tabIndex={0}
+              data-tour="star"
+              data-statement={s.b.statement}
               aria-label={`${s.b.statement}, frequency ${s.b.tv.f.toFixed(2)}, confidence ${s.b.tv.c.toFixed(2)}`}
               aria-pressed={sel}
               onClick={() => onSelect(s.b.statement)}
@@ -277,9 +279,9 @@ export function Constellation({
   )
 }
 
-export function ConstellationLegend({ className }: { className?: string }) {
+export function ConstellationLegend({ className, tour }: { className?: string; tour?: string }) {
   return (
-    <div className={cx('flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-ink-3', className)}>
+    <div className={cx('flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-ink-3', className)} data-tour={tour}>
       <div className="flex items-center gap-2">
         <span>Frequency</span>
         <span className="font-mono">0</span>

@@ -30,6 +30,7 @@ export default function ProgramsIndex() {
       eyebrow="Dot programs"
       title="Programs"
       onClose={() => navigate({ name: 'hive' })}
+      info="programs"
       actions={
         <Button variant="subtle" icon="reset" onClick={() => void reload()} className="mr-1" title="Re-read program code from disk">
           <span className="hidden sm:inline">Reload</span>

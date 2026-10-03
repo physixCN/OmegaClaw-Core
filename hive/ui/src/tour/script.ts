@@ -2,6 +2,7 @@ import type { Agent, Belief, Swarm } from '../api/types'
 import type { Route } from '../lib/router'
 import { sessionKey } from '../store/programSession'
 import type { Store } from '../store/store'
+import { meta } from './chapters'
 import type { ChapterLike } from './machine'
 
 /**
@@ -141,9 +142,7 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
 
   const chapters: Chapter[] = [
     {
-      id: 'hive',
-      title: 'The hive and its dots',
-      blurb: 'What the glowing dots are and how to read them.',
+      ...meta('hive'),
       async setup() {
         await closeOverlays()
         ctx.go({ name: 'hive' })
@@ -169,9 +168,7 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
       ],
     },
     {
-      id: 'swarm',
-      title: 'A swarm and its constellation',
-      blurb: 'The shared beliefs of one swarm, drawn as stars.',
+      ...meta('swarm'),
       async setup() {
         await closeOverlays()
         if (swarm) ctx.go({ name: 'swarm', id: swarm })
@@ -187,9 +184,7 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
       ],
     },
     {
-      id: 'dot',
-      title: "A dot's panel",
-      blurb: 'Chat, Mind, Memory, Schedule and Model.',
+      ...meta('dot'),
       async setup() {
         await closeOverlays()
         if (dotId) ctx.go({ name: 'dot', id: dotId })
@@ -206,9 +201,7 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
       ],
     },
     {
-      id: 'commons',
-      title: 'Beliefs and where they came from',
-      blurb: 'Provenance: a belief, its sources and its revisions.',
+      ...meta('commons'),
       async setup() {
         await closeOverlays()
         if (swarm) ctx.go({ name: 'swarm', id: swarm })
@@ -230,9 +223,7 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
       ],
     },
     {
-      id: 'goals',
-      title: 'Goals',
-      blurb: 'Posting, claiming, leases, and work waiting on you.',
+      ...meta('goals'),
       async setup() {
         await closeOverlays()
         ctx.go({ name: 'goals', swarm: goalsSwarm })
@@ -245,9 +236,7 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
       ],
     },
     {
-      id: 'approvals',
-      title: 'Approvals and policy',
-      blurb: 'The safety gate: approve once, always allow, rules.',
+      ...meta('approvals'),
       async setup() {
         await closeOverlays()
         ctx.go({ name: 'approvals' })
@@ -269,9 +258,7 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
       ],
     },
     {
-      id: 'lab',
-      title: 'The Lab',
-      blurb: 'Scorecard, drift scenarios and history.',
+      ...meta('lab'),
       async setup() {
         await closeOverlays()
         ctx.go({ name: 'lab' })
@@ -303,9 +290,7 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
       ],
     },
     {
-      id: 'programs',
-      title: 'Dot programs',
-      blurb: 'Turn work into maps: unfold, map, compare, detail.',
+      ...meta('programs'),
       async setup() {
         await closeOverlays()
         ctx.go({ name: 'programs' })
@@ -366,9 +351,7 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
       ],
     },
     {
-      id: 'safety',
-      title: 'Safety: stop all and budgets',
-      blurb: 'The kill switch and spending caps.',
+      ...meta('safety'),
       async setup() {
         await closeOverlays()
         ctx.go({ name: 'hive' })
@@ -405,9 +388,7 @@ export function buildChapters(ctx: TourCtx): Chapter[] {
       ],
     },
     {
-      id: 'start',
-      title: 'Your turn',
-      blurb: 'Where to start.',
+      ...meta('start'),
       async setup() {
         await closeOverlays()
         ctx.go({ name: 'hive' })

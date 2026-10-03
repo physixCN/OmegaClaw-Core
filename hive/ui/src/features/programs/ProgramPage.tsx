@@ -69,6 +69,7 @@ export default function ProgramPage({ id, swarm }: { id: string; swarm?: string 
       title={title ?? program?.name ?? id}
       onClose={() => navigate({ name: 'hive' })}
       onEscape={() => current && programBackOrExit(sessionKey(id, current), exit)}
+      info="program"
       actions={
         sorted.length > 1 && current ? (
           <label className="relative hidden items-center sm:flex">

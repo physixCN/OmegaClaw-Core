@@ -126,6 +126,8 @@ export interface RunnerEnv<C extends ChapterLike> {
    */
   prepare(chapter: number, beat: number, fresh: boolean, isCurrent: () => boolean): Promise<void>
   onState(s: TourState): void
+  /** The beat's sentence starts now (spoken or timed): show its caption. */
+  onNarrate?(chapter: number, beat: number): void
   onBoundary?(charIndex: number): void
   /** The tour ended by itself (last beat done). */
   onEnded?(): void
@@ -204,6 +206,7 @@ export class TourRunner<C extends ChapterLike> {
       if (isCurrent()) this.after(GAP_MS / this.state.rate, () => this.dispatch({ type: 'beatDone', token }))
     }
     const timed = (ms: number) => this.after(ms, () => this.dispatch({ type: 'beatDone', token }))
+    this.env.onNarrate?.(s.chapter, s.beat)
     const speech = this.env.speech
     if (!speech || this.state.voice !== 'on') return timed(estimateMs(beat.text, this.state.rate))
 
