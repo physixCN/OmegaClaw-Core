@@ -46,6 +46,7 @@ class Hive:
             "status": row["status"], "driver": row["driver"],
             "budget_usd": row["budget_usd"], "spent_usd": round(row["spent_usd"], 6),
             "connected": row["id"] in self.connections,
+            "last_error": row.get("last_error"),
             "last_active_at": row["last_active_at"], "created_at": row["created_at"],
         }
 
@@ -172,8 +173,8 @@ class Hive:
             self.events.publish("swarm.updated", swarm=self.swarm(row["swarm_id"]))
         return {"ok": True}
 
-    def set_status(self, agent_id, status, desired=None):
-        values = {"status": status}
+    def set_status(self, agent_id, status, desired=None, error=None):
+        values = {"status": status, "last_error": error if status == "error" else None}
         if desired:
             values["desired"] = desired
         self.db.update("agents", agent_id, values)
@@ -352,7 +353,7 @@ class Hive:
         if result["outcome"] in ("adopted", "revised", "chosen"):
             belief = self.belief(row["swarm_id"], result["statement"], detail=False)
             if belief:
-                self.events.publish("belief.updated", belief=belief)
+                self.events.publish("belief.updated", belief=belief, outcome=result["outcome"])
         return view
 
     def assertion_view(self, row):

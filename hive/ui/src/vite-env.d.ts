@@ -6,3 +6,7 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+interface Window {
+  __hiveScene?: { screenPos(id: string): { x: number; y: number; r: number } | null }
+}

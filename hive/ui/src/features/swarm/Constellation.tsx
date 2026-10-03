@@ -1,5 +1,5 @@
 import { AnimatePresence, m } from 'framer-motion'
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { Belief } from '../../api/types'
 import { freqColor, FREQ_GRADIENT, hsl } from '../../lib/color'
 import { useNow } from '../../lib/hooks'
@@ -15,8 +15,11 @@ interface Star {
   terms: string[]
 }
 
-const W = 1000
-const H = 720
+/** Ellipse stretch so the sky fills landscape and portrait containers alike. */
+const stretch = (W: number, H: number) => ({ sx: W > H ? Math.min(1.6, W / H) : 1, sy: H > W ? Math.min(1.45, H / W) : 1 })
+
+/** Radius (as a fraction of the sky radius) for a confidence: confident beliefs gather at the core. */
+const radiusFor = (c: number) => 0.2 + Math.pow(Math.max(0, 1 - c), 0.8) * 1.05
 
 function hash(s: string) {
   let h = 2166136261
@@ -38,19 +41,19 @@ function termsOf(statement: string): string[] {
  * Lay out beliefs as a constellation: confident beliefs gather near the commons core,
  * uncertain ones drift to the rim. A few relaxation passes keep stars from overlapping.
  */
-function layout(beliefs: Belief[], aspect: number): Star[] {
+function layout(beliefs: Belief[], W: number, H: number): Star[] {
   const cx = W / 2
   const cy = H / 2
-  const R = Math.min(W / 2, H / 2) * 0.86
-  const sx = aspect < 1 ? 0.78 : 1.15
+  const R = Math.min(W, H) / 2 - 36
+  const { sx, sy } = stretch(W, H)
   const stars: Star[] = beliefs.map((b) => {
     const a = hash(b.statement) * Math.PI * 2
-    const rad = R * (0.2 + (1 - b.tv.c) * 0.78)
+    const rad = R * Math.min(1, radiusFor(b.tv.c))
     return {
       b,
       x: cx + Math.cos(a) * rad * sx,
-      y: cy + Math.sin(a) * rad * (aspect < 1 ? 1.08 : 0.92),
-      r: 4 + b.tv.c * 7 + Math.min(4, b.sources.length * 0.8),
+      y: cy + Math.sin(a) * rad * sy,
+      r: 3 + b.tv.c * 5 + Math.min(3, b.sources.length * 0.6),
       terms: termsOf(b.statement),
     }
   })
@@ -62,7 +65,7 @@ function layout(beliefs: Belief[], aspect: number): Star[] {
         const dx = B.x - A.x
         const dy = B.y - A.y
         const d = Math.hypot(dx, dy) || 0.01
-        const min = A.r + B.r + 46
+        const min = A.r + B.r + 30
         if (d < min) {
           const push = (min - d) / 2
           A.x -= (dx / d) * push
@@ -73,12 +76,12 @@ function layout(beliefs: Belief[], aspect: number): Star[] {
       }
       const s = stars[i]
       const dc = Math.hypot(s.x - cx, s.y - cy)
-      if (dc < 70) {
-        s.x = cx + ((s.x - cx) / (dc || 1)) * 70
-        s.y = cy + ((s.y - cy) / (dc || 1)) * 70
+      if (dc < 56) {
+        s.x = cx + ((s.x - cx) / (dc || 1)) * 56
+        s.y = cy + ((s.y - cy) / (dc || 1)) * 56
       }
-      s.x = Math.min(W - 30, Math.max(30, s.x))
-      s.y = Math.min(H - 30, Math.max(30, s.y))
+      s.x = Math.min(W - 24, Math.max(24, s.x))
+      s.y = Math.min(H - 24, Math.max(24, s.y))
     }
   }
   return stars
@@ -91,7 +94,6 @@ export function Constellation({
   onSelect,
   pulses,
   swarmId,
-  aspect,
 }: {
   beliefs: Belief[]
   hue: number
@@ -99,20 +101,29 @@ export function Constellation({
   onSelect: (statement: string) => void
   pulses: Record<string, number>
   swarmId: string
-  aspect: number
 }) {
-  // positions are stable per statement: recompute only when the set of statements changes
+  const wrap = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ w: 0, h: 0 })
+  useLayoutEffect(() => {
+    const el = wrap.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const W = Math.max(280, size.w)
+  const H = Math.max(280, size.h)
+  // positions are stable per statement: recompute only when the set of statements (or the size) changes
   const keyset = beliefs.map((b) => b.statement).sort().join('\n')
-  const base = useMemo(() => layout(beliefs, aspect), [keyset, aspect]) // eslint-disable-line react-hooks/exhaustive-deps
+  const base = useMemo(() => layout(beliefs, W, H), [keyset, W, H]) // eslint-disable-line react-hooks/exhaustive-deps
   const stars = useMemo(() => {
     const byStmt = new Map(beliefs.map((b) => [b.statement, b]))
     return base.map((s) => {
       const b = byStmt.get(s.b.statement) ?? s.b
-      return { ...s, b, r: 4 + b.tv.c * 7 + Math.min(4, b.sources.length * 0.8) }
+      return { ...s, b, r: 3 + b.tv.c * 5 + Math.min(3, b.sources.length * 0.6) }
     })
   }, [base, beliefs])
   const [hover, setHover] = useState<string | null>(null)
-  const wrap = useRef<HTMLDivElement>(null)
   const now = useNow(1000)
 
   const links = useMemo(() => {
@@ -137,8 +148,8 @@ export function Constellation({
     for (const s of [...stars].sort((a, b) => b.b.tv.c - a.b.tv.c)) {
       if (out.size >= 6) break
       const text = s.b.statement.length > 30 ? 30 : s.b.statement.length
-      const w = text * 8.6
-      const box = { x0: s.x - w / 2, y0: s.y + s.r + 6, x1: s.x + w / 2, y1: s.y + s.r + 26 }
+      const w = text * 6.6
+      const box = { x0: s.x - w / 2, y0: s.y + s.r + 4, x1: s.x + w / 2, y1: s.y + s.r + 20 }
       const hitsLabel = boxes.some((b) => box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0)
       const hitsStar = stars.some((o) => o !== s && o.x + o.r > box.x0 && o.x - o.r < box.x1 && o.y + o.r > box.y0 && o.y - o.r < box.y1)
       if (hitsLabel || hitsStar || box.x0 < 0 || box.x1 > W) continue
@@ -146,7 +157,7 @@ export function Constellation({
       out.add(s.b.statement)
     }
     return out
-  }, [stars])
+  }, [stars, W])
   const hovered = stars.find((s) => s.b.statement === hover)
 
   const onKey = (e: KeyboardEvent, s: Star) => {
@@ -158,7 +169,7 @@ export function Constellation({
 
   return (
     <div ref={wrap} className="relative h-full w-full">
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full" preserveAspectRatio="xMidYMid meet" role="group" aria-label={`${beliefs.length} beliefs in the commons`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full" preserveAspectRatio="xMidYMid meet" role="group" aria-label={`${beliefs.length} beliefs in the commons`}>
         <defs>
           <radialGradient id="core-g">
             <stop offset="0" stopColor="#fff" />
@@ -178,18 +189,19 @@ export function Constellation({
           ))}
         </defs>
         {/* confidence rings: the closer to the core, the more confident */}
-        {[0.25, 0.5, 0.75].map((c) => {
-          const R = Math.min(W / 2, H / 2) * 0.86 * (0.2 + (1 - c) * 0.78)
+        {[0.3, 0.6, 0.9].map((c) => {
+          const R = (Math.min(W, H) / 2 - 36) * Math.min(1, radiusFor(c))
+          const { sx, sy } = stretch(W, H)
           return (
             <g key={c}>
-              <ellipse cx={W / 2} cy={H / 2} rx={R * (aspect < 1 ? 0.78 : 1.15)} ry={R * (aspect < 1 ? 1.08 : 0.92)} fill="none" stroke="rgb(180 180 255 / 0.07)" />
-              <text x={W / 2 + R * (aspect < 1 ? 0.78 : 1.15) * 0.71 + 6} y={H / 2 - R * (aspect < 1 ? 1.08 : 0.92) * 0.71 - 6} className="fill-ink-4 font-mono" fontSize="12" opacity={0.7}>
-                c {c.toFixed(2)}
+              <ellipse cx={W / 2} cy={H / 2} rx={R * sx} ry={R * sy} fill="none" stroke="rgb(180 180 255 / 0.08)" />
+              <text x={W / 2} y={H / 2 - R * sy - 5} textAnchor="middle" className="fill-ink-4 font-mono" fontSize="10" opacity={0.6}>
+                c {c.toFixed(1)}
               </text>
             </g>
           )
         })}
-        <circle cx={W / 2} cy={H / 2} r={90} fill="url(#core-g)" opacity={0.9} />
+        <circle cx={W / 2} cy={H / 2} r={64} fill="url(#core-g)" opacity={0.9} />
         <g stroke="rgb(200 200 255 / 0.11)" strokeWidth={1}>
           {links.map(([a, b], i) => (
             <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} opacity={hover && (a.b.statement === hover || b.b.statement === hover) ? 3.5 : 1} />
@@ -220,7 +232,7 @@ export function Constellation({
               className="cursor-pointer outline-none"
               style={{ originX: 0, originY: 0 }}
             >
-              <circle r={28} fill="transparent" />
+              <circle r={22} fill="transparent" />
               {pulsing && <circle key={pulseAt} r={4} fill="none" stroke={color} strokeWidth={2} style={{ animation: 'star-pulse 1.6s ease-out forwards' }} />}
               <circle r={s.r * (hov || sel ? 4.6 : 3.8)} fill={`url(#sg-${Math.round(s.b.tv.f * 10)})`} opacity={0.3 + s.b.tv.c * 0.7} style={{ transition: 'r 0.25s' }} />
               <circle r={Math.max(1.6, s.r * 0.42)} fill={color} opacity={0.6 + s.b.tv.c * 0.4} />
@@ -233,7 +245,7 @@ export function Constellation({
               )}
               {sel && <circle r={s.r + 9} fill="none" stroke="#fff" strokeWidth={1.5} strokeDasharray="4 5" opacity={0.85} />}
               {(labelled.has(s.b.statement) || sel) && (
-                <text y={s.r + 20} textAnchor="middle" fontSize={15} className="pointer-events-none fill-ink-2 font-mono" opacity={0.85}>
+                <text y={s.r + 15} textAnchor="middle" fontSize={11} className="pointer-events-none fill-ink-2 font-mono" opacity={0.8}>
                   {s.b.statement.length > 30 ? `${s.b.statement.slice(0, 29)}…` : s.b.statement}
                 </text>
               )}
@@ -250,7 +262,7 @@ export function Constellation({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
             className="glass-strong pointer-events-none absolute z-10 max-w-[280px] -translate-x-1/2 rounded-xl px-3 py-2"
-            style={{ left: `${(hovered.x / W) * 100}%`, top: `calc(${(hovered.y / H) * 100}% + 18px)` }}
+            style={{ left: hovered.x, top: hovered.y + 16 }}
           >
             <div className="text-[13px]">
               <MeTTa src={hovered.b.statement} />

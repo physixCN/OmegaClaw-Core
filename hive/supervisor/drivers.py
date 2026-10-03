@@ -212,9 +212,14 @@ class Supervisor:
             recent = [t for t in self._restarts.get(agent["id"], []) if time.time() - t < 300]
             if len(recent) >= 5:
                 if row["status"] != "error":
-                    self.hive.set_status(agent["id"], "error")
+                    tail = " | ".join(line.strip() for line in self.logs(agent["id"], 5) if line.strip())
+                    self.hive.set_status(agent["id"], "error",
+                                         error=f"crashed 5 times in 5 minutes; last log: {tail[-400:]}")
                 continue
             recent.append(time.time())
             self._restarts[agent["id"]] = recent
             self.hive.set_status(agent["id"], "starting")
-            self.start(agent["id"])
+            try:
+                self.start(agent["id"])
+            except Exception as exc:
+                self.hive.set_status(agent["id"], "error", error=f"start failed: {exc}")

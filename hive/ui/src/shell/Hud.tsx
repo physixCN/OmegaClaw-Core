@@ -50,7 +50,17 @@ export function Brand({ compactMode = false }: { compactMode?: boolean }) {
               className={cx('size-1.5 rounded-full', live ? 'bg-good' : connection === 'reconnecting' ? 'bg-warn animate-pulse' : 'bg-ink-4')}
               style={live ? { boxShadow: '0 0 8px #4ade80' } : undefined}
             />
-            {mode === 'sim' ? 'Simulation' : live ? 'Live' : connection === 'reconnecting' ? 'Reconnecting' : 'Connecting'}
+            {mode === 'sim'
+              ? 'Simulation'
+              : live
+                ? 'Live'
+                : connection === 'reconnecting'
+                  ? 'Reconnecting'
+                  : connection === 'connecting'
+                    ? 'Connecting'
+                    : connection === 'unauthorized'
+                      ? 'Signed out'
+                      : 'Offline'}
           </div>
         </div>
       )}

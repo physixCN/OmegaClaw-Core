@@ -72,7 +72,7 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
         ) : !beliefs.length ? (
           <EmptyState icon="sparkles" title="An empty sky" body="No beliefs yet. When members publish, stars appear here." />
         ) : view === 'sky' ? (
-          <Constellation beliefs={beliefs} hue={swarm.hue} selected={statement} onSelect={(s) => select(s)} pulses={pulses} swarmId={id} aspect={desktop ? 1.4 : 0.8} />
+          <Constellation beliefs={beliefs} hue={swarm.hue} selected={statement} onSelect={(s) => select(s)} pulses={pulses} swarmId={id} />
         ) : (
           <BeliefTable beliefs={beliefs} onSelect={(s) => select(s)} selected={statement} />
         )}
@@ -95,7 +95,7 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
         onClose={() => navigate({ name: 'hive' })}
         onBack={() => navigate({ name: 'swarms' })}
         actions={
-          <div className="hidden sm:block">
+          <div className={statement ? 'hidden' : 'hidden sm:block'}>
             <Button variant="subtle" icon="plus" onClick={() => navigate({ name: 'new', swarm: id })}>
               New dot here
             </Button>
@@ -103,7 +103,7 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
         }
       >
         {desktop ? (
-          <div className="grid h-full min-h-[560px] grid-cols-[300px_1fr] gap-5 px-6 pb-6 transition-[padding] duration-300" style={{ paddingRight: statement ? 404 : undefined }}>
+          <div className="grid h-full min-h-[560px] grid-cols-[300px_1fr] gap-5 px-6 pb-6 transition-[padding] duration-300" style={{ paddingRight: statement ? 484 : undefined }}>
             <aside className="thin-scroll min-h-0 space-y-6 overflow-y-auto pr-1">
               <p className="text-[13px] leading-relaxed text-ink-3">{swarm.description}</p>
               <Members members={members} />

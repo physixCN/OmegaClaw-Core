@@ -80,10 +80,10 @@ def mock_reply(agent_name, prompt):
         match = re.match(r"^(\(.*\))\s*([0-9.]+)?\s*([0-9.]+)?$", body)
         if match:
             statement, f, c = match.group(1), match.group(2) or "0.9", match.group(3) or "0.8"
-            return f"hive-publish {statement} {f} {c}\nsend {agent_name}: I now believe {statement}"
+            return f"hive-publish {statement} {f} {c}\nsend I now believe {statement}"
     if lowered.startswith("ask "):
-        return f"hive-query {text[4:].strip()}\nsend {agent_name}: looking that up in our commons"
-    return f"send {agent_name}: I hear you - \"{text[:300]}\""
+        return f"hive-query {text[4:].strip()}\nsend Looking that up in our commons"
+    return f"send I hear you - \"{text[:300]}\""
 
 
 def mock_embedding(text):

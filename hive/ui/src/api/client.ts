@@ -112,5 +112,6 @@ export async function createClient(): Promise<HiveClient> {
     })
   }
   const { LiveClient } = await import('./live')
-  return new LiveClient(import.meta.env.VITE_HIVE_URL as string)
+  // With ?sim=0 and no VITE_HIVE_URL, talk to the origin that served the UI (hive/core can host it).
+  return new LiveClient(import.meta.env.VITE_HIVE_URL ?? '')
 }

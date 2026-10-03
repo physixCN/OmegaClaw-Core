@@ -72,6 +72,8 @@ export function HiveScene() {
     }
     engineRef.current = engine
     setEngine(engine)
+    // read-only hook for automated UI checks (screenshots, perf)
+    window.__hiveScene = { screenPos: (id: string) => engine.screenPos(id) }
     engine.start()
     const ro = new ResizeObserver(() => engine.resize())
     ro.observe(canvas)
@@ -90,6 +92,7 @@ export function HiveScene() {
       off()
       ro.disconnect()
       engine.destroy()
+      delete window.__hiveScene
       engineRef.current = null
       setEngine(null)
     }
@@ -162,7 +165,7 @@ function DotCard({ id, touch }: { id: string; touch: boolean }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 4, scale: 0.96, transition: { duration: 0.12 } }}
       transition={{ type: 'spring', stiffness: 520, damping: 32 }}
-      className="glass pointer-events-auto absolute left-0 w-[236px] -translate-x-1/2 rounded-2xl p-3"
+      className="glass-strong pointer-events-auto absolute left-0 w-[252px] -translate-x-1/2 rounded-2xl p-3"
       style={{ top: 22 }}
     >
       <div className="flex items-center gap-2.5">
@@ -175,16 +178,16 @@ function DotCard({ id, touch }: { id: string; touch: boolean }) {
         </div>
         <StatusPill status={agent.status} thinking={thinking} />
       </div>
-      <dl className="mt-2.5 grid grid-cols-3 gap-2 text-[11px]">
-        <div>
+      <dl className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+        <div className="col-span-2 flex items-baseline justify-between gap-2">
           <dt className="text-ink-4">Model</dt>
           <dd className="truncate font-mono text-ink-2">{modelLabel(agent.model)}</dd>
         </div>
-        <div>
+        <div className="flex items-baseline justify-between gap-2">
           <dt className="text-ink-4">Spend</dt>
           <dd className="font-mono text-ink-2">{money(agent.spent_usd)}</dd>
         </div>
-        <div>
+        <div className="flex items-baseline justify-between gap-2">
           <dt className="text-ink-4">Active</dt>
           <dd className="text-ink-2">{ago(agent.last_active_at, now)}</dd>
         </div>

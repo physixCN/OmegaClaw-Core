@@ -62,6 +62,9 @@ class Database:
         self._lock = threading.RLock()
         with self._lock:
             self._conn.executescript(SCHEMA)
+            columns = {r[1] for r in self._conn.execute("PRAGMA table_info(agents)")}
+            if "last_error" not in columns:
+                self._conn.execute("ALTER TABLE agents ADD COLUMN last_error TEXT")
 
     def execute(self, sql, params=()):
         with self._lock:

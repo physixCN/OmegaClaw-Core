@@ -358,7 +358,8 @@ export class HiveEngine {
         seen.add(a.id)
         let dot = this.dots.get(a.id)
         const h = hash(a.id)
-        const orbitR = (k === '__wander' ? 46 : 56) + i * 13 + h * 14
+        // sqrt growth keeps big swarms compact (50+ dots) while small ones stay airy
+        const orbitR = (k === '__wander' ? 34 : 44) + Math.sqrt(i + 1) * 15 + h * 12
         if (!dot) {
           dot = {
             id: a.id,

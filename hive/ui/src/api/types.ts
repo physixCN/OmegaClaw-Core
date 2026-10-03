@@ -16,6 +16,8 @@ export interface Agent {
   budget_usd: number
   spent_usd: number
   connected: boolean
+  /** Why status is "error" (server sets it; absent in older servers). */
+  last_error?: string | null
   last_active_at: string | null
   created_at: string
 }
@@ -149,7 +151,7 @@ export type HiveEvent =
   | (EventBase<'message'> & { message: Message })
   | (EventBase<'agent.thinking'> & { agent_id: string; phase: ThinkingPhase })
   | (EventBase<'belief.published'> & { swarm_id: string; assertion: Assertion })
-  | (EventBase<'belief.updated'> & { belief: Belief })
+  | (EventBase<'belief.updated'> & { belief: Belief; outcome?: 'adopted' | 'revised' | 'chosen' })
   | (EventBase<'usage'> & { usage: Usage })
   | (EventBase<'log'> & { agent_id: string; line: string })
 

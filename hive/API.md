@@ -35,6 +35,7 @@ interface Agent {
   budget_usd: number;    // hard cap, 0 = unlimited
   spent_usd: number;
   connected: boolean;    // live hub connection
+  last_error: string | null;  // why status is "error"
   last_active_at: string | null;
   created_at: string;
 }
@@ -127,6 +128,10 @@ Errors are `{"error": {"code", "message"}}` with a 4xx/5xx status.
 The server pushes `{"type", "at", ...}` frames. The client may send
 `{"type":"ping"}`.
 
+- An invalid or missing token closes the socket with code `4401`.
+- A message sent without a `conversation_id` uses the agent's default
+  conversation, `c_<agent_id>`.
+
 | type | payload |
 |---|---|
 | `hello` | `{hive: {...GET /api/hive}}` on connect |
@@ -136,7 +141,7 @@ The server pushes `{"type", "at", ...}` frames. The client may send
 | `message` | `{message: Message}` |
 | `agent.thinking` | `{agent_id, phase: "llm" \| "skills" \| "idle"}` |
 | `belief.published` | `{swarm_id, assertion: Assertion}` |
-| `belief.updated` | `{belief: Belief}` |
+| `belief.updated` | `{belief: Belief, outcome: "adopted" \| "revised" \| "chosen"}` |
 | `usage` | `{usage: Usage}` |
 | `log` | `{agent_id, line}` |
 

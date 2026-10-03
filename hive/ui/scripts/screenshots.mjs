@@ -45,10 +45,28 @@ async function run(name, viewport, opts) {
   }
   const mobile = viewport.width < 768
 
+  // live mode without a server: the operator login screen
+  await page.goto(`http://localhost:${PORT}/?sim=0#/`)
+  await page.waitForSelector('form[aria-label="Operator login"]')
+  await sleep(1200)
+  await shot('00-login')
+
   await page.goto(`${BASE}#/`)
   await page.waitForSelector('canvas')
   await sleep(7000)
   await shot('01-hive')
+
+  // hover (desktop) or tap (touch) a dot for its compact card
+  const pos = await page.evaluate(() => window.__hiveScene?.screenPos('a_deneb2'))
+  if (pos) {
+    if (mobile) await page.touchscreen.tap(pos.x, pos.y)
+    else await page.mouse.move(pos.x, pos.y)
+    await sleep(700)
+    await shot('01b-dot-card')
+    if (mobile) await page.touchscreen.tap(10, 400)
+    else await page.mouse.move(5, 450)
+    await sleep(300)
+  }
 
   // dot panel with chat: send a message and wait for the streamed reply
   await go('#/dot/a_vega01')
@@ -59,9 +77,10 @@ async function run(name, viewport, opts) {
   await sleep(6500)
   await shot('02-dot-chat')
 
-  // swarm view with provenance open
+  // swarm view: the commons constellation, then provenance open
   await go('#/swarms/s_lyra')
-  await sleep(1800)
+  await sleep(2200)
+  await shot('03a-swarm')
   await go(`#/swarms/s_lyra?b=${encodeURIComponent('(--> rr-lyrae variable)')}`)
   await sleep(2200)
   await shot('03-swarm-provenance')
@@ -106,6 +125,18 @@ async function run(name, viewport, opts) {
 try {
   if (only !== 'desktop') await run('mobile', { width: 390, height: 844 }, { deviceScaleFactor: 2, isMobile: true, hasTouch: true })
   if (only !== 'mobile') await run('desktop', { width: 1440, height: 900 }, { deviceScaleFactor: 1 })
+  if (!only) {
+    // prefers-reduced-motion: the scene should be calm (no dust storm, no glitch jitter)
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' })
+    const page = await ctx.newPage()
+    page.on('pageerror', (e) => errors.push(`[reduced] pageerror: ${e.message}`))
+    page.on('console', (m) => m.type() === 'error' && errors.push(`[reduced] console: ${m.text()}`))
+    await page.goto(`${BASE}#/`)
+    await sleep(5000)
+    await page.screenshot({ path: `${OUT}09-hive-reduced-motion-desktop.png` })
+    console.log('saved', `${OUT}09-hive-reduced-motion-desktop.png`)
+    await ctx.close()
+  }
 } finally {
   await browser.close()
   try {
