@@ -308,8 +308,9 @@ def validate_graph(program_id, describe, graph, stage, fail):
             bad(f"group {group.get('id')} names items not in the graph: {missing[:3]}")
     if graph.get("focus") and graph["focus"] not in ids:
         bad(f"focus {graph['focus']!r} is not an item")
+    selected = [i for i in (graph.get("selected") or []) if i in ids]
     return {"contract": CONTRACT, "program": program_id, "revision": str(graph["revision"]), "stage": stage,
-            "focus": graph.get("focus"), "title": graph.get("title") or program_id,
+            "focus": graph.get("focus"), "selected": selected, "title": graph.get("title") or program_id,
             "suggested_stage": graph.get("suggested_stage") if graph.get("suggested_stage") in STAGES else None,
             "items": items, "links": links, "groups": groups, "notes": list(graph.get("notes") or [])}
 

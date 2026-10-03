@@ -72,7 +72,7 @@ def act(ctx, action: str, items: list[str], params: dict) -> Result   # sync or 
   "kinds":     [{ "id": "evidence", "label": "Evidence", "role": "evidence" }],
   "relations": [{ "id": "contradicts", "label": "contradicts", "polarity": "oppose" }],
   "actions":   [{ "id": "inspect-source", "label": "Open source", "applies_to": ["evidence"],
-                  "stage": "detail?", "params": { "name": "what it means" } }] }
+                  "stage": "detail", "params": { "name": "what it means" } }] }   // stage: optional hint
 ```
 
 - `role` is one of `question`, `claim`, `evidence`, `hypothesis`,
@@ -244,6 +244,27 @@ The public example is `hive/plugins/contract_fixture/`, a synthetic question:
 - all five recommended actions.
 
 The fixture runs through the real API in `hive/tests/test_programs_api.py`.
+
+## 6b. Clarifications to v0.1 (additive; nothing existing breaks)
+
+Raised while building the host, settled here:
+
+1. **Focus.** `view(focus)` should keep the requested item in focus whenever
+   it still exists, even if it belongs to a larger view. If it no longer
+   exists, return the starting view and add a note saying so. The host then
+   tells the person that their item is gone.
+2. **Stale.** A `stale` result's graph is the current state. The host passes
+   `params.focus` and `params.stage` with every action, so a program can
+   return the person's own view. A host may always refetch its own step
+   after a stale result.
+3. **Selection.** A WorkGraph may carry `selected: [ids]`, the items the
+   person picked (e.g. for compare). The host highlights them. Ids that are
+   not in the graph are dropped.
+4. **`needs.items`** is reserved. It means "choose (more) items", not "fill in
+   a parameter". Every other key in `needs` is a parameter.
+5. **Direction.** A link reads `from <rel> to`: `e1 supports c1`, `c1
+   depends_on e1`. Polarity describes the effect of `from` on `to`.
+6. **Action `stage`** is an optional hint for where the result is best shown.
 
 ## 7. Scientist route: a revision-bound request to a named dot
 

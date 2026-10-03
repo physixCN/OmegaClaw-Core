@@ -796,7 +796,10 @@ export const useHive = create<Store>()((set, get) => ({
     const def = get().programDetails[s0.programId]?.describe?.actions.find((a) => a.id === action)
     patchSession(key, (s) => ({ ...s, busy: action, notice: null }))
     try {
-      const r = await client.programAct(s0.programId, { swarm_id: s0.swarmId, action, items, params, base_revision: s0.graph?.revision ?? null })
+      // Contract 0.1 clarification: the person's step rides along so a stale result can show their own view.
+      const here = s0.trail[s0.trail.length - 1]
+      const sent = { focus: here?.focus ?? null, stage: here?.stage ?? 'unfold', ...params }
+      const r = await client.programAct(s0.programId, { swarm_id: s0.swarmId, action, items, params: sent, base_revision: s0.graph?.revision ?? null })
       let refresh = false
       patchSession(key, (s) => {
         const out = applyResult(s, r, { action, items, params, def })

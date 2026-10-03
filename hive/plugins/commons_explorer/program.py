@@ -120,11 +120,30 @@ def view(ctx, focus, stage):
     names = {a["id"]: a["name"] for a in ctx.agents()}
     rev = revision_of(beliefs)
     by_id = {bid(b["statement"]): b for b in beliefs}
-    if focus and focus in by_id:
-        if stage == "map":
-            return _map(ctx, beliefs, by_id[focus], names, rev)
-        return _belief(ctx, beliefs, by_id[focus], names, rev, stage)
-    return _overview(ctx, beliefs, names, rev)
+    owner = _owner(focus, by_id)
+    if owner:
+        graph = _map(ctx, beliefs, owner, names, rev) if stage == "map" else \
+            _belief(ctx, beliefs, owner, names, rev, stage)
+        if focus in {i["id"] for i in graph["items"]}:
+            graph["focus"] = focus           # keep the item the person asked for in focus
+        return graph
+    graph = _overview(ctx, beliefs, names, rev)
+    if focus and focus != OVERVIEW:
+        graph["notes"].append(f"{focus} is no longer in the commons; showing the overview.")
+    return graph
+
+
+def _owner(focus, by_id):
+    """The belief a focus belongs to: a belief itself, one of its reports, or one of its gaps."""
+    if not focus:
+        return None
+    if focus in by_id:
+        return by_id[focus]
+    if focus.startswith("r:"):
+        return by_id.get(bid(focus[2:].rsplit(":", 1)[0]))
+    if focus.startswith("gap:"):
+        return by_id.get(bid(focus.split(":", 2)[2]))
+    return None
 
 
 def _overview(ctx, beliefs, names, rev):
@@ -227,8 +246,8 @@ async def act(ctx, action, items, params):
     names = {a["id"]: a["name"] for a in ctx.agents()}
     rev = revision_of(beliefs)
     if params.get("base_revision") and params["base_revision"] != rev:
-        return {"status": "stale", "message": "the commons changed; here is the current view",
-                "graph": _overview(ctx, beliefs, names, rev)}
+        return {"status": "stale", "message": "the commons changed; nothing was done",
+                "graph": view(ctx, params.get("focus"), params.get("stage") or "unfold")}
     by_id = {bid(b["statement"]): b for b in beliefs}
     if action == "inspect-source":
         statement = items[0][2:].rsplit(":", 1)[0] if items and items[0].startswith("r:") else None
@@ -258,6 +277,7 @@ async def act(ctx, action, items, params):
                 groups.append({"id": f"{g['id']}:{b['statement']}", "label": f"{g['label']}: {b['statement']}",
                                "items": g["items"]})
         return {"status": "done", "graph": {"revision": rev, "focus": bid(chosen[0]["statement"]),
+                                            "selected": [bid(b["statement"]) for b in chosen],
                                             "title": "Comparing " + " vs ".join(b["statement"] for b in chosen),
                                             "suggested_stage": "compare", "items": cmp_items, "links": links,
                                             "groups": groups, "notes": ["Disagreement is kept side by side."]}}
