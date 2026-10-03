@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import type { Agent, Belief } from '../../api/types'
 import { freqColor, hsl } from '../../lib/color'
@@ -103,7 +103,7 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
         }
       >
         {desktop ? (
-          <div className="grid h-full min-h-[560px] grid-cols-[300px_1fr] gap-5 px-6 pb-6">
+          <div className="grid h-full min-h-[560px] grid-cols-[300px_1fr] gap-5 px-6 pb-6 transition-[padding] duration-300" style={{ paddingRight: statement ? 404 : undefined }}>
             <aside className="thin-scroll min-h-0 space-y-6 overflow-y-auto pr-1">
               <p className="text-[13px] leading-relaxed text-ink-3">{swarm.description}</p>
               <Members members={members} />
@@ -149,7 +149,7 @@ function Members({ members }: { members: Agent[] }) {
       ) : (
         <ul className="space-y-1">
           {members.map((a, i) => (
-            <motion.li key={a.id} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}>
+            <m.li key={a.id} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}>
               <button onClick={() => navigate({ name: 'dot', id: a.id })} className="flex min-h-14 w-full items-center gap-3 rounded-xl px-2 text-left transition-colors hover:bg-white/[0.05]">
                 <Orb hue={a.hue} status={a.status} thinking={thinking[a.id]} size={28} />
                 <span className="min-w-0 flex-1">
@@ -160,7 +160,7 @@ function Members({ members }: { members: Agent[] }) {
                 </span>
                 <StatusPill status={a.status} thinking={thinking[a.id]} />
               </button>
-            </motion.li>
+            </m.li>
           ))}
         </ul>
       )}
@@ -212,7 +212,7 @@ function Vocab({ swarmId }: { swarmId: string }) {
         <div className="flex flex-wrap gap-1.5">
           {terms.length === 0 && <p className="px-1 text-sm text-ink-3">No terms yet. Anything goes until you add some.</p>}
           {terms.map((t) => (
-            <motion.span
+            <m.span
               key={t}
               layout
               initial={fresh.includes(t) ? { opacity: 0, scale: 0.6 } : false}
@@ -220,7 +220,7 @@ function Vocab({ swarmId }: { swarmId: string }) {
               className="inline-flex min-h-7 items-center rounded-lg border border-line bg-white/[0.04] px-2 font-mono text-[12px] text-ink-2"
             >
               {t}
-            </motion.span>
+            </m.span>
           ))}
         </div>
       )}

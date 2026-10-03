@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import type { BeliefDetail } from '../../api/types'
 import { hsl } from '../../lib/color'
@@ -128,7 +128,7 @@ export function Provenance({ swarmId, statement, onClose }: { swarmId: string; s
                 {[...detail.assertions].reverse().map((a, i) => {
                   const o = OUTCOME[a.outcome]
                   return (
-                    <motion.li
+                    <m.li
                       key={`${a.created_at}-${i}`}
                       initial={{ opacity: 0, x: -8 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -156,7 +156,7 @@ export function Provenance({ swarmId, statement, onClose }: { swarmId: string; s
                           <StampChips stamp={a.stamp} hue={hue} small />
                         </div>
                       </div>
-                    </motion.li>
+                    </m.li>
                   )
                 })}
               </ol>

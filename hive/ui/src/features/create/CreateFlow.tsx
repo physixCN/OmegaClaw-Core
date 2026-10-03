@@ -1,5 +1,5 @@
-import { AnimatePresence, motion } from 'framer-motion'
-import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { AnimatePresence, m } from 'framer-motion'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import type { AgentKind, CreateAgentBody } from '../../api/types'
 import { hsl } from '../../lib/color'
 import { useReducedMotion } from '../../lib/hooks'
@@ -48,6 +48,13 @@ export default function CreateFlow({ swarmId }: { swarmId?: string }) {
   const [budget, setBudget] = useState('10')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const engine = useScene((s) => s.engine)
+  useEffect(() => {
+    if (!engine) return
+    const t = setTimeout(() => (swarm ? engine.flyToSwarm(swarm) : engine.overview()), 120)
+    return () => clearTimeout(t)
+  }, [engine, swarm])
 
   const taken = useMemo(() => new Set(Object.values(agents).map((a) => a.name.toLowerCase())), [agents])
   const nameErr = name.trim() && taken.has(name.trim().toLowerCase()) ? 'That name is taken' : null
@@ -113,7 +120,7 @@ export default function CreateFlow({ swarmId }: { swarmId?: string }) {
               className="group flex w-full flex-col gap-1.5 text-left"
             >
               <span className="relative h-1 w-full overflow-hidden rounded-full bg-white/10">
-                <motion.span
+                <m.span
                   className="absolute inset-y-0 left-0 rounded-full"
                   initial={false}
                   animate={{ width: i <= step ? '100%' : '0%' }}
@@ -133,7 +140,7 @@ export default function CreateFlow({ swarmId }: { swarmId?: string }) {
     <Sheet label="Create a dot" onClose={close} header={header} width={480} initialSnap="full">
       <div className="thin-scroll relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
         <AnimatePresence mode="wait" custom={dir} initial={false}>
-          <motion.div
+          <m.div
             key={step}
             custom={dir}
             initial={{ opacity: 0, x: reduced ? 0 : dir * 40 }}
@@ -307,7 +314,7 @@ export default function CreateFlow({ swarmId }: { swarmId?: string }) {
                 )}
               </div>
             )}
-          </motion.div>
+          </m.div>
         </AnimatePresence>
       </div>
       <div className="flex shrink-0 gap-2 border-t border-line px-4 py-3 md:px-5">
@@ -409,7 +416,7 @@ function HueRing({ hue, onChange, name, kind }: { hue: number; onChange: (h: num
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <Orb hue={hue} size={78} />
         </div>
-        <motion.div
+        <m.div
           className="pointer-events-none absolute size-7 rounded-full border-[3px] border-white"
           animate={{ left: S / 2 + Math.cos(a) * R - 14, top: S / 2 + Math.sin(a) * R - 14 }}
           transition={{ type: 'spring', stiffness: 700, damping: 40 }}

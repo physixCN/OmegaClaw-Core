@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { Belief } from '../../api/types'
 import { freqColor, FREQ_GRADIENT, hsl } from '../../lib/color'
@@ -130,7 +130,23 @@ export function Constellation({
     return out
   }, [stars])
 
-  const labelled = useMemo(() => new Set([...stars].sort((a, b) => b.b.tv.c - a.b.tv.c).slice(0, 5).map((s) => s.b.statement)), [stars])
+  // label the most confident stars whose labels do not collide with each other or with other stars
+  const labelled = useMemo(() => {
+    const boxes: { x0: number; y0: number; x1: number; y1: number }[] = []
+    const out = new Set<string>()
+    for (const s of [...stars].sort((a, b) => b.b.tv.c - a.b.tv.c)) {
+      if (out.size >= 6) break
+      const text = s.b.statement.length > 30 ? 30 : s.b.statement.length
+      const w = text * 8.6
+      const box = { x0: s.x - w / 2, y0: s.y + s.r + 6, x1: s.x + w / 2, y1: s.y + s.r + 26 }
+      const hitsLabel = boxes.some((b) => box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0)
+      const hitsStar = stars.some((o) => o !== s && o.x + o.r > box.x0 && o.x - o.r < box.x1 && o.y + o.r > box.y0 && o.y - o.r < box.y1)
+      if (hitsLabel || hitsStar || box.x0 < 0 || box.x1 > W) continue
+      boxes.push(box)
+      out.add(s.b.statement)
+    }
+    return out
+  }, [stars])
   const hovered = stars.find((s) => s.b.statement === hover)
 
   const onKey = (e: KeyboardEvent, s: Star) => {
@@ -150,11 +166,16 @@ export function Constellation({
             <stop offset="0.5" stopColor={hsl(hue, 90, 60, 0.25)} />
             <stop offset="1" stopColor={hsl(hue, 90, 50, 0)} />
           </radialGradient>
-          <radialGradient id="star-halo">
-            <stop offset="0" stopColor="#fff" stopOpacity="0.9" />
-            <stop offset="0.25" stopColor="#fff" stopOpacity="0.35" />
-            <stop offset="1" stopColor="#fff" stopOpacity="0" />
-          </radialGradient>
+          {/* one soft glow per frequency bucket (diverging scale) */}
+          {Array.from({ length: 11 }, (_, k) => (
+            <radialGradient key={k} id={`sg-${k}`}>
+              <stop offset="0" stopColor="#fff" stopOpacity="1" />
+              <stop offset="0.12" stopColor={freqColor(k / 10)} stopOpacity="0.95" />
+              <stop offset="0.35" stopColor={freqColor(k / 10)} stopOpacity="0.35" />
+              <stop offset="0.7" stopColor={freqColor(k / 10)} stopOpacity="0.08" />
+              <stop offset="1" stopColor={freqColor(k / 10)} stopOpacity="0" />
+            </radialGradient>
+          ))}
         </defs>
         {/* confidence rings: the closer to the core, the more confident */}
         {[0.25, 0.5, 0.75].map((c) => {
@@ -162,14 +183,14 @@ export function Constellation({
           return (
             <g key={c}>
               <ellipse cx={W / 2} cy={H / 2} rx={R * (aspect < 1 ? 0.78 : 1.15)} ry={R * (aspect < 1 ? 1.08 : 0.92)} fill="none" stroke="rgb(180 180 255 / 0.07)" />
-              <text x={W / 2} y={H / 2 - R * (aspect < 1 ? 1.08 : 0.92) - 6} textAnchor="middle" className="fill-ink-4 font-mono" fontSize="13">
+              <text x={W / 2 + R * (aspect < 1 ? 0.78 : 1.15) * 0.71 + 6} y={H / 2 - R * (aspect < 1 ? 1.08 : 0.92) * 0.71 - 6} className="fill-ink-4 font-mono" fontSize="12" opacity={0.7}>
                 c {c.toFixed(2)}
               </text>
             </g>
           )
         })}
         <circle cx={W / 2} cy={H / 2} r={90} fill="url(#core-g)" opacity={0.9} />
-        <g stroke="rgb(200 200 255 / 0.13)" strokeWidth={1}>
+        <g stroke="rgb(200 200 255 / 0.11)" strokeWidth={1}>
           {links.map(([a, b], i) => (
             <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} opacity={hover && (a.b.statement === hover || b.b.statement === hover) ? 3.5 : 1} />
           ))}
@@ -181,7 +202,7 @@ export function Constellation({
           const pulseAt = pulses[pulseKey(swarmId, s.b.statement)]
           const pulsing = pulseAt && now - pulseAt < 2500
           return (
-            <motion.g
+            <m.g
               key={s.b.statement}
               initial={{ opacity: 0, scale: 0.3 }}
               animate={{ opacity: 1, scale: 1, x: s.x, y: s.y }}
@@ -201,23 +222,28 @@ export function Constellation({
             >
               <circle r={28} fill="transparent" />
               {pulsing && <circle key={pulseAt} r={4} fill="none" stroke={color} strokeWidth={2} style={{ animation: 'star-pulse 1.6s ease-out forwards' }} />}
-              <circle r={s.r * 3.2} fill={color} opacity={0.08 + s.b.tv.c * 0.22} />
-              <circle r={s.r * 1.9} fill="url(#star-halo)" opacity={0.15 + s.b.tv.c * 0.6} />
-              <circle r={s.r * (hov || sel ? 1.25 : 1)} fill={color} opacity={0.4 + s.b.tv.c * 0.6} style={{ transition: 'r 0.2s' }} />
-              <circle r={Math.max(1.4, s.r * 0.38)} fill="#fff" opacity={0.5 + s.b.tv.c * 0.5} />
+              <circle r={s.r * (hov || sel ? 4.6 : 3.8)} fill={`url(#sg-${Math.round(s.b.tv.f * 10)})`} opacity={0.3 + s.b.tv.c * 0.7} style={{ transition: 'r 0.25s' }} />
+              <circle r={Math.max(1.6, s.r * 0.42)} fill={color} opacity={0.6 + s.b.tv.c * 0.4} />
+              <circle r={Math.max(1, s.r * 0.22)} fill="#fff" opacity={0.4 + s.b.tv.c * 0.6} />
+              {s.b.tv.c > 0.75 && (
+                <g stroke="#fff" strokeWidth={0.8} opacity={0.25 + (s.b.tv.c - 0.75) * 2}>
+                  <line x1={-s.r * 2.2} x2={s.r * 2.2} y1={0} y2={0} />
+                  <line y1={-s.r * 2.2} y2={s.r * 2.2} x1={0} x2={0} />
+                </g>
+              )}
               {sel && <circle r={s.r + 9} fill="none" stroke="#fff" strokeWidth={1.5} strokeDasharray="4 5" opacity={0.85} />}
               {(labelled.has(s.b.statement) || sel) && (
                 <text y={s.r + 20} textAnchor="middle" fontSize={15} className="pointer-events-none fill-ink-2 font-mono" opacity={0.85}>
                   {s.b.statement.length > 30 ? `${s.b.statement.slice(0, 29)}…` : s.b.statement}
                 </text>
               )}
-            </motion.g>
+            </m.g>
           )
         })}
       </svg>
       <AnimatePresence>
         {hovered && (
-          <motion.div
+          <m.div
             key={hovered.b.statement}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
@@ -232,7 +258,7 @@ export function Constellation({
             <div className="mt-1 font-mono text-[11px] text-ink-3">
               <span className="text-ink">f {hovered.b.tv.f.toFixed(2)}</span> · <span className="text-ink">c {hovered.b.tv.c.toFixed(2)}</span> · {hovered.b.sources.length} source{hovered.b.sources.length === 1 ? '' : 's'}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

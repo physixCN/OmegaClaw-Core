@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { useMemo } from 'react'
 import type { Agent, Swarm } from '../../api/types'
 import { hsl } from '../../lib/color'
@@ -52,7 +52,7 @@ function SwarmCard({ swarm, agents, beliefCount, index }: { swarm: Swarm; agents
   const awake = agents.filter((a) => a.status === 'awake').length
   const spend = agents.reduce((s, a) => s + a.spent_usd, 0)
   return (
-    <motion.article
+    <m.article
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 260, damping: 28, delay: 0.05 + index * 0.06 }}
@@ -89,7 +89,7 @@ function SwarmCard({ swarm, agents, beliefCount, index }: { swarm: Swarm; agents
           New dot here
         </Button>
       </div>
-    </motion.article>
+    </m.article>
   )
 }
 

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { hsl } from '../../lib/color'
 import { useEscape, useIsDesktop } from '../../lib/hooks'
@@ -118,8 +118,8 @@ export default function CommandPalette() {
 
   let lastGroup = ''
   return (
-    <motion.div className="fixed inset-0 z-[55] flex items-start justify-center bg-[#03030c]/60 backdrop-blur-[2px] md:pt-[12vh]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={close}>
-      <motion.div
+    <m.div className="fixed inset-0 z-[55] flex items-start justify-center bg-[#03030c]/60 backdrop-blur-[2px] md:pt-[12vh]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={close}>
+      <m.div
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
@@ -135,6 +135,7 @@ export default function CommandPalette() {
           <Icon name="search" size={19} className="shrink-0 text-ink-3" />
           <input
             ref={inputRef}
+            autoFocus
             value={q}
             onChange={(e) => {
               setQ(e.target.value)
@@ -168,7 +169,7 @@ export default function CommandPalette() {
                   onPointerMove={() => setSel(i)}
                   className={cx('relative flex min-h-12 cursor-pointer items-center gap-3 rounded-xl px-3', i === sel ? 'text-ink' : 'text-ink-2')}
                 >
-                  {i === sel && <motion.span layoutId="palette-sel" className="absolute inset-0 rounded-xl border border-line-2 bg-white/[0.08]" transition={{ type: 'spring', stiffness: 700, damping: 45 }} />}
+                  {i === sel && <m.span layoutId="palette-sel" className="absolute inset-0 rounded-xl border border-line-2 bg-white/[0.08]" transition={{ type: 'spring', stiffness: 700, damping: 45 }} />}
                   <span className="relative flex w-6 justify-center text-ink-3">{c.lead ?? (c.icon && <Icon name={c.icon} size={18} />)}</span>
                   <span className="relative min-w-0 flex-1 truncate text-[14px]">{c.label}</span>
                   {c.hint && <span className="relative truncate text-[12px] text-ink-4">{c.hint}</span>}
@@ -196,7 +197,7 @@ export default function CommandPalette() {
             <span className="ml-auto">Try “wake”, “sleep”, a dot or a swarm</span>
           </div>
         )}
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   )
 }

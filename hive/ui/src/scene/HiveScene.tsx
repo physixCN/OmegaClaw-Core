@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ago, modelLabel, money } from '../lib/format'
 import { useFinePointer, useNow, useReducedMotion } from '../lib/hooks'
@@ -157,7 +157,7 @@ function DotCard({ id, touch }: { id: string; touch: boolean }) {
   const now = useNow(5000)
   if (!agent) return null
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 6, scale: 0.94 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 4, scale: 0.96, transition: { duration: 0.12 } }}
@@ -197,7 +197,7 @@ function DotCard({ id, touch }: { id: string; touch: boolean }) {
           Open {agent.name} <Icon name="chevron" size={16} />
         </button>
       )}
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -206,7 +206,7 @@ function CoreTip({ id }: { id: string }) {
   const count = useHive((s) => Object.keys(s.beliefs[id] ?? {}).length)
   if (!swarm) return null
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
@@ -216,6 +216,6 @@ function CoreTip({ id }: { id: string }) {
       <div className="text-xs text-ink-3">
         {count} beliefs · {swarm.member_ids.length} dots · click to open the commons
       </div>
-    </motion.div>
+    </m.div>
   )
 }

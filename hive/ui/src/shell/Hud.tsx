@@ -1,7 +1,8 @@
-import { animate, AnimatePresence, motion, useMotionValue, useTransform } from 'framer-motion'
+import { animate, AnimatePresence, m, useMotionValue, useTransform } from 'framer-motion'
 import { useEffect, useMemo } from 'react'
 import { compact, money } from '../lib/format'
 import { useIsDesktop } from '../lib/hooks'
+import { useRoute } from '../lib/router'
 import { computeStats } from '../store/reducer'
 import { useHive } from '../store/store'
 import { Icon } from '../ui/Icon'
@@ -15,7 +16,7 @@ function AnimatedNumber({ value, format }: { value: number; format: (n: number) 
     const c = animate(mv, value, { duration: 0.8, ease: [0.16, 1, 0.3, 1] })
     return () => c.stop()
   }, [mv, value])
-  return <motion.span>{text}</motion.span>
+  return <m.span>{text}</m.span>
 }
 
 export function Brand({ compactMode = false }: { compactMode?: boolean }) {
@@ -90,6 +91,8 @@ export function Stats() {
 export function TopBar() {
   const desktop = useIsDesktop()
   const setPalette = useHive((s) => s.setPalette)
+  const route = useRoute()
+  const panel = route.name === 'dot' || route.name === 'new'
   if (desktop) {
     return (
       <header className="pointer-events-none fixed top-0 right-0 left-0 z-20 flex items-start justify-between gap-4 p-4">
@@ -101,6 +104,8 @@ export function TopBar() {
         </div>
         <button
           onClick={() => setPalette(true)}
+          style={{ opacity: panel ? 0 : 1, pointerEvents: panel ? 'none' : undefined, transition: 'opacity 200ms' }}
+          tabIndex={panel ? -1 : undefined}
           className="glass pointer-events-auto flex min-h-11 items-center gap-3 rounded-2xl px-3.5 text-sm text-ink-3 transition-colors hover:text-ink"
           aria-label="Open command palette"
         >
@@ -136,7 +141,7 @@ export function Toasts() {
     <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] flex flex-col items-center gap-2 p-3" style={{ paddingTop: 'calc(var(--sat) + 12px)' }} aria-live="polite">
       <AnimatePresence>
         {toasts.map((t) => (
-          <motion.div
+          <m.div
             key={t.id}
             layout
             initial={{ opacity: 0, y: -16, scale: 0.96 }}
@@ -156,7 +161,7 @@ export function Toasts() {
             <button onClick={() => dismiss(t.id)} className="-m-2 flex size-9 items-center justify-center text-ink-3 hover:text-ink" aria-label="Dismiss">
               <Icon name="x" size={16} />
             </button>
-          </motion.div>
+          </m.div>
         ))}
       </AnimatePresence>
     </div>

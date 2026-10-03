@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { useState } from 'react'
 import { hsl } from '../../lib/color'
 import { copyText, useEscape } from '../../lib/hooks'
@@ -19,8 +19,8 @@ export default function TokenReveal() {
   const { agent, token } = reveal
 
   return (
-    <motion.div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-0 md:items-center md:p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <motion.div
+    <m.div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-0 md:items-center md:p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <m.div
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="reveal-title"
@@ -34,9 +34,9 @@ export default function TokenReveal() {
       >
         <div className="pointer-events-none absolute inset-x-0 -top-24 h-64" style={{ background: `radial-gradient(50% 60% at 50% 50%, ${hsl(agent.hue, 100, 60, 0.4)}, transparent)` }} />
         <div className="relative flex flex-col items-center text-center">
-          <motion.div initial={{ scale: 0.2, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 160, damping: 12, delay: 0.1 }}>
+          <m.div initial={{ scale: 0.2, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 160, damping: 12, delay: 0.1 }}>
             <Orb hue={agent.hue} size={72} status={status ?? 'starting'} />
-          </motion.div>
+          </m.div>
           <h2 id="reveal-title" className="mt-3 font-display text-2xl font-semibold tracking-tight">
             {agent.name} is alive
           </h2>
@@ -92,7 +92,7 @@ export default function TokenReveal() {
             Done
           </Button>
         </div>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   )
 }

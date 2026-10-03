@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { Agent, Message } from '../../api/types'
 import { hsl } from '../../lib/color'
@@ -128,13 +128,13 @@ export function Chat({ agent }: { agent: Agent }) {
             })}
             {pending.map((p) => (
               <li key={p.tempId} className="flex flex-col items-end">
-                <motion.div
+                <m.div
                   initial={{ opacity: 0, y: 8, scale: 0.97 }}
                   animate={{ opacity: p.status === 'sending' ? 0.7 : 1, y: 0, scale: 1 }}
                   className={cx('max-w-[85%] rounded-2xl rounded-br-md px-3.5 py-2 text-[14px] leading-relaxed', p.status === 'failed' ? 'border border-bad/40 bg-bad/10' : 'bg-white/[0.1]')}
                 >
                   {p.text}
-                </motion.div>
+                </m.div>
                 <div className="mt-1 flex items-center gap-2 text-[11px] text-ink-3">
                   {p.status === 'sending' ? (
                     'Sending…'
@@ -154,7 +154,7 @@ export function Chat({ agent }: { agent: Agent }) {
             ))}
             <AnimatePresence>
               {busy && (
-                <motion.li
+                <m.li
                   key="typing"
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -165,7 +165,7 @@ export function Chat({ agent }: { agent: Agent }) {
                   <Orb hue={agent.hue} size={18} thinking={thinking} />
                   <span className="flex gap-1">
                     {[0, 1, 2].map((i) => (
-                      <motion.span
+                      <m.span
                         key={i}
                         className="size-1.5 rounded-full"
                         style={{ background: hsl(agent.hue, 100, 75) }}
@@ -175,7 +175,7 @@ export function Chat({ agent }: { agent: Agent }) {
                     ))}
                   </span>
                   {thinking === 'llm' ? 'thinking' : 'using skills'}
-                </motion.li>
+                </m.li>
               )}
             </AnimatePresence>
           </ol>
@@ -210,7 +210,7 @@ export function Chat({ agent }: { agent: Agent }) {
             placeholder={`Message ${agent.name}…`}
             className="max-h-36 min-h-9 flex-1 resize-none bg-transparent py-2 text-[14px] leading-snug text-ink outline-none placeholder:text-ink-4"
           />
-          <motion.button
+          <m.button
             type="submit"
             whileTap={{ scale: 0.9 }}
             disabled={!text.trim()}
@@ -219,7 +219,7 @@ export function Chat({ agent }: { agent: Agent }) {
             aria-label="Send message"
           >
             <Icon name="send" size={18} strokeWidth={2.2} />
-          </motion.button>
+          </m.button>
         </div>
       </form>
     </div>
@@ -227,7 +227,7 @@ export function Chat({ agent }: { agent: Agent }) {
 }
 
 function Bubble({
-  m,
+  m: msg,
   agent,
   grouped,
   fresh,
@@ -244,19 +244,19 @@ function Bubble({
   peerHue: (id: string) => number
 }) {
   const reduced = useReducedMotion()
-  const fromOperator = m.direction === 'in' && m.sender.startsWith('user:')
-  const fromPeer = m.direction === 'in' && !!peerId
+  const fromOperator = msg.direction === 'in' && msg.sender.startsWith('user:')
+  const fromPeer = msg.direction === 'in' && !!peerId
   if (fromOperator) {
     return (
-      <motion.li initial={fresh ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-white/[0.1] px-3.5 py-2 text-[14px] leading-relaxed text-ink">{m.text}</div>
-        {!grouped && <time className="mt-1 text-[10px] text-ink-4">{clockTime(m.created_at)}</time>}
-      </motion.li>
+      <m.li initial={fresh ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-end">
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-white/[0.1] px-3.5 py-2 text-[14px] leading-relaxed text-ink">{msg.text}</div>
+        {!grouped && <time className="mt-1 text-[10px] text-ink-4">{clockTime(msg.created_at)}</time>}
+      </m.li>
     )
   }
   const hue = fromPeer && peerId ? peerHue(peerId) : agent.hue
   return (
-    <motion.li initial={fresh ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} className="flex gap-2.5">
+    <m.li initial={fresh ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} className="flex gap-2.5">
       <div className="w-6 shrink-0 pt-1">{!grouped && <Orb hue={hue} size={22} status="awake" />}</div>
       <div className="min-w-0 flex-1">
         {!grouped && (
@@ -271,7 +271,7 @@ function Bubble({
                 {peerId && <span className="text-ink-4"> → {peerName(peerId)}</span>}
               </span>
             )}
-            <time className="text-ink-4">{clockTime(m.created_at)}</time>
+            <time className="text-ink-4">{clockTime(msg.created_at)}</time>
           </div>
         )}
         <div
@@ -281,10 +281,10 @@ function Bubble({
             border: `1px solid ${hsl(hue, 80, 70, 0.16)}`,
           }}
         >
-          {fresh && !reduced && m.direction === 'out' ? <Streamed text={m.text} /> : <RichText text={m.text} />}
+          {fresh && !reduced && msg.direction === 'out' ? <Streamed text={msg.text} /> : <RichText text={msg.text} />}
         </div>
       </div>
-    </motion.li>
+    </m.li>
   )
 }
 

@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { useState, type FormEvent } from 'react'
 import type { AssertionOutcome } from '../api/types'
 import { useIsDesktop } from '../lib/hooks'
@@ -39,7 +39,7 @@ export function ActivityTicker() {
         {items.map((a, i) => {
           const agent = a.agent_id ? agents[a.agent_id] : undefined
           return (
-            <motion.div
+            <m.div
               key={a.id}
               layout
               initial={{ opacity: 0, y: 14, filter: 'blur(4px)' }}
@@ -62,7 +62,7 @@ export function ActivityTicker() {
               ) : (
                 <span className={cx('truncate', a.kind === 'error' && 'text-bad')}>{a.text}</span>
               )}
-            </motion.div>
+            </m.div>
           )
         })}
       </AnimatePresence>
@@ -129,7 +129,7 @@ export function EmptyHive() {
   const route = useRoute()
   if (!ready || count > 0 || route.name !== 'hive') return null
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="fixed inset-0 z-10 flex items-center justify-center p-6 pointer-events-none">
+    <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="fixed inset-0 z-10 flex items-center justify-center p-6 pointer-events-none">
       <div className="glass pointer-events-auto max-w-sm rounded-3xl p-6 text-center">
         <div className="font-display text-xl font-semibold">The hive is quiet</div>
         <p className="mt-2 text-sm text-ink-3">No dots yet. Spark the first one and watch it emerge from its swarm.</p>
@@ -137,16 +137,16 @@ export function EmptyHive() {
           Create the first dot
         </Button>
       </div>
-    </motion.div>
+    </m.div>
   )
 }
 
 export function BootScreen({ error, onRetry }: { error: string | null; onRetry: () => void }) {
   return (
     <div className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-5 p-6">
-      <motion.div animate={{ scale: [1, 1.08, 1], opacity: [0.8, 1, 0.8] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}>
+      <m.div animate={{ scale: [1, 1.08, 1], opacity: [0.8, 1, 0.8] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}>
         <div className="size-20 rounded-full" style={{ background: 'radial-gradient(circle, #fff 0 8%, #b9a8ff 22%, rgb(124 108 255 / 0.25) 50%, transparent 70%)' }} />
-      </motion.div>
+      </m.div>
       {error ? (
         <div className="glass max-w-sm rounded-2xl p-5 text-center" role="alert">
           <div className="font-display font-semibold">Could not reach the hive</div>
@@ -188,7 +188,7 @@ export function Login() {
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-5">
-      <motion.form
+      <m.form
         key={shake}
         onSubmit={submit}
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
@@ -222,7 +222,7 @@ export function Login() {
         <Button variant="primary" size="lg" type="submit" className="mt-5 w-full" disabled={busy || !pw}>
           {busy ? 'Waking…' : 'Enter the hive'}
         </Button>
-      </motion.form>
+      </m.form>
     </div>
   )
 }

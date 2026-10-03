@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import type { AgentStatus, ThinkingPhase } from '../api/types'
 import { hsl } from '../lib/color'
@@ -127,7 +127,7 @@ export function Meter({ value, max, label, hue = 252 }: { value: number; max: nu
     <div role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={unlimited ? undefined : max} aria-valuenow={value}>
       <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: hsl(tone, 60, 50, 0.18) }}>
         {!unlimited && (
-          <motion.div
+          <m.div
             className="h-full rounded-full"
             initial={false}
             animate={{ width: `${Math.max(2, pct * 100)}%` }}
@@ -166,7 +166,7 @@ export function Segmented<T extends string>({
             className={cx('relative min-h-9 flex-1 rounded-lg px-3 text-[13px] font-medium whitespace-nowrap transition-colors', on ? 'text-ink' : 'text-ink-3 hover:text-ink-2')}
           >
             {on && (
-              <motion.span
+              <m.span
                 layoutId={`seg-${label}`}
                 className="absolute inset-0 rounded-lg border border-line-2 bg-white/[0.09]"
                 transition={{ type: 'spring', stiffness: 500, damping: 38 }}

@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Usage } from '../../api/types'
 import { compact, modelLabel, money } from '../../lib/format'
@@ -203,12 +203,12 @@ export default function UsageView() {
         ) : data.req === 0 && data.prevReq === 0 ? (
           <EmptyState icon="chart" title="No usage yet" body={`Nothing was spent in the ${RANGE[range].label}. When dots think, the gateway meters every call here.`} />
         ) : (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+          <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             <section className="grid grid-cols-3 gap-2.5 md:grid-cols-4 md:gap-3" aria-label="Key figures">
               <Tile hero label={`Spend · ${RANGE[range].label}`} value={money(data.cost)} delta={pctDelta(data.cost, data.prevCost)} upIsGood={false} />
               <Tile label="Requests" value={compact(data.req)} delta={pctDelta(data.req, data.prevReq)} />
               <Tile label="Tokens" value={compact(data.tokens)} delta={pctDelta(data.tokens, data.prevTokens)} />
-              <Tile label="Avg per request" value={data.req ? money(data.cost / data.req) : '$0'} />
+              <Tile label="Avg / request" value={data.req ? money(data.cost / data.req) : '$0'} />
             </section>
 
             {table ? (
@@ -229,7 +229,7 @@ export default function UsageView() {
                 </div>
               </>
             )}
-          </motion.div>
+          </m.div>
         )}
       </div>
     </Page>
@@ -381,7 +381,7 @@ function StackedColumns({
       )}
       <AnimatePresence>
         {h && hover !== null && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
@@ -401,7 +401,7 @@ function StackedColumns({
                   <span className="truncate text-ink-3">{labelOf(k)}</span>
                 </div>
               ))}
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>
@@ -427,7 +427,7 @@ function Bars({ rows, name, group }: { rows: Row[]; name: (k: string) => string;
             </div>
             <div className="flex items-center gap-2">
               <div className="relative h-3 flex-1">
-                <motion.div
+                <m.div
                   className="absolute inset-y-0 left-0 rounded-r-[4px]"
                   initial={{ width: 0 }}
                   animate={{ width: `${(r.cost / max) * 100}%` }}

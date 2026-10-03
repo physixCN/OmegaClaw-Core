@@ -1373,7 +1373,8 @@ export class HiveEngine {
     const at = e.at()
     if (!at) return
     const s = this.toScreen(at.x, at.y)
-    const zs = Math.pow(this.cam.z, 0.8)
+    // effects scale gently with zoom, but never balloon across the screen when zoomed in
+    const zs = Math.min(1.35, Math.pow(this.cam.z, 0.8))
     const t = e.t
     ctx.lineCap = 'round'
     switch (e.kind) {
@@ -1396,10 +1397,10 @@ export class HiveEngine {
         const u = easeOut(t)
         const jag = e.jag!
         const n = jag.length
-        const r0 = (30 + u * 95) * zs
-        ctx.globalAlpha = (1 - t) * 0.9
+        const r0 = (26 + u * 72) * zs
+        ctx.globalAlpha = Math.pow(1 - t, 1.5) * 0.9
         ctx.strokeStyle = e.rejected ? 'hsl(330 100% 78%)' : 'hsl(48 100% 80%)'
-        ctx.lineWidth = 1.6
+        ctx.lineWidth = 1.2
         ctx.beginPath()
         for (let i = 0; i <= n; i++) {
           const a = (i / n) * TAU + e.seed * TAU
@@ -1414,9 +1415,9 @@ export class HiveEngine {
         ctx.lineWidth = 1.1
         for (let i = 0; i < 6; i++) {
           const a = e.seed * 7 + (i * TAU) / 6
-          const a1 = (18 + u * 30) * zs
-          const a2 = (30 + u * 80) * zs * jag[i]
-          ctx.globalAlpha = (1 - t) * 0.8
+          const a1 = (16 + u * 22) * zs
+          const a2 = (26 + u * 54) * zs * jag[i]
+          ctx.globalAlpha = Math.pow(1 - t, 1.5) * 0.75
           ctx.beginPath()
           ctx.moveTo(s.x + Math.cos(a) * a1, s.y + Math.sin(a) * a1)
           ctx.lineTo(s.x + Math.cos(a + 0.08) * a2, s.y + Math.sin(a + 0.08) * a2)
@@ -1436,15 +1437,15 @@ export class HiveEngine {
         const u = easeOut(t)
         if (e.kind !== 'spark') {
           const hue = e.hue < 0 ? undefined : e.hue
-          const r = (e.kind === 'birth' ? 20 + u * 150 : 16 + u * 60) * zs
-          ctx.globalAlpha = (1 - t) * (e.kind === 'birth' ? 0.9 : 0.6)
+          const r = (e.kind === 'birth' ? 18 + u * 110 : 16 + u * 60) * zs
+          ctx.globalAlpha = Math.pow(1 - t, 1.6) * (e.kind === 'birth' ? 0.8 : 0.6)
           if (hue === undefined) {
             const [rr, gg, bb] = freqRgb(-1 - e.hue)
             ctx.strokeStyle = `rgb(${rr},${gg},${bb})`
           } else {
             ctx.strokeStyle = `hsl(${hue} 100% 80%)`
           }
-          ctx.lineWidth = e.kind === 'birth' ? 2.5 * (1 - t) + 0.5 : 1.4
+          ctx.lineWidth = e.kind === 'birth' ? 1.6 * (1 - t) + 0.4 : 1.2
           ctx.beginPath()
           ctx.arc(s.x, s.y, r, 0, TAU)
           ctx.stroke()
@@ -1516,9 +1517,15 @@ export class HiveEngine {
       const base = z > zMin ? clamp((z - zMin) * 5, 0, 1) : 0
       const a = Math.max(base * (0.35 + 0.55 * d.glow) * ((d.z + 1.4) / 2.4), d.hover)
       if (a < 0.03) continue
+      const ly = d.sy + d.sr * 2.2 + 6
+      const core = d.swarmId ? this.cores.get(d.swarmId) : null
+      if (core && d.hover < 0.5 && this.selected !== d.id) {
+        const ty = core.sy + 70 * Math.pow(z, 0.8) + 8
+        if (Math.abs(d.sx - core.sx) < 70 && ly > ty - 14 && ly < ty + 30) continue
+      }
       ctx.globalAlpha = a * (d.birth < 1 ? d.birth : 1)
       ctx.fillStyle = d.status === 'error' ? 'rgba(255,170,175,1)' : 'rgba(232,234,255,1)'
-      ctx.fillText(d.name, d.sx, d.sy + d.sr * 2.2 + 6)
+      ctx.fillText(d.name, d.sx, ly)
     }
   }
 }

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import type { ReactNode } from 'react'
 import { useEscape, useReducedMotion } from '../lib/hooks'
 import { IconButton } from './primitives'
@@ -27,7 +27,7 @@ export function Page({
   const reduced = useReducedMotion()
   useEscape(onBack ?? onClose)
   return (
-    <motion.section
+    <m.section
       role="dialog"
       aria-label={label}
       initial={{ opacity: 0, y: reduced ? 0 : 24, scale: reduced ? 1 : 0.985 }}
@@ -54,6 +54,6 @@ export function Page({
         <IconButton icon="x" label="Close" onClick={onClose} />
       </header>
       <div className="thin-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
-    </motion.section>
+    </m.section>
   )
 }

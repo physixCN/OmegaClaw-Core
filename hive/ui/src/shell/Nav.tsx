@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { useIsDesktop } from '../lib/hooks'
 import { navigate, useRoute, type Route } from '../lib/router'
 import { useHive } from '../store/store'
@@ -90,7 +90,7 @@ function TabButton({ it, active }: { it: Item; active: boolean }) {
       aria-current={active ? 'page' : undefined}
       className={cx('relative flex min-h-12 min-w-14 flex-col items-center justify-center gap-0.5 transition-colors', active ? 'text-ink' : 'text-ink-3')}
     >
-      {active && <motion.span layoutId="tab-glow" className="absolute -top-1.5 h-0.5 w-6 rounded-full bg-accent" style={{ boxShadow: '0 0 12px #a493ff' }} />}
+      {active && <m.span layoutId="tab-glow" className="absolute -top-1.5 h-0.5 w-6 rounded-full bg-accent" style={{ boxShadow: '0 0 12px #a493ff' }} />}
       <Icon name={it.icon} size={21} />
       <span className="text-[10px] font-medium">{it.label}</span>
     </button>
@@ -107,7 +107,7 @@ function RailButton({ it, active }: { it: Item; active: boolean }) {
         className={cx('relative flex size-11 items-center justify-center rounded-xl transition-colors', active ? 'text-ink' : 'text-ink-3 hover:bg-white/[0.06] hover:text-ink')}
       >
         {active && (
-          <motion.span
+          <m.span
             layoutId="rail-active"
             className="absolute inset-0 rounded-xl border border-line-2 bg-white/[0.08]"
             transition={{ type: 'spring', stiffness: 500, damping: 36 }}

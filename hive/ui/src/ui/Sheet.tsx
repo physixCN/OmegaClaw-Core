@@ -1,4 +1,4 @@
-import { motion, useDragControls, type PanInfo } from 'framer-motion'
+import { m, useDragControls, type PanInfo } from 'framer-motion'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useEscape, useIsDesktop, useReducedMotion } from '../lib/hooks'
 import { useScene } from '../scene/sceneStore'
@@ -76,7 +76,7 @@ export function Sheet({
 
   if (desktop) {
     return (
-      <motion.aside
+      <m.aside
         ref={ref}
         role="dialog"
         aria-modal="false"
@@ -92,7 +92,7 @@ export function Sheet({
       >
         {header}
         {children}
-      </motion.aside>
+      </m.aside>
     )
   }
 
@@ -108,7 +108,7 @@ export function Sheet({
 
   return (
     <>
-      <motion.div
+      <m.div
         className="fixed inset-0 z-20 bg-black/30"
         initial={{ opacity: 0 }}
         animate={{ opacity: snap === 'full' ? 1 : 0 }}
@@ -117,7 +117,7 @@ export function Sheet({
         onClick={() => setSnap('peek')}
         aria-hidden="true"
       />
-      <motion.div
+      <m.div
         ref={ref}
         role="dialog"
         aria-modal="false"
@@ -159,7 +159,7 @@ export function Sheet({
         </div>
         {children}
         <div className="shrink-0" style={{ height: 'var(--sab)' }} />
-      </motion.div>
+      </m.div>
     </>
   )
 }

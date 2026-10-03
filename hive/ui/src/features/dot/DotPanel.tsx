@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Agent, AgentAction, ModelOption } from '../../api/types'
 import { hsl } from '../../lib/color'
@@ -62,13 +62,13 @@ export default function DotPanel({ id }: { id: string }) {
       <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col">
         <AnimatePresence mode="wait" initial={false}>
           {tab === 'chat' ? (
-            <motion.div key="chat" className="flex min-h-0 flex-1 flex-col" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.16 }}>
+            <m.div key="chat" className="flex min-h-0 flex-1 flex-col" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.16 }}>
               <Chat key={agent.id} agent={agent} />
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.div key="mind" className="thin-scroll min-h-0 flex-1 overflow-y-auto" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.16 }}>
+            <m.div key="mind" className="thin-scroll min-h-0 flex-1 overflow-y-auto" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.16 }}>
               <Mind key={agent.id} agent={agent} />
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
         <LogTail agent={agent} />
@@ -270,14 +270,14 @@ function Mind({ agent }: { agent: Agent }) {
         />
         <AnimatePresence>
           {dirty && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="flex justify-end gap-2 overflow-hidden pt-2">
+            <m.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="flex justify-end gap-2 overflow-hidden pt-2">
               <Button variant="ghost" onClick={() => setPersona(agent.persona)}>
                 Revert
               </Button>
               <Button variant="primary" hue={agent.hue} onClick={savePersona} disabled={saving}>
                 {saving ? 'Saving…' : 'Save persona'}
               </Button>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </section>
@@ -389,15 +389,15 @@ function LogTail({ agent }: { agent: Agent }) {
         <Icon name="terminal" size={15} className="shrink-0 text-ink-3" />
         <span className="eyebrow shrink-0">Live log</span>
         {!open && last && (
-          <motion.span key={last} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink-3">
+          <m.span key={last} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink-3">
             {last}
-          </motion.span>
+          </m.span>
         )}
         <Icon name="chevronDown" size={16} className={cx('ml-auto shrink-0 text-ink-3 transition-transform', open && 'rotate-180')} />
       </button>
       <AnimatePresence initial={false}>
         {open && (
-          <motion.div id={`log-${agent.id}`} initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 40 }} className="overflow-hidden">
+          <m.div id={`log-${agent.id}`} initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 40 }} className="overflow-hidden">
             <div
               ref={ref}
               onScroll={() => {
@@ -414,7 +414,7 @@ function LogTail({ agent }: { agent: Agent }) {
                 lines.map((l, i) => <LogLine key={i} line={l} />)
               )}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

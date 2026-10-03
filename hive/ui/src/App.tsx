@@ -1,4 +1,4 @@
-import { AnimatePresence, MotionConfig } from 'framer-motion'
+import { AnimatePresence, LazyMotion, MotionConfig } from 'framer-motion'
 import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 import { useIsDesktop } from './lib/hooks'
 import { navigate, useRoute } from './lib/router'
@@ -25,6 +25,8 @@ const CommandPalette = lazy(() => import('./features/palette/CommandPalette'))
 function Lazy({ children }: { children: ReactNode }) {
   return <Suspense fallback={null}>{children}</Suspense>
 }
+
+const loadMotion = () => import('./lib/motionFeatures').then((r) => r.default)
 
 /** Warm the lazy chunks once the hive is idle so the first open is instant. */
 function prefetch() {
@@ -73,66 +75,68 @@ export function App() {
   const needsLogin = !!client && (connection === 'unauthorized' || (client.needsAuth() && !ready))
 
   return (
-    <MotionConfig reducedMotion="user">
-      <HiveScene />
-      {needsLogin ? (
-        <Login />
-      ) : !ready ? (
-        <BootScreen error={bootError} onRetry={() => void hydrate()} />
-      ) : (
-        <>
-          {!page && <TopBar />}
-          <Nav />
-          <ActivityTicker />
-          <SceneControls />
-          <DotDirectory />
-          <EmptyHive />
-          <AnimatePresence>
-            {route.name === 'dot' && (
-              <Lazy key="dot">
-                <DotPanel id={route.id} />
-              </Lazy>
-            )}
-            {route.name === 'new' && (
-              <Lazy key="new">
-                <CreateFlow swarmId={route.swarm} />
-              </Lazy>
-            )}
-          </AnimatePresence>
-          <AnimatePresence mode="wait">
-            {route.name === 'swarms' && (
-              <Lazy key="swarms">
-                <SwarmsIndex />
-              </Lazy>
-            )}
-            {route.name === 'swarm' && (
-              <Lazy key={`swarm-${route.id}`}>
-                <SwarmView id={route.id} statement={route.statement} />
-              </Lazy>
-            )}
-            {route.name === 'usage' && (
-              <Lazy key="usage">
-                <UsageView />
-              </Lazy>
-            )}
-          </AnimatePresence>
-          <AnimatePresence>
-            {reveal && (
-              <Lazy key="reveal">
-                <TokenReveal />
-              </Lazy>
-            )}
-          </AnimatePresence>
-          <AnimatePresence>
-            {paletteOpen && (
-              <Lazy key="palette">
-                <CommandPalette />
-              </Lazy>
-            )}
-          </AnimatePresence>
-        </>
-      )}
-      <Toasts />
-    </MotionConfig>
+    <LazyMotion features={loadMotion} strict>
+      <MotionConfig reducedMotion="user">
+        <HiveScene />
+        {needsLogin ? (
+          <Login />
+        ) : !ready ? (
+          <BootScreen error={bootError} onRetry={() => void hydrate()} />
+        ) : (
+          <>
+            {!page && <TopBar />}
+            <Nav />
+            <ActivityTicker />
+            <SceneControls />
+            <DotDirectory />
+            <EmptyHive />
+            <AnimatePresence>
+              {route.name === 'dot' && (
+                <Lazy key="dot">
+                  <DotPanel id={route.id} />
+                </Lazy>
+              )}
+              {route.name === 'new' && (
+                <Lazy key="new">
+                  <CreateFlow swarmId={route.swarm} />
+                </Lazy>
+              )}
+            </AnimatePresence>
+            <AnimatePresence mode="wait">
+              {route.name === 'swarms' && (
+                <Lazy key="swarms">
+                  <SwarmsIndex />
+                </Lazy>
+              )}
+              {route.name === 'swarm' && (
+                <Lazy key={`swarm-${route.id}`}>
+                  <SwarmView id={route.id} statement={route.statement} />
+                </Lazy>
+              )}
+              {route.name === 'usage' && (
+                <Lazy key="usage">
+                  <UsageView />
+                </Lazy>
+              )}
+            </AnimatePresence>
+            <AnimatePresence>
+              {reveal && (
+                <Lazy key="reveal">
+                  <TokenReveal />
+                </Lazy>
+              )}
+            </AnimatePresence>
+            <AnimatePresence>
+              {paletteOpen && (
+                <Lazy key="palette">
+                  <CommandPalette />
+                </Lazy>
+              )}
+            </AnimatePresence>
+          </>
+        )}
+        <Toasts />
+      </MotionConfig>
+    </LazyMotion>
   )
 }
