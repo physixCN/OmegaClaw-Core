@@ -186,7 +186,10 @@ Programs may add their own.
 - **The view is data.** The host renders text as text. A program cannot
   inject markup or code into the UI.
 - **Program code is trusted server code,** loaded by the hive's owner. v0.1
-  runs it inside the hive process; out-of-process isolation is planned.
+  runs it inside the hive process. Capabilities only limit which hive APIs the
+  context offers. They are **not** a sandbox: in-process Python can still
+  reach the filesystem and network as the hive's user. Out-of-process
+  isolation is planned.
 - **Capabilities** limit the context. The program gets errors for anything it
   did not declare:
   - `commons:read` gives `beliefs()`, `belief(s)` and `agents()`;
@@ -195,9 +198,10 @@ Programs may add their own.
 
   A program's own store is its own business.
 - **Scope:** each call is limited to one swarm, the one the person is in.
-- **The routes are operator-only:** a person drives a program. When agents
-  start calling programs, each action will go through the policy gate as
-  skill `program:<id>:<action>` (planned).
+- **The routes are operator-only today:** a person drives a program. Agent
+  calls are not supported yet. When they come, they will be an explicit,
+  separate route, and each action will go through the policy gate as skill
+  `program:<id>:<action>`.
 - **Errors:**
 
   | Code | Meaning |
@@ -214,16 +218,23 @@ Programs may add their own.
 ## 6. Compatibility test
 
 ```bash
-python -m hive.programs_check path/to/your_program      # exit 0 and "COMPATIBLE with program contract 0.1"
+python -m hive.programs_check path/to/your_program                 # structural checks; read-only
+python -m hive.programs_check path/to/fixture --scenario --allow-mutation
 ```
 
-It checks:
+**Always run:**
 - `describe()`, and `view()` in every stage, are valid;
-- ids and revision are stable across repeated views;
-- at least one question, with one supporting and one opposing link;
-- `inspect-source` (if offered) returns `detail.sources`;
-- `correct` (if offered) keeps every id, records the prior revision, bumps the
-  revision and returns `stale` on an old base.
+- ids and the revision are stable across repeated views;
+- `inspect-source` (if offered) returns `detail.sources`.
+
+**Only on request:**
+- `--scenario` requires a question with one supporting and one opposing link.
+  That is a check on a **test scenario**. A real investigation never has to
+  contain, or invent, counterevidence to be compatible.
+- `--allow-mutation` runs `correct`. It checks that `correct` keeps every id,
+  records the prior revision, bumps the revision and returns `stale` on an old
+  base. **`correct` changes data.** Run it only against a disposable fixture
+  or a throwaway copy of the store, never against real records.
 
 The public example is `hive/plugins/contract_fixture/`, a synthetic question:
 "Is the Riverside footbridge rated for 5-tonne loads?" It has:

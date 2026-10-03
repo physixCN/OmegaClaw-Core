@@ -5,10 +5,15 @@
 It loads plugin.json and the module and calls describe(), then view() in
 every stage. It validates each work graph and checks:
 - IDs are stable across repeated views;
-- the program can describe a question with supporting and opposing evidence;
-- `inspect-source` returns the sources;
-- `correct` (if offered) keeps every ID, records the prior revision and bumps
-  the graph revision.
+- `inspect-source` (if offered) returns the sources.
+
+Two checks only run when asked:
+- `--scenario` requires the view to hold a question with supporting and
+  opposing evidence. This is a check on a test scenario. A real
+  investigation never has to invent counterevidence to pass.
+- `--allow-mutation` runs `correct` (if offered). It changes the program's
+  data, so point it only at a disposable fixture or a throwaway copy of the
+  store, never at real records.
 
 The context is a stand-in: create_goal() returns a fake goal, reads return
 nothing. Exit code 0 means compatible.
@@ -58,7 +63,7 @@ def _maybe_await(value):
     return asyncio.run(value) if hasattr(value, "__await__") else value
 
 
-def check(folder, focus=None, log=print):
+def check(folder, focus=None, log=print, scenario=False, allow_mutation=False):
     folder = pathlib.Path(folder)
     manifest = json.loads((folder / "plugin.json").read_text())
     spec = importlib.util.spec_from_file_location("program_under_check", folder / manifest.get("module", "program.py"))
@@ -83,12 +88,13 @@ def check(folder, focus=None, log=print):
     log(f"ids stable across views (revision {first['revision']}, {len(first['items'])} items)")
 
     item_roles = {i["id"]: roles[i["kind"]] for i in first["items"]}
-    if "question" not in item_roles.values():
-        raise CheckError("the view has no item whose kind has role 'question'")
-    pols = {polarity[link["rel"]] for link in first["links"]}
-    if not {"support", "oppose"} <= pols:
-        raise CheckError("the view needs at least one supporting and one opposing link")
-    log("describes a question with support and counterevidence")
+    if scenario:
+        if "question" not in item_roles.values():
+            raise CheckError("scenario: the view has no item whose kind has role 'question'")
+        pols = {polarity[link["rel"]] for link in first["links"]}
+        if not {"support", "oppose"} <= pols:
+            raise CheckError("scenario: the view needs at least one supporting and one opposing link")
+        log("scenario: describes a question with support and counterevidence")
 
     evidence = [i for i in first["items"] if item_roles[i["id"]] == "evidence"]
     if "inspect-source" in actions:
@@ -101,7 +107,9 @@ def check(folder, focus=None, log=print):
             raise CheckError("inspect-source must return status done with detail.sources")
         log(f"inspect-source returns {len(out['detail']['sources'])} source(s) for {sourced['id']}")
 
-    if "correct" in actions and evidence:
+    if "correct" in actions and not allow_mutation:
+        log("correct offered but not run: it changes data; rerun with --allow-mutation against a disposable copy")
+    if "correct" in actions and evidence and allow_mutation:
         target = evidence[0]["id"]
         out = validate_result(pid, desc, _maybe_await(module.act(ctx, "correct", [target], {
             "text": "corrected by the contract checker", "note": "checker", "base_revision": first["revision"]})), fail)
@@ -129,9 +137,13 @@ def main():
     ap = argparse.ArgumentParser(prog="python -m hive.programs_check")
     ap.add_argument("folder")
     ap.add_argument("--focus")
+    ap.add_argument("--scenario", action="store_true",
+                    help="also require a question with supporting and opposing evidence (test scenarios only)")
+    ap.add_argument("--allow-mutation", action="store_true",
+                    help="run the mutating correct action; only against a disposable fixture or copy")
     args = ap.parse_args()
     try:
-        check(args.folder, args.focus)
+        check(args.folder, args.focus, scenario=args.scenario, allow_mutation=args.allow_mutation)
     except CheckError as exc:
         print(f"NOT COMPATIBLE: {exc}")
         sys.exit(1)

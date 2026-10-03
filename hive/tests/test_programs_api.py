@@ -15,6 +15,7 @@ def swarm(client):
 
 def test_the_fixture_passes_the_standalone_checker():
     assert check(FIXTURE, log=lambda *_: None)
+    assert check(FIXTURE, log=lambda *_: None, scenario=True, allow_mutation=True)
 
 
 def test_question_support_counterevidence_source_and_correction(client):
