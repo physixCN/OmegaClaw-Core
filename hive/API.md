@@ -344,3 +344,38 @@ These apply when no rule matches.
 | `send`, `wait`, `pin`, `hive-*`, `query`, `remember`, `episodes`, `search`, `web-search`, `read-file`, space reads | `allow` | No side effects outside the agent and the hive |
 | `shell`, `shell-confirm`, `metta`, `write-file*`, `append-file*`, `send-file*`, `codex-*`, `space-transform`, `remove-atom`, any `*-commit` | `ask` | Side effects on the machine or on durable memory |
 | (human-only) `change-password`, `transfer-funds`, `pay*`, `purchase*` | `deny` to agents | These always need a human to act; no rule can open them |
+
+## The Lab: tests and benchmarks
+
+Each run is a child process (`python -m hive.bench run <suite>`). Its hives
+use scratch data, so a run never touches this hive's dots or commons.
+
+| Method & path | Body → Response |
+|---|---|
+| `GET /api/lab/suites` | → `Suite[]` `{id, kind: "tests" \| "bench", title, description, estimate_s, needs, missing, runnable, last_run}` |
+| `GET /api/lab/runs?suite=&limit=` | → `RunSummary[]` newest first `{id, suite, status, started_at, finished_at, duration_ms, passed, failed, skipped, errors, commit_sha}` |
+| `POST /api/lab/runs` | `{suite}` → `Run`. Errors: 409 `already_running`, 400 `missing_requirements` |
+| `GET /api/lab/runs/{id}` | → `Run` = `RunSummary & {log, cases: Case[]}` |
+| `POST /api/lab/runs/{id}/cancel` | → `{cancelling: true}` |
+| `GET /api/lab/history/{suite}?limit=` | → `{suite, runs, metrics: [{case_id, case, metric, unit, better, target, points: [{run_id, at, value, ok}]}]}` |
+
+`Case` = `{run_id, id, name, group, status, duration_ms, message, notes, metrics: Metric[], series: Series[]}`.
+- `Metric` = `{name, value, unit, better: "lower" | "higher" | "equal", target, ok}`. A metric with no target is informational.
+- `Series` = `{name, unit, kind: "line" | "bar" | "step", x, points: [[x, y]]}`.
+
+Events: `lab.run {run}`, `lab.case {case}`, `lab.log {run_id, text}`.
+
+| Suite | What it runs |
+|---|---|
+| `tests-hive` | Server tests against real PeTTa spaces |
+| `tests-runtime` | Omega runtime tests |
+| `tests-memory` | Boots Omega: memory isolation, protected atoms, atomic saves |
+| `tests-e2e` | Real Omegas end to end: Phase 1 and Phase 2 acceptance |
+| `tests-ui` | Web UI tests (vitest) |
+| `bench-core` | Commons, gate, hub and gateway latency; revision accuracy; claim races |
+| `bench-drift` | Echo storm, corroboration, self-repetition, retry storm, spend runaway, abandoned goals, subgoal explosion, refusals |
+| `bench-epistemic` | Epistemic Resolve (Crawford & Hammer, AGI-26) through the swarm commons, next to the paper's calibration mocks. Step polarity is hand-annotated; this tests the update discipline, not language understanding |
+| `bench-swarm` | Three live Omegas on the offline model: boot, reply latency, belief propagation, loop health |
+
+From a shell: `python -m hive.bench list`, `python -m hive.bench run bench-drift`,
+`python -m hive.bench record --out results.json [suites…]`.
