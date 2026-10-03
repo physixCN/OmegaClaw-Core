@@ -102,10 +102,11 @@ class DockerDriver(Driver):
 
     name = "docker"
 
-    def __init__(self, workspace: Workspace, image=None, network=None):
+    def __init__(self, workspace: Workspace, image=None, network=None, command=None):
         self.workspace = workspace
         self.image = image or os.environ.get("HIVE_AGENT_IMAGE", "omegadots/agent:dev")
         self.network = network or os.environ.get("HIVE_DOCKER_NETWORK", "host")
+        self.command = command or ["sh", "/opt/PeTTa/run.sh", "/agent/run.metta"]
 
     @staticmethod
     def container(agent_id):
@@ -132,7 +133,7 @@ class DockerDriver(Driver):
                 "-w", "/agent"]
         for key, value in env.items():
             args += ["-e", f"{key}={value}"]
-        args += [self.image, "sh", "/opt/PeTTa/run.sh", "/agent/run.metta"]
+        args += [self.image, *self.command]
         result = self._docker(*args)
         if result.returncode != 0:
             raise RuntimeError(f"docker run failed: {result.stdout.strip()}")

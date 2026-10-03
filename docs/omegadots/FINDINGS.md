@@ -28,6 +28,8 @@ only read them.
 - **Space bounding now runs.** Before the fix it was a no-op. Agents with large spaces will now be trimmed to their configured `register-space-limit` budgets each iteration. Review the limits.
 - **Thread starvation in other channels.** Telegram, WhatsApp and Agentverse listeners should move to the daemon pattern, or the loop should spend its idle time in a Python sleep instead of a Prolog sleep.
 
+- **Agent Docker image not built in the dev sandbox.** `hive/docker/agent.Dockerfile` needs Debian packages, and this session's egress policy denies `deb.debian.org` (HTTP 403). The docker driver itself is tested against a real daemon using a stand-in image (`hive/tests/test_docker_driver.py`). Build the image where Debian mirrors are reachable.
+
 ## Upstream bugs (verified)
 
 | Repository | Location | Bug |
