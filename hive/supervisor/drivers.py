@@ -217,7 +217,7 @@ class Supervisor:
         """One reconciliation pass: restart crashed agents that should be awake."""
         if self.hive is None:
             return
-        for row in self.hive.db.all("SELECT * FROM agents WHERE deleted = 0"):
+        for row in self.hive.db.all("SELECT * FROM agents WHERE deleted = 0 AND kind != 'module'"):
             agent = self.hive.agent_view(row)
             state = self.driver(agent).status(agent["id"])
             if row["desired"] != "awake" or state == "running":

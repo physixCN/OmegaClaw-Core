@@ -192,7 +192,10 @@ class Hive:
         self.emit_agent(agent_id)
 
     def lifecycle(self, agent_id, action):
-        self._agent_row(agent_id)
+        row = self._agent_row(agent_id)
+        if row["kind"] == "module" and action in ("start", "wake"):
+            raise HiveError(400, "external_member",
+                            "this member runs outside the hive; it connects with its token instead")
         if self.supervisor is None:
             raise HiveError(503, "no_supervisor", "no supervisor configured")
         if action in ("start", "wake"):
@@ -453,7 +456,7 @@ class Hive:
         """Bring agents back to the state they were in before the hive stopped."""
         if self.supervisor is None:
             return
-        for row in self.db.all("SELECT * FROM agents WHERE deleted = 0"):
+        for row in self.db.all("SELECT * FROM agents WHERE deleted = 0 AND kind != 'module'"):
             if row["desired"] == "awake":
                 self.lifecycle(row["id"], "start")
             elif row["status"] in ("awake", "starting"):

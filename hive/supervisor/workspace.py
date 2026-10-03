@@ -115,6 +115,12 @@ class Workspace:
     def create(self, agent, token):
         if agent.get("kind") == "iter":
             return self.create_iter(agent, token)
+        if agent.get("kind") == "module":
+            # External member (another tool or agent runtime): it runs elsewhere and
+            # only uses its token against the agent API, so no workspace is built.
+            root = self.path(agent["id"])
+            root.mkdir(parents=True, exist_ok=True)
+            return root
         root = self.path(agent["id"])
         (root / "repos").mkdir(parents=True, exist_ok=True)
         (root / "run.metta").write_text(RUN_METTA, encoding="utf-8")

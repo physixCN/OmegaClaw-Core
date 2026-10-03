@@ -178,3 +178,18 @@ def test_only_the_claimer_can_split_a_goal(client):
     refused = client.post("/api/agent/goals", headers=agent_headers(b), json={"title": "part", "parent_id": goal["id"]})
     assert refused.status_code == 403
     assert client.post("/api/agent/goals", headers=agent_headers(a), json={"title": "part", "parent_id": goal["id"]}).status_code == 200
+
+
+def test_external_member_uses_the_agent_api_and_is_never_started(client):
+    swarm, _ = make_swarm_and_agents(client, n=1)
+    ext = client.post("/api/agents", json={"name": "Codex", "kind": "module", "swarm_id": swarm["id"]}).json()
+    assert client.post(f"/api/agents/{ext['id']}/start").json()["error"]["code"] == "external_member"
+    client.post(f"/api/agents/{ext['id']}/messages", json={"text": "please check claim 1"})
+    inbox = client.get("/api/agent/inbox", headers=agent_headers(ext)).json()["messages"]
+    assert json.loads(inbox[0]["text"])["text"] == "please check claim 1"
+    client.post("/api/agent/messages", headers=agent_headers(ext), json={"text": "on it"})
+    published = client.post("/api/agent/publish", headers=agent_headers(ext),
+                            json={"statement": "(--> claim-1 unverified)", "f": 0.5, "c": 0.3}).json()
+    assert published["outcome"] == "adopted"
+    goal = client.post(f"/api/swarms/{swarm['id']}/goals", json={"title": "trace source of claim 1"}).json()
+    assert client.post(f"/api/agent/goals/{goal['id']}/claim", headers=agent_headers(ext)).json()["claimed_by"] == ext["id"]
