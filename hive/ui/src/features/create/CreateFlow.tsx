@@ -281,7 +281,11 @@ export default function CreateFlow({ swarmId }: { swarmId?: string }) {
                       />
                     </div>
                   </div>
-                  <p className="mt-1.5 text-[12px] text-ink-4">{Number(budget) ? `The gateway stops spending at $${budget}.` : 'Unlimited. Watch the usage view.'}</p>
+                  {Number(budget) || models.find((m) => m.id === model)?.local ? (
+                    <p className="mt-1.5 text-[12px] text-ink-4">{Number(budget) ? `The gateway stops spending at $${budget}.` : 'Unlimited. Watch the usage view.'}</p>
+                  ) : (
+                    <p className="mt-1.5 text-[12px] text-warn">A paid model needs a budget: with $0 the gateway refuses every call (402 no_budget). Pick a cap, or a local model.</p>
+                  )}
                 </div>
               </div>
             )}

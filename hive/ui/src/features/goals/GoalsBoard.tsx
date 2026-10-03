@@ -6,6 +6,7 @@ import { cx } from '../../lib/cx'
 import { ago } from '../../lib/format'
 import { useIsDesktop, useNow, useReducedMotion } from '../../lib/hooks'
 import { navigate } from '../../lib/router'
+import { leaseOf, leaseText, LEASE_LAPSES } from '../../lib/goals'
 import { useHive } from '../../store/store'
 import { Icon, type IconName } from '../../ui/Icon'
 import { Button, ErrorState, Orb, ProgressRing, Skeleton } from '../../ui/primitives'
@@ -13,11 +14,15 @@ import { Button, ErrorState, Orb, ProgressRing, Skeleton } from '../../ui/primit
 type Col = 'open' | 'claimed' | 'done' | 'failed'
 const COLS: { key: Col; label: string; color: string; icon: IconName }[] = [
   { key: 'open', label: 'Open', color: '#a5b4fc', icon: 'target' },
-  { key: 'claimed', label: 'Claimed', color: '#fbbf24', icon: 'bolt' },
+  { key: 'claimed', label: 'Claimed', color: '#7dd3fc', icon: 'bolt' },
   { key: 'done', label: 'Done', color: '#4ade80', icon: 'check' },
   { key: 'failed', label: 'Failed', color: '#fb7185', icon: 'x' },
 ]
-const colOf = (s: GoalStatus): Col => (s === 'cancelled' ? 'failed' : s)
+/** Stalled goals are unclaimed and need a person, so they lead the Open column; waiting goals are still held. */
+const colOf = (s: GoalStatus): Col => (s === 'cancelled' ? 'failed' : s === 'stalled' ? 'open' : s === 'waiting' ? 'claimed' : s)
+/** Calm amber: delivered, the ball is in the operator's court. */
+const WAITING = '#f5c06b'
+const STALLED = '#fb7185'
 
 const PRIORITIES = [
   { label: 'Low', value: 0.3 },
@@ -60,8 +65,9 @@ export function GoalsBoard({ swarmId, className }: { swarmId: string; className?
     for (const list of children.values()) list.sort((a, b) => a.created_at.localeCompare(b.created_at))
     const byCol: Record<Col, Goal[]> = { open: [], claimed: [], done: [], failed: [] }
     for (const g of top) byCol[colOf(g.status)].push(g)
-    byCol.open.sort((a, b) => b.priority - a.priority || b.created_at.localeCompare(a.created_at))
-    byCol.claimed.sort((a, b) => b.priority - a.priority || b.updated_at.localeCompare(a.updated_at))
+    const needsYou = (g: Goal) => (g.status === 'stalled' || g.status === 'waiting' ? 1 : 0)
+    byCol.open.sort((a, b) => needsYou(b) - needsYou(a) || b.priority - a.priority || b.created_at.localeCompare(a.created_at))
+    byCol.claimed.sort((a, b) => needsYou(b) - needsYou(a) || b.priority - a.priority || b.updated_at.localeCompare(a.updated_at))
     byCol.done.sort((a, b) => b.updated_at.localeCompare(a.updated_at))
     byCol.failed.sort((a, b) => b.updated_at.localeCompare(a.updated_at))
     return { byCol, children }
@@ -136,6 +142,7 @@ export function GoalsBoard({ swarmId, className }: { swarmId: string; className?
                 <span className="size-2 rounded-full" style={{ background: c.color, boxShadow: `0 0 10px ${c.color}` }} />
                 <h3 className="font-display text-[13px] font-semibold tracking-wide">{c.label}</h3>
                 <span className="font-mono text-[12px] text-ink-4">{byCol[c.key].length}</span>
+                <ColumnFlag goals={byCol[c.key]} col={c.key} />
               </header>
               <div className={cx('min-h-[120px] space-y-2 px-2 pb-2', desktop && 'thin-scroll flex-1 overflow-y-auto')}>
                 {!loaded && byCol[c.key].length === 0 ? (
@@ -160,6 +167,19 @@ export function GoalsBoard({ swarmId, className }: { swarmId: string; className?
         </div>
       </LayoutGroup>
     </div>
+  )
+}
+
+function ColumnFlag({ goals, col }: { goals: Goal[]; col: Col }) {
+  const status = col === 'open' ? 'stalled' : col === 'claimed' ? 'waiting' : null
+  const n = status ? goals.filter((g) => g.status === status).length : 0
+  if (!n) return null
+  const color = status === 'stalled' ? STALLED : WAITING
+  return (
+    <span className="ml-auto inline-flex items-center gap-1 rounded-full px-1.5 py-px text-[10.5px] font-semibold" style={{ color, background: `${color}18` }}>
+      <Icon name={status === 'stalled' ? 'alert' : 'clock'} size={10} strokeWidth={2.4} />
+      {n} {status}
+    </span>
   )
 }
 
@@ -256,6 +276,10 @@ function GoalCard({ goal: g, subgoals, agents, swarmHue }: { goal: Goal; subgoal
     seenAt.set(g.id, g.updated_at)
   })
   const fresh = g.updated_at !== baseline
+  const stalled = g.status === 'stalled'
+  const waiting = g.status === 'waiting'
+  const lease = leaseOf(g, now)
+  const accent = stalled ? STALLED : waiting ? WAITING : col === 'failed' ? '#fb7185' : priorityColor(g.priority)
 
   return (
     <m.article
@@ -266,7 +290,20 @@ function GoalCard({ goal: g, subgoals, agents, swarmHue }: { goal: Goal; subgoal
       exit={{ opacity: 0, scale: 0.94, transition: { duration: 0.15 } }}
       transition={{ type: 'spring', stiffness: 420, damping: 36 }}
       className={cx('relative overflow-hidden rounded-2xl border bg-[#12122e]/80', col === 'done' && 'opacity-85', open ? 'border-line-2' : 'border-line')}
+      style={stalled ? { borderColor: `${STALLED}66`, boxShadow: `0 0 22px -8px ${STALLED}` } : waiting ? { borderColor: `${WAITING}4d` } : undefined}
     >
+      {(stalled || waiting) && (
+        <div className="flex items-center gap-2 border-b px-3.5 py-1.5 text-[11.5px] font-semibold" style={{ color: stalled ? STALLED : WAITING, background: `${stalled ? STALLED : WAITING}12`, borderColor: `${stalled ? STALLED : WAITING}2e` }}>
+          <Icon name={stalled ? 'alert' : 'clock'} size={12} strokeWidth={2.4} />
+          <span className="min-w-0 flex-1 truncate">{stalled ? `Stalled · ${g.attempts ?? LEASE_LAPSES} claims lapsed` : 'Waiting on you'}</span>
+          {stalled && (
+            <button onClick={() => patch(g.id, { status: 'open' })} className="-my-1 -mr-1.5 inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-ink hover:bg-white/[0.07]" aria-label={`Re-open ${g.title}`}>
+              <Icon name="reset" size={12} strokeWidth={2.2} />
+              Re-open
+            </button>
+          )}
+        </div>
+      )}
       {fresh && !reduced && (
         <m.span
           key={g.updated_at}
@@ -276,7 +313,7 @@ function GoalCard({ goal: g, subgoals, agents, swarmHue }: { goal: Goal; subgoal
           transition={{ duration: 1.8, ease: 'easeOut' }}
         />
       )}
-      <span className="absolute inset-y-2 left-0 w-[3px] rounded-r" style={{ background: col === 'failed' ? '#fb7185' : priorityColor(g.priority), opacity: col === 'done' ? 0.4 : 0.9 }} aria-hidden="true" />
+      <span className="absolute bottom-2 left-0 w-[3px] rounded-r" style={{ top: stalled || waiting ? 40 : 8, background: accent, opacity: col === 'done' ? 0.4 : 0.9 }} aria-hidden="true" />
       <button onClick={() => setOpen(!open)} aria-expanded={open} className="block w-full py-2.5 pr-3 pl-3.5 text-left">
         <div className="flex items-start gap-2">
           <h4 className={cx('min-w-0 flex-1 text-[14px] leading-snug font-medium', col === 'done' && 'text-ink-2', g.status === 'cancelled' && 'text-ink-3 line-through decoration-ink-4')}>{g.title}</h4>
@@ -303,7 +340,8 @@ function GoalCard({ goal: g, subgoals, agents, swarmHue }: { goal: Goal; subgoal
           )}
           <span className="ml-auto shrink-0 text-ink-4">{ago(g.updated_at, now)}</span>
         </div>
-        {g.result && !open && <p className={cx('mt-1.5 line-clamp-1 text-[12px]', col === 'failed' ? 'text-bad/80' : 'text-ink-3')}>{g.result}</p>}
+        {(lease || (g.attempts ?? 0) > 0) && !stalled && col !== 'done' && col !== 'failed' && <LeaseRow lease={lease} attempts={g.attempts ?? 0} />}
+        {g.result && !open && <p className={cx('mt-1.5 line-clamp-1 text-[12px]', col === 'failed' ? 'text-bad/80' : waiting ? 'text-ink-2' : 'text-ink-3')}>{g.result}</p>}
       </button>
 
       {subgoals.length > 0 && (
@@ -337,9 +375,10 @@ function GoalCard({ goal: g, subgoals, agents, swarmHue }: { goal: Goal; subgoal
                 )}
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {(g.status === 'open' || g.status === 'claimed') && (
+                {(g.status === 'open' || g.status === 'claimed' || waiting || stalled) && (
                   <>
-                    <MiniAction icon="check" label="Done" color="#4ade80" onClick={() => patch(g.id, { status: 'done' })} />
+                    {stalled && <MiniAction icon="reset" label="Re-open" color="#a5b4fc" onClick={() => patch(g.id, { status: 'open' })} />}
+                    <MiniAction icon="check" label={waiting ? 'Accept · done' : 'Done'} color="#4ade80" onClick={() => patch(g.id, { status: 'done' })} />
                     <MiniAction icon="x" label="Failed" color="#fb7185" onClick={() => patch(g.id, { status: 'failed' })} />
                     <MiniAction icon="ban" label="Cancel" color="#8a89b3" onClick={() => patch(g.id, { status: 'cancelled' })} />
                   </>
@@ -391,6 +430,35 @@ function GoalCard({ goal: g, subgoals, agents, swarmHue }: { goal: Goal; subgoal
   )
 }
 
+/** The claim is a lease: a draining bar with the time left, amber near the end, red once lapsed. */
+function LeaseRow({ lease, attempts }: { lease: ReturnType<typeof leaseOf>; attempts: number }) {
+  const left = lease?.kind === 'running' ? lease.ms : 0
+  const frac = lease?.kind === 'running' ? Math.max(0.02, Math.min(1, lease.ms / lease.total)) : 0
+  const color = lease?.kind === 'lapsed' ? STALLED : lease?.kind === 'paused' ? WAITING : left < 10 * 60_000 ? '#fbbf24' : '#7dd3fc'
+  return (
+    <div className="mt-1.5 flex items-center gap-2 text-[10.5px]">
+      {lease && (
+        <>
+          <Icon name="clock" size={11} style={{ color }} />
+          <span className="font-mono tabular-nums" style={{ color }}>
+            {lease.kind === 'running' ? `lease ${leaseText(left)}` : lease.kind === 'lapsed' ? 'lease lapsed' : 'lease paused'}
+          </span>
+          {lease.kind === 'running' && (
+            <span className="h-[3px] w-14 overflow-hidden rounded-full bg-white/[0.08]" aria-hidden="true">
+              <m.span className="block h-full rounded-full" initial={false} animate={{ width: `${frac * 100}%` }} style={{ background: color }} />
+            </span>
+          )}
+        </>
+      )}
+      {attempts > 0 && (
+        <span className="ml-auto rounded px-1 font-semibold" style={{ color: attempts >= LEASE_LAPSES - 1 ? '#fbbf24' : 'var(--color-ink-3)', background: 'rgb(255 255 255 / 0.05)' }} title={`${attempts} earlier claim${attempts === 1 ? '' : 's'} lapsed; ${LEASE_LAPSES} stall the goal`}>
+          {attempts}/{LEASE_LAPSES} lapsed
+        </span>
+      )}
+    </div>
+  )
+}
+
 function MiniAction({ icon, label, color, onClick }: { icon: IconName; label: string; color: string; onClick: () => void }) {
   return (
     <button onClick={onClick} className="inline-flex min-h-8 items-center gap-1 rounded-lg border px-2 text-[12px] font-medium transition-colors hover:brightness-125" style={{ color, borderColor: `${color}40`, background: `${color}10` }}>
@@ -402,7 +470,9 @@ function MiniAction({ icon, label, color, onClick }: { icon: IconName; label: st
 
 const SUB_ICON: Record<GoalStatus, { icon: IconName; color: string }> = {
   open: { icon: 'target', color: '#8a89b3' },
-  claimed: { icon: 'bolt', color: '#fbbf24' },
+  claimed: { icon: 'bolt', color: '#7dd3fc' },
+  waiting: { icon: 'clock', color: WAITING },
+  stalled: { icon: 'alert', color: STALLED },
   done: { icon: 'check', color: '#4ade80' },
   failed: { icon: 'x', color: '#fb7185' },
   cancelled: { icon: 'ban', color: '#5d5c86' },

@@ -44,6 +44,7 @@ import {
   GOAL_FAILS,
   GOAL_IDEAS,
   GOAL_RESULTS,
+  GOAL_WAITS,
   hashStr,
   HUMAN_ONLY_ATTEMPTS,
   SEED_APPROVALS,
@@ -87,6 +88,7 @@ export function mulberry32(seed: number): () => number {
 const clone = <T,>(v: T): T => structuredClone(v)
 const iso = (ms: number) => new Date(ms).toISOString()
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n))
+const LEASE_MINUTES = 60
 const ID_CHARS = 'abcdefghijkmnpqrstuvwxyz23456789'
 
 /**
@@ -256,7 +258,7 @@ export class SimClient implements HiveClient {
         hue: Math.floor(this.r(0, 360)),
         status: this.rng() < 0.7 ? 'awake' : 'asleep',
         driver: 'local',
-        budget_usd: 0,
+        budget_usd: 5,
         spent_usd: 0,
         connected: true,
         last_active_at: null,
@@ -363,6 +365,10 @@ export class SimClient implements HiveClient {
     ])
 
     this.seedPhase2(now)
+
+    // Quench went quiet after hammering the gateway during the last incident
+    const quench = this.agents.get('a_qnch11')
+    if (quench) quench.last_error = '429 rate_limited: 61 LLM calls in the last minute (HIVE_MAX_LLM_CALLS_PER_MINUTE=60)'
   }
 
   // ------------------------------------------------------------------ Phase 2 seeding
@@ -406,6 +412,8 @@ export class SimClient implements HiveClient {
           result: sg.result ?? null,
           created_at: at,
           updated_at: iso(now - sg.hoursAgo * 3_600_000 * 0.6),
+          lease_until: sg.status === 'claimed' ? iso(now + (sg.leaseMin ?? this.r(14, 55)) * 60_000) : null,
+          attempts: sg.attempts ?? 0,
         }
         keys.set(sg.key, g.id)
         this.goals.set(g.id, g)
@@ -627,6 +635,7 @@ export class SimClient implements HiveClient {
     if (g.status !== 'open') return
     g.status = 'claimed'
     g.claimed_by = a.id
+    g.lease_until = iso(Date.now() + LEASE_MINUTES * 60_000)
     this.emitGoal(g)
     this.pushLog(a, 'INFO', `goals: claimed ${g.id} “${g.title}”`)
   }
@@ -670,6 +679,8 @@ export class SimClient implements HiveClient {
               result: null,
               created_at: this.now(),
               updated_at: this.now(),
+              lease_until: null,
+              attempts: 0,
             }
             this.goals.set(sub.id, sub)
             this.emitGoal(sub)
@@ -683,12 +694,17 @@ export class SimClient implements HiveClient {
           g.result = ok === kids.length ? `All ${kids.length} subgoals done.` : `${ok} of ${kids.length} subgoals done.`
           this.emitGoal(g)
         }
-      } else {
-        const fail = this.rng() < 0.12
-        g.status = fail ? 'failed' : 'done'
-        g.result = this.pick(fail ? GOAL_FAILS : GOAL_RESULTS)
+      } else if (this.rng() < 0.25) {
+        // heartbeat: the claimer renews its lease
+        g.lease_until = iso(Date.now() + LEASE_MINUTES * 60_000)
         this.emitGoal(g)
-        this.pushLog(a, fail ? 'WARN' : 'INFO', `goals: ${g.status} ${g.id}`)
+      } else {
+        const k2 = this.rng()
+        g.status = k2 < 0.1 ? 'failed' : k2 < 0.25 ? 'waiting' : 'done'
+        g.result = g.status === 'waiting' ? this.pick(GOAL_WAITS) : this.pick(g.status === 'failed' ? GOAL_FAILS : GOAL_RESULTS)
+        g.lease_until = null
+        this.emitGoal(g)
+        this.pushLog(a, g.status === 'failed' ? 'WARN' : 'INFO', `goals: ${g.status} ${g.id}`)
       }
     } else if (gs.filter((g) => g.status === 'open' || g.status === 'claimed').length < 8) {
       const ideas = (GOAL_IDEAS[s.id] ?? []).filter((t) => !gs.some((g) => g.title === t))
@@ -707,8 +723,25 @@ export class SimClient implements HiveClient {
         result: null,
         created_at: this.now(),
         updated_at: this.now(),
+        lease_until: null,
+        attempts: 0,
       }
       this.goals.set(g.id, g)
+      this.emitGoal(g)
+    }
+  }
+
+  /** A lapsed lease reopens the goal; the third lapse stalls it until a person acts. */
+  private checkLeases() {
+    const now = Date.now()
+    for (const g of this.goals.values()) {
+      if (g.status !== 'claimed' || !g.lease_until || Date.parse(g.lease_until) > now) continue
+      const who = g.claimed_by ? this.agents.get(g.claimed_by) : undefined
+      g.attempts = (g.attempts ?? 0) + 1
+      g.status = g.attempts >= 3 ? 'stalled' : 'open'
+      g.claimed_by = null
+      g.lease_until = null
+      if (who) this.pushLog(who, 'WARN', `goals: lease on ${g.id} lapsed (${g.attempts}/3)${g.status === 'stalled' ? '; stalled' : ''}`)
       this.emitGoal(g)
     }
   }
@@ -948,6 +981,7 @@ export class SimClient implements HiveClient {
   // ------------------------------------------------------------------ agent behaviour
 
   private setStatus(a: Agent, status: Agent['status']) {
+    if (status === 'starting' || status === 'awake') a.last_error = null
     a.status = status
     a.connected = status === 'awake' || status === 'asleep' || status === 'starting'
     a.last_active_at = this.now()
@@ -976,14 +1010,23 @@ export class SimClient implements HiveClient {
     this.emit({ type: 'usage', at: u.created_at, usage: u })
     this.emit({ type: 'agent.updated', at: u.created_at, agent: clone(a) })
     if (a.budget_usd > 0 && a.spent_usd >= a.budget_usd) {
-      this.pushLog(a, 'ERROR', 'llm: 402 budget exhausted; going to sleep')
+      a.last_error = `402 budget_exhausted: spent $${a.spent_usd.toFixed(2)} of the $${a.budget_usd} cap`
+      this.pushLog(a, 'ERROR', 'llm: 402 budget_exhausted; going to sleep')
       this.setStatus(a, 'asleep')
     }
     return u
   }
 
+  /** The gateway's pre-call spend check (API.md): why this dot may not call its model, if it may not. */
+  private spendRefusal(a: Agent): { code: 'no_budget' | 'budget_exhausted'; message: string } | null {
+    const m = this.model(a.model)
+    if (a.budget_usd <= 0 && m.inPerM + m.outPerM > 0) return { code: 'no_budget', message: `${a.name} runs a paid model (${a.model}) with budget_usd 0` }
+    if (a.budget_usd > 0 && a.spent_usd >= a.budget_usd) return { code: 'budget_exhausted', message: `${a.name} has spent its budget` }
+    return null
+  }
+
   private canSpend(a: Agent) {
-    return !(a.budget_usd > 0 && a.spent_usd >= a.budget_usd)
+    return !this.spendRefusal(a)
   }
 
   /**
@@ -1153,7 +1196,8 @@ export class SimClient implements HiveClient {
       // a glitch: error, then recovery
       if (!awake.length) return
       const a = this.pick(awake)
-      this.pushLog(a, 'ERROR', `llm: upstream 529 overloaded (${a.model})`)
+      a.last_error = this.rng() < 0.45 ? '429 rate_limited: 61 LLM calls in the last minute (HIVE_MAX_LLM_CALLS_PER_MINUTE=60)' : `llm: upstream 529 overloaded (${a.model})`
+      this.pushLog(a, 'ERROR', a.last_error)
       this.setStatus(a, 'error')
       this.later(this.r(6000, 12000), () => {
         if (a.status !== 'error') return
@@ -1176,6 +1220,7 @@ export class SimClient implements HiveClient {
     if (!this.running) return
     this.later(this.r(350, 1300), () => {
       this.checkWakeups()
+      this.checkLeases()
       this.expireApprovals()
       this.tick()
       this.loop()
@@ -1367,8 +1412,10 @@ export class SimClient implements HiveClient {
       switch (action) {
         case 'start':
         case 'wake':
-          if (action === 'wake' && !this.canSpend(a))
-            throw new ApiError(402, 'budget_exhausted', `${a.name} has spent its budget`)
+          {
+            const refusal = this.spendRefusal(a)
+            if (action === 'wake' && refusal) throw new ApiError(402, refusal.code, refusal.message)
+          }
           if (a.status === 'awake') break
           this.pushLog(a, 'INFO', `supervisor: ${action}`)
           this.setStatus(a, 'starting')
@@ -1520,6 +1567,8 @@ export class SimClient implements HiveClient {
         result: null,
         created_at: this.now(),
         updated_at: this.now(),
+        lease_until: null,
+        attempts: 0,
       }
       this.goals.set(g.id, g)
       this.emit({ type: 'goal.updated', at: g.created_at, goal: clone(g) })
@@ -1542,11 +1591,14 @@ export class SimClient implements HiveClient {
       if (body.detail !== undefined) g.detail = body.detail
       if (body.priority !== undefined) g.priority = clamp01(body.priority)
       if (body.status !== undefined) {
+        if (body.status === 'done' && !g.result) g.result = 'Marked done by the operator.'
+        if (body.status === 'open' && g.status === 'stalled') g.attempts = 0
         g.status = body.status
         if (body.status === 'open') {
           g.claimed_by = null
           g.result = null
-        }
+          g.lease_until = null
+        } else if (body.status !== 'claimed') g.lease_until = null
       }
       this.emitGoal(g)
       return clone(g)

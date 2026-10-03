@@ -111,6 +111,10 @@ export interface SeedGoal {
   claimed?: string
   result?: string
   hoursAgo: number
+  /** Claims that lapsed before. */
+  attempts?: number
+  /** Minutes left on a claimed goal's lease. */
+  leaseMin?: number
 }
 
 export const SEED_GOALS: Record<string, SeedGoal[]> = {
@@ -122,12 +126,13 @@ export const SEED_GOALS: Record<string, SeedGoal[]> = {
     { key: 'kic', title: 'Decide whether the KIC 8462 dimming is periodic', detail: 'Two stamps overlap with Altair. Find independent evidence first.', priority: 0.64, status: 'open', by: 'user:operator', hoursAgo: 30 },
     { key: 'flare', title: 'Propose a rule for flare stars', priority: 0.35, status: 'open', by: 'agent:a_deneb2', hoursAgo: 6 },
     { key: 'eps', title: 'Measure ε Lyrae double-double separation', priority: 0.42, status: 'done', by: 'user:operator', claimed: 'a_altr03', result: '2.3″ and 2.6″, matches the archive', hoursAgo: 52 },
+    { key: 'sheliak', title: 'Book telescope time for the Sheliak eclipse', detail: 'Needs an observatory login that no dot has.', priority: 0.58, status: 'stalled', by: 'user:operator', attempts: 3, hoursAgo: 10 },
     { key: 'm57', title: 'Cross-check the M57 ring against the Hubble archive', priority: 0.5, status: 'failed', by: 'agent:a_deneb2', claimed: 'a_deneb2', result: 'Archive endpoint returned 503 for two hours. Retry later.', hoursAgo: 40 },
   ],
   s_kelp: [
     { key: 'urch', title: 'Survey north reef urchin density', detail: 'Three transects, counts per m², publish to the commons.', priority: 0.9, status: 'claimed', by: 'user:operator', claimed: 'a_nori06', hoursAgo: 26 },
     { key: 'urch1', parent: 'urch', title: 'Transect A', priority: 0.7, status: 'done', by: 'agent:a_nori06', claimed: 'a_nori06', result: '38 urchins / 10 m²', hoursAgo: 24 },
-    { key: 'urch2', parent: 'urch', title: 'Transect B', priority: 0.7, status: 'claimed', by: 'agent:a_nori06', claimed: 'a_coral5', hoursAgo: 24 },
+    { key: 'urch2', parent: 'urch', title: 'Transect B', priority: 0.7, status: 'claimed', by: 'agent:a_nori06', claimed: 'a_coral5', hoursAgo: 24, attempts: 1, leaseMin: 2.5 },
     { key: 'urch3', parent: 'urch', title: 'Transect C', priority: 0.7, status: 'open', by: 'agent:a_nori06', hoursAgo: 24 },
     { key: 'otter', title: 'Model the otter effect on canopy recovery', priority: 0.6, status: 'open', by: 'user:operator', hoursAgo: 12 },
     { key: 'buoy', title: 'Ingest the buoy-7 telemetry backlog', priority: 0.48, status: 'failed', by: 'user:operator', claimed: 'a_wrak08', result: 'Wrack is stopped; backlog untouched.', hoursAgo: 60 },
@@ -138,6 +143,7 @@ export const SEED_GOALS: Record<string, SeedGoal[]> = {
     { key: 'ship1', parent: 'ship', title: 'Run build-main', priority: 0.8, status: 'done', by: 'agent:a_anvl09', claimed: 'a_bell10', result: 'green in 4m12s', hoursAgo: 3.5 },
     { key: 'ship2', parent: 'ship', title: 'Restart the gateway with the new config', priority: 0.8, status: 'claimed', by: 'agent:a_anvl09', claimed: 'a_anvl09', hoursAgo: 3.5 },
     { key: 'ship3', parent: 'ship', title: 'Verify p95 latency after the deploy', priority: 0.7, status: 'open', by: 'agent:a_anvl09', hoursAgo: 3.5 },
+    { key: 'pager', title: 'Rotate the on-call pager key', priority: 0.66, status: 'waiting', by: 'user:operator', claimed: 'a_anvl09', result: 'New key generated and staged. Needs your sign-off in the vault before I swap it.', hoursAgo: 5 },
     { key: 'disk', title: 'Investigate disk-node-3 alerts', priority: 0.72, status: 'open', by: 'agent:a_qnch11', hoursAgo: 9 },
     { key: 'budget', title: 'Weekly budget report', priority: 0.5, status: 'done', by: 'user:operator', claimed: 'a_bell10', result: '$32.40 this week, on track', hoursAgo: 50 },
     { key: 'ttl', title: 'Trim cache TTLs', priority: 0.3, status: 'cancelled', by: 'agent:a_anvl09', hoursAgo: 80 },
@@ -157,6 +163,7 @@ export const SUBGOAL_SPLITS = [
 ]
 
 export const GOAL_RESULTS = ['Done. Published to the commons.', 'Finished; notes pinned in &notes.', 'Complete. Confidence raised to 0.7.', 'Done, with one caveat in the episode log.']
+export const GOAL_WAITS = ['Delivered a draft; needs your OK before it ships.', 'Done on my side. Waiting on you to confirm the numbers.', 'Report sent to the operator; waiting for a reply.']
 export const GOAL_FAILS = ['Blocked: the archive is down.', 'Gave up: budget too low for this.', 'Evidence conflicts; needs a human call.']
 
 export const SEED_WAKEUPS: { agent: string; cron?: string; atHours?: number; tz: string; text: string; enabled: boolean; lastHours?: number }[] = [

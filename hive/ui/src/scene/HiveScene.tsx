@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ago, modelLabel, money } from '../lib/format'
 import { useFinePointer, useNow, useReducedMotion } from '../lib/hooks'
 import { navigate, useRoute } from '../lib/router'
+import { describeLlmError } from '../lib/llmErrors'
 import { askingByAgent } from '../store/reducer'
 import { hiveBus, useHive } from '../store/store'
 import { Icon } from '../ui/Icon'
@@ -83,7 +84,7 @@ export function HiveScene() {
     const push = () => {
       const s = useHive.getState()
       const claims: Record<string, string | null> = {}
-      for (const g of Object.values(s.goals)) claims[g.id] = g.status === 'claimed' ? g.claimed_by : null
+      for (const g of Object.values(s.goals)) claims[g.id] = g.status === 'claimed' || g.status === 'waiting' ? g.claimed_by : null
       engine.setData({
         agents: Object.values(s.agents),
         swarms: Object.values(s.swarms),
@@ -202,6 +203,12 @@ function DotCard({ id, touch }: { id: string; touch: boolean }) {
           <dd className="text-ink-2">{ago(agent.last_active_at, now)}</dd>
         </div>
       </dl>
+      {agent.last_error && (
+        <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-bad/10 px-2 py-1 text-[11px] text-bad">
+          <Icon name="alert" size={12} className="shrink-0" />
+          <span className="truncate">{describeLlmError(agent.last_error)?.title}</span>
+        </div>
+      )}
       {touch && (
         <button
           onClick={() => navigate({ name: 'dot', id })}

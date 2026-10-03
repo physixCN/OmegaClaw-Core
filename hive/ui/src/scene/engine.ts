@@ -676,7 +676,7 @@ export class HiveEngine {
       case 'goal.updated': {
         const g = e.goal
         const prev = this.claimSeen.get(g.id) ?? null
-        const now = g.status === 'claimed' ? g.claimed_by : null
+        const now = g.status === 'claimed' || g.status === 'waiting' ? g.claimed_by : null
         this.claimSeen.set(g.id, now)
         if (now && now !== prev) {
           // the task leaves the commons and lands on its claimant

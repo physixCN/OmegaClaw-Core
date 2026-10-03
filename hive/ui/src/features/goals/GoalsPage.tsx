@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { hsl } from '../../lib/color'
 import { cx } from '../../lib/cx'
 import { navigate } from '../../lib/router'
+import { isActive } from '../../lib/goals'
 import { useHive } from '../../store/store'
 import { Page } from '../../ui/Page'
 import { EmptyState } from '../../ui/primitives'
@@ -16,7 +17,7 @@ export default function GoalsPage({ swarm }: { swarm?: string }) {
   const active = (swarm && swarms[swarm] ? swarm : list[0]?.id) ?? null
   const counts = useMemo(() => {
     const out: Record<string, number> = {}
-    for (const g of Object.values(goals)) if (g.status === 'open' || g.status === 'claimed') out[g.swarm_id] = (out[g.swarm_id] ?? 0) + 1
+    for (const g of Object.values(goals)) if (isActive(g)) out[g.swarm_id] = (out[g.swarm_id] ?? 0) + 1
     return out
   }, [goals])
 

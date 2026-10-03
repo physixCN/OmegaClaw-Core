@@ -158,6 +158,7 @@ function capApprovals(rec: Record<string, Approval>): Record<string, Approval> {
 
 const GOAL_TEXT: Partial<Record<Goal['status'], string>> = {
   claimed: 'claimed',
+  waiting: 'delivered, waiting on you for',
   done: 'finished',
   failed: 'gave up on',
 }
@@ -344,12 +345,12 @@ export const countPending = (approvals: Record<string, Approval>): number => {
   return n
 }
 
-/** Claimed goals per agent (for the task glyphs orbiting dots in the scene). */
+/** Goals a dot holds (claimed or waiting) per agent, for the task glyphs orbiting dots in the scene. */
 export function claimedByAgent(goals: Record<string, Goal>): Record<string, number> {
   const out: Record<string, number> = {}
   for (const id in goals) {
     const g = goals[id]
-    if (g.status === 'claimed' && g.claimed_by) out[g.claimed_by] = (out[g.claimed_by] ?? 0) + 1
+    if ((g.status === 'claimed' || g.status === 'waiting') && g.claimed_by) out[g.claimed_by] = (out[g.claimed_by] ?? 0) + 1
   }
   return out
 }

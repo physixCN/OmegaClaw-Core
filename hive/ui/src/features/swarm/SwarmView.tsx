@@ -6,6 +6,7 @@ import { ago, money } from '../../lib/format'
 import { useIsDesktop, useNow } from '../../lib/hooks'
 import { navigate } from '../../lib/router'
 import { useScene } from '../../scene/sceneStore'
+import { isActive } from '../../lib/goals'
 import { useHive } from '../../store/store'
 import { Icon } from '../../ui/Icon'
 import { MeTTa } from '../../ui/MeTTa'
@@ -43,7 +44,7 @@ export default function SwarmView({ id, statement }: { id: string; statement?: s
   const members = useMemo(() => (swarm?.member_ids ?? []).map((m) => agents[m]).filter(Boolean) as Agent[], [swarm, agents])
   const openGoals = useHive((s) => {
     let n = 0
-    for (const g of Object.values(s.goals)) if (g.swarm_id === id && (g.status === 'open' || g.status === 'claimed')) n++
+    for (const g of Object.values(s.goals)) if (g.swarm_id === id && isActive(g)) n++
     return n
   })
 

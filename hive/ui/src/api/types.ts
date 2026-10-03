@@ -132,6 +132,9 @@ export type PatchAgentBody = Partial<
 
 export type AgentAction = 'start' | 'stop' | 'sleep' | 'wake'
 
+/** Gateway refusals before an LLM call (API.md "LLM spend is checked before the call"). */
+export type LlmErrorCode = 'no_budget' | 'unpriced_model' | 'budget_exhausted' | 'hive_budget_exhausted' | 'rate_limited'
+
 export interface ApiErrorBody {
   error: { code: string; message: string }
 }
@@ -170,7 +173,11 @@ export interface Approval {
   decided_at: string | null
 }
 
-export type GoalStatus = 'open' | 'claimed' | 'done' | 'failed' | 'cancelled'
+/**
+ * `waiting`: delivered, waiting on a person (the lease is paused).
+ * `stalled`: the lease lapsed 3 times; a person has to act (PATCH status "open").
+ */
+export type GoalStatus = 'open' | 'claimed' | 'waiting' | 'stalled' | 'done' | 'failed' | 'cancelled'
 
 export interface Goal {
   id: string
@@ -187,6 +194,10 @@ export interface Goal {
   result: string | null
   created_at: string
   updated_at: string
+  /** A claim is a lease (HIVE_GOAL_LEASE_MINUTES, default 60). Null when not held or paused. */
+  lease_until?: string | null
+  /** Claims that lapsed so far; 3 lapses stall the goal. */
+  attempts?: number
 }
 
 export type GateDecision = 'allow' | 'ask' | 'deny'

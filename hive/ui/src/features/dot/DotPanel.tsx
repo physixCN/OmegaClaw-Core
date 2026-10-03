@@ -11,6 +11,7 @@ import { Icon, type IconName } from '../../ui/Icon'
 import { Button, EmptyState, IconButton, Meter, Orb, Segmented, StatusPill } from '../../ui/primitives'
 import { cx } from '../../lib/cx'
 import { Sheet } from '../../ui/Sheet'
+import { describeLlmError } from '../../lib/llmErrors'
 import { Chat } from './Chat'
 import { MemoryInspector } from './MemoryInspector'
 import { MindTimeline } from './MindTimeline'
@@ -146,6 +147,7 @@ function PanelHeader({ agent, onClose, tab, setTab }: { agent: Agent; onClose: (
         <Controls agent={agent} />
         <Budget agent={agent} />
       </div>
+      <AnimatePresence initial={false}>{agent.last_error && <LastError key="err" agent={agent} onFix={() => setTab('model')} />}</AnimatePresence>
       <Segmented<Tab>
         dense
         label="Panel section"
@@ -199,6 +201,41 @@ function Controls({ agent }: { agent: Agent }) {
         </Button>
       ))}
     </div>
+  )
+}
+
+/** Why the dot is unwell: gateway refusals (402 / 429) get a plain-language title and a fix. */
+function LastError({ agent, onFix }: { agent: Agent; onFix: () => void }) {
+  const info = describeLlmError(agent.last_error)
+  if (!info) return null
+  const budgetish = info.code === 'no_budget' || info.code === 'budget_exhausted' || info.code === 'unpriced_model'
+  const tone = info.code === 'rate_limited' ? '#fbbf24' : '#fb7185'
+  return (
+    <m.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+      <div role="status" className="mt-2 flex items-start gap-2.5 rounded-xl border px-3 py-2" style={{ borderColor: `${tone}40`, background: `${tone}0f` }}>
+        <Icon name={info.code === 'rate_limited' ? 'clock' : 'alert'} size={16} className="mt-0.5 shrink-0" style={{ color: tone }} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span className="text-[13px] font-semibold" style={{ color: tone }}>
+              {info.title}
+            </span>
+            {info.status && (
+              <code className="font-mono text-[10.5px] text-ink-4">
+                {info.status} {info.code}
+              </code>
+            )}
+          </div>
+          <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-ink-3" title={agent.last_error ?? undefined}>
+            {info.hint}
+          </p>
+        </div>
+        {budgetish && (
+          <button onClick={onFix} className="shrink-0 self-center rounded-lg px-2 py-1.5 text-[12px] font-semibold text-ink hover:bg-white/[0.07]">
+            {info.code === 'unpriced_model' ? 'Change model' : 'Fix budget'}
+          </button>
+        )}
+      </div>
+    </m.div>
   )
 }
 
@@ -366,7 +403,9 @@ function ModelSettings({ agent }: { agent: Agent }) {
             Save
           </Button>
         </div>
-        <p className="mt-1.5 text-[12px] text-ink-4">0 means unlimited. The gateway returns 402 once the cap is spent.</p>
+        <p className="mt-1.5 text-[12px] text-ink-4">
+          0 means unlimited for local models; a paid model with a $0 cap is refused (402 no_budget). The gateway checks each call’s worst-case cost against the cap before it runs.
+        </p>
       </section>
 
       <section className="rounded-xl border border-bad/20 bg-bad/[0.04] p-3">
