@@ -1,7 +1,7 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { LabSeries } from '../../api/types'
 import { cx } from '../../lib/cx'
-import { fmtValue, GRID, INK3, INK4, isReference, niceDomain, seriesTitle, SLOTS, valueAt } from './labUtil'
+import { categoricalX, fmtValue, GRID, INK3, INK4, isReference, niceDomain, seriesTitle, SLOTS, valueAt } from './labUtil'
 
 export function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] {
   const ref = useRef<T>(null)
@@ -62,7 +62,7 @@ export function SeriesChart({
   series,
   height = 180,
   cursor,
-  xLabels,
+  xLabels: xLabelsIn,
   yLabels,
   yDomain,
   label,
@@ -89,7 +89,9 @@ export function SeriesChart({
   }, [series])
   const bars = colored.every((s) => s.kind === 'bar')
   const unit = colored[0]?.unit ?? ''
-  const xTitle = colored[0]?.x ?? ''
+  const catX = !xLabelsIn && colored.length === 1 ? categoricalX(colored[0]) : null
+  const xLabels = xLabelsIn ?? catX ?? undefined
+  const xTitle = catX ? '' : (colored[0]?.x ?? '')
 
   const geo = useMemo(() => {
     const xs: number[] = []

@@ -14,7 +14,7 @@ export type Route =
   | { name: 'usage' }
   | { name: 'approvals'; tab?: ApprovalsTab; focus?: string }
   | { name: 'goals'; swarm?: string }
-  | { name: 'lab'; suite?: string; run?: string; tab?: LabTab }
+  | { name: 'lab'; suite?: string; run?: string; tab?: LabTab; dimension?: string }
 
 export type LabTab = 'run' | 'history'
 
@@ -38,6 +38,7 @@ export function parse(hash: string): Route {
       return { name: 'goals', swarm: parts[1] }
     case 'lab':
       if (parts[1] === 'run' && parts[2]) return { name: 'lab', run: parts[2] }
+      if (parts[1] === 'dim' && parts[2]) return { name: 'lab', dimension: parts[2] }
       return parts[1] ? { name: 'lab', suite: parts[1], tab: parts[2] === 'history' ? 'history' : undefined } : { name: 'lab' }
     default:
       return { name: 'hive' }
@@ -64,6 +65,7 @@ export function href(r: Route): string {
       return `#/goals${r.swarm ? `/${encodeURIComponent(r.swarm)}` : ''}`
     case 'lab':
       if (r.run) return `#/lab/run/${encodeURIComponent(r.run)}`
+      if (r.dimension) return `#/lab/dim/${encodeURIComponent(r.dimension)}`
       return `#/lab${r.suite ? `/${encodeURIComponent(r.suite)}${r.tab === 'history' ? '/history' : ''}` : ''}`
   }
 }

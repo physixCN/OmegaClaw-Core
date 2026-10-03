@@ -21,6 +21,7 @@ const CommandPalette = lazy(() => import('./features/palette/CommandPalette'))
 const ApprovalsView = lazy(() => import('./features/approvals/ApprovalsView'))
 const GoalsPage = lazy(() => import('./features/goals/GoalsPage'))
 const StopAll = lazy(() => import('./features/hive/StopAll'))
+const LabView = lazy(() => import('./features/lab/LabView'))
 
 /**
  * Each lazy view gets its own Suspense boundary: a shared one would re-suspend (and hide)
@@ -44,6 +45,7 @@ function prefetch() {
     void import('./features/create/TokenReveal')
     void import('./features/approvals/ApprovalsView')
     void import('./features/goals/GoalsPage')
+    void import('./features/lab/LabView')
   }
   if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 4000 })
   else setTimeout(go, 2500)
@@ -63,7 +65,7 @@ export function App() {
   useShortcuts()
   useApprovalToasts()
 
-  const page = route.name === 'swarms' || route.name === 'swarm' || route.name === 'usage' || route.name === 'approvals' || route.name === 'goals'
+  const page = route.name === 'swarms' || route.name === 'swarm' || route.name === 'usage' || route.name === 'approvals' || route.name === 'goals' || route.name === 'lab'
   useEffect(() => setDimmed(page), [page, setDimmed])
   // keep the camera centred in the space the HUD leaves free
   const desktop = useIsDesktop()
@@ -129,6 +131,11 @@ export function App() {
               {route.name === 'approvals' && (
                 <Lazy key="approvals">
                   <ApprovalsView />
+                </Lazy>
+              )}
+              {route.name === 'lab' && (
+                <Lazy key="lab">
+                  <LabView />
                 </Lazy>
               )}
               {route.name === 'goals' && (

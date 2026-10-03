@@ -33,6 +33,7 @@ import type {
   LabHistory,
   LabRun,
   LabRunSummary,
+  LabScorecardEntry,
   LabSuite,
   Message,
   ModelOption,
@@ -220,6 +221,7 @@ export class LiveClient implements HiveClient {
   startLabRun = (suite: string) => this.request<LabRun>('POST', '/api/lab/runs', { suite })
   getLabRun = (id: string) => this.request<LabRun>('GET', `/api/lab/runs/${enc(id)}`)
   cancelLabRun = (id: string) => this.request<{ cancelling: true }>('POST', `/api/lab/runs/${enc(id)}/cancel`, {})
+  getLabScorecard = () => this.request<LabScorecardEntry[]>('GET', '/api/lab/scorecard')
   getLabHistory = (suite: string, limit = 30) =>
     this.request<LabHistory>('GET', `/api/lab/history/${enc(suite)}?limit=${limit}`)
 

@@ -10,6 +10,7 @@ import type {
   LabRun,
   LabRunStatus,
   LabRunSummary,
+  LabScorecardEntry,
   LabSeries,
   LabSuite,
 } from '../types'
@@ -28,6 +29,7 @@ export interface RecordedCase {
   id: string
   name: string
   group?: string
+  dimension?: string
   status: LabCaseStatus
   duration_ms?: number | null
   message?: string | null
@@ -56,6 +58,8 @@ export const SIM_SUITES: { id: string; kind: LabKind; title: string; description
   { id: 'tests-ui', kind: 'tests', title: 'Web UI tests', description: 'Store, simulator and helpers of the web UI (vitest).', estimate_s: 10, needs: [] },
   { id: 'bench-core', kind: 'bench', title: 'Hive performance', description: 'Throughput and latency of the commons, gate, hub and gateway; revision accuracy; claim races.', estimate_s: 40, needs: [] },
   { id: 'bench-drift', kind: 'bench', title: 'Drift scenarios', description: 'Failure modes from DRIFT.md provoked on purpose: echo storms, retry storms, spend runaway, abandoned goals, subgoal explosions.', estimate_s: 20, needs: [] },
+  { id: 'bench-bias', kind: 'bench', title: 'Bias and invariance', description: 'The same evidence must get the same treatment whatever the claim is about, whoever reports it and in whatever order; the policy gate must treat every dot alike.', estimate_s: 25, needs: [] },
+  { id: 'bench-ops', kind: 'bench', title: 'Operations: resources, power, cost, reliability', description: 'A live three-Omega swarm: memory, CPU and disk idle and under load; energy per reply; projected cost per model; efficiency; task accuracy; crash, outage and restart recovery.', estimate_s: 200, needs: ['petta', 'chromadb'] },
   { id: 'bench-epistemic', kind: 'bench', title: 'Epistemic Resolve', description: "Crawford & Hammer's disciplined-update benchmark (AGI-26) run through the swarm commons, next to the paper's calibration mocks.", estimate_s: 10, needs: ['epistemic-resolve'] },
   { id: 'bench-swarm', kind: 'bench', title: 'Live Omega swarm', description: 'Three real Omegas on the offline model: boot time, reply latency, belief propagation, loop health.', estimate_s: 150, needs: ['petta', 'chromadb'] },
 ]
@@ -82,12 +86,16 @@ const iso = (ms: number) => new Date(ms).toISOString()
 const DAY = 86_400_000
 const clone = <T,>(v: T): T => structuredClone(v)
 
-export function normaliseCase(c: RecordedCase, runId: string): LabCase {
+export const DIMENSIONS = ['correctness', 'accuracy', 'latency', 'efficiency', 'resources', 'power', 'cost', 'reliability', 'bias', 'drift']
+
+export function normaliseCase(c: RecordedCase, runId: string, suite = ''): LabCase {
   return {
     run_id: runId,
     id: String(c.id),
     name: String(c.name ?? c.id),
     group: String(c.group ?? ''),
+    // recordings from before dimensions existed
+    dimension: c.dimension || (suite.startsWith('tests') ? 'correctness' : 'drift'),
     status: c.status ?? 'error',
     duration_ms: c.duration_ms ?? null,
     message: c.message ?? null,
@@ -174,7 +182,7 @@ export class SimLab {
       const started = r.started * 1000
       const finished = r.finished * 1000
       const id = `run_rec_${r.suite}`
-      const cases = r.cases.map((c) => normaliseCase(c, id))
+      const cases = r.cases.map((c) => normaliseCase(c, id, r.suite))
       this.runs.set(id, {
         id,
         suite: r.suite,
@@ -199,7 +207,7 @@ export class SimLab {
     const at = started - k * DAY - Math.round(rng() * 5 * 3_600_000)
     const scale = 1 + (rng() - 0.5) * 0.24
     const cases = r.cases.map((raw) => {
-      const c = normaliseCase(raw, id)
+      const c = normaliseCase(raw, id, r.suite)
       c.duration_ms = c.duration_ms == null ? null : Math.round(c.duration_ms * scale * (0.9 + rng() * 0.2) * 10) / 10
       c.metrics = c.metrics.map((m) => {
         if (m.better === 'equal' || !Number.isFinite(m.value)) return m
@@ -290,6 +298,39 @@ export class SimLab {
     })
   }
 
+  /** lab.py scorecard(): per dimension, from the latest finished (not cancelled) run of every suite. */
+  scorecard(): Promise<LabScorecardEntry[]> {
+    return this.wait(() => {
+      const dims = new Map<string, LabScorecardEntry & { _suites: Set<string> }>()
+      for (const suite of SIM_SUITES) {
+        let run: LabRun | undefined
+        for (const r of this.runs.values()) {
+          if (r.suite === suite.id && r.status !== 'running' && r.status !== 'cancelled' && (!run || r.started_at > run.started_at)) run = r
+        }
+        if (!run) continue
+        for (const c of run.cases) {
+          let e = dims.get(c.dimension)
+          if (!e) {
+            e = { dimension: c.dimension, passed: 0, failed: 0, skipped: 0, errors: 0, score: null, suites: [], highlights: [], _suites: new Set() }
+            dims.set(c.dimension, e)
+          }
+          if (c.status === 'passed') e.passed++
+          else if (c.status === 'failed') e.failed++
+          else if (c.status === 'skipped') e.skipped++
+          else e.errors++
+          e._suites.add(suite.id)
+          for (const m of c.metrics) if (m.target != null && e.highlights.length < 6) e.highlights.push({ case: c.name, suite: suite.id, ...m })
+        }
+      }
+      const out = [...dims.values()].map(({ _suites, ...e }) => {
+        const judged = e.passed + e.failed + e.errors
+        return { ...e, score: judged ? Math.round((e.passed / judged) * 1e4) / 1e4 : null, suites: [..._suites].sort() }
+      })
+      const rank = (d: string) => (DIMENSIONS.includes(d) ? DIMENSIONS.indexOf(d) : 99)
+      return out.sort((a, b) => rank(a.dimension) - rank(b.dimension))
+    })
+  }
+
   start(suiteId: string): Promise<LabRun> {
     return this.wait(() => {
       const suite = SIM_SUITES.find((s) => s.id === suiteId)
@@ -370,7 +411,7 @@ export class SimLab {
       }
       timers.push(
         setTimeout(() => {
-          const c = normaliseCase(raw, run.id)
+          const c = normaliseCase(raw, run.id, run.suite)
           run.cases.push(c)
           Object.assign(run, count(run.cases))
           this.opts.emit({ type: 'lab.case', at: iso(Date.now()), case: clone(c) })

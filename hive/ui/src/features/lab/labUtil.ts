@@ -210,3 +210,37 @@ export function niceDomain(lo: number, hi: number, count = 4): { lo: number; hi:
   for (let t = a; t <= b + step * 1e-6; t += step) ticks.push(Math.round(t / step) * step)
   return { lo: a, hi: b, ticks }
 }
+
+// ---- dimensions (lab.py scorecard order) ----
+
+export const DIM_ORDER = ['correctness', 'accuracy', 'latency', 'efficiency', 'resources', 'power', 'cost', 'reliability', 'bias', 'drift']
+
+export const DIM: Record<string, { label: string; icon: IconName; blurb: string; sources: string[] }> = {
+  correctness: { label: 'Correctness', icon: 'check', blurb: 'Unit, integration and end-to-end tests', sources: ['tests-hive', 'tests-runtime', 'tests-memory', 'tests-e2e', 'tests-ui'] },
+  accuracy: { label: 'Accuracy', icon: 'target', blurb: 'Revision maths, Epistemic Resolve, task answers', sources: ['bench-core', 'bench-epistemic', 'bench-ops'] },
+  latency: { label: 'Latency', icon: 'clock', blurb: 'Commons, gate, hub, gateway and reply times', sources: ['bench-core', 'bench-swarm', 'bench-ops'] },
+  efficiency: { label: 'Efficiency', icon: 'gauge', blurb: 'Model calls, tokens and CPU per reply', sources: ['bench-swarm', 'bench-ops'] },
+  resources: { label: 'Resources', icon: 'cpu', blurb: 'Memory, CPU, threads and files, idle and under load', sources: ['bench-ops'] },
+  power: { label: 'Power', icon: 'bolt', blurb: 'Energy per reply and idle draw', sources: ['bench-ops'] },
+  cost: { label: 'Cost', icon: 'coin', blurb: 'Budgets, spend ceilings and projected cost per reply', sources: ['bench-drift', 'bench-ops'] },
+  reliability: { label: 'Reliability', icon: 'reset', blurb: 'Claim races, crashes, outages and restarts', sources: ['bench-core', 'bench-swarm', 'bench-ops'] },
+  bias: { label: 'Bias', icon: 'scale', blurb: 'Same evidence, same treatment: subject, source, order, gate', sources: ['bench-bias'] },
+  drift: { label: 'Drift', icon: 'wave', blurb: 'Echo storms, self-repetition, runaway goals', sources: ['bench-drift'] },
+}
+export const dimMeta = (d: string) => DIM[d] ?? { label: d.charAt(0).toUpperCase() + d.slice(1), icon: 'sparkles' as IconName, blurb: '', sources: [] }
+
+/** Measured values that are not direct readings say so. */
+export function provenanceChips(c: Pick<LabCase, 'name' | 'notes'>): string[] {
+  const out: string[] = []
+  if (/\bEstimated\b/.test(c.notes ?? '')) out.push('estimated')
+  if (/projected/i.test(c.name)) out.push('projected')
+  return out
+}
+
+/** "a / b / c" (or "allow/pending/deny") as names for x = 0, 1, 2. */
+export function categoricalX(s: Pick<LabSeries, 'x' | 'points'>): Record<number, string> | null {
+  if (!s.x.includes('/')) return null
+  const parts = s.x.split('/').map((p) => p.trim())
+  if (parts.length !== s.points.length || !s.points.every(([x], i) => x === i)) return null
+  return Object.fromEntries(parts.map((p, i) => [i, p]))
+}

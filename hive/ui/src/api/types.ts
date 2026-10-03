@@ -283,6 +283,18 @@ export type LabKind = 'tests' | 'bench'
 export type LabRunStatus = 'running' | 'passed' | 'failed' | 'error' | 'cancelled' | 'skipped'
 export type LabCaseStatus = 'passed' | 'failed' | 'skipped' | 'error'
 export type Better = 'lower' | 'higher' | 'equal'
+/** What a case measures (lab.py scorecard order). */
+export type LabDimension =
+  | 'correctness'
+  | 'accuracy'
+  | 'latency'
+  | 'efficiency'
+  | 'resources'
+  | 'power'
+  | 'cost'
+  | 'reliability'
+  | 'bias'
+  | 'drift'
 
 export interface LabRunSummary {
   id: string
@@ -339,6 +351,8 @@ export interface LabCase {
   id: string
   name: string
   group: string
+  /** Older servers omit it: correctness for test suites, drift otherwise. */
+  dimension: LabDimension | string
   status: LabCaseStatus
   duration_ms: number | null
   message: string | null
@@ -348,6 +362,19 @@ export interface LabCase {
 }
 
 export type LabRun = LabRunSummary & { log: string; cases: LabCase[] }
+
+export interface LabScorecardEntry {
+  dimension: LabDimension | string
+  passed: number
+  failed: number
+  skipped: number
+  errors: number
+  /** passed / (passed + failed + errors); null when nothing was judged. */
+  score: number | null
+  suites: string[]
+  /** Up to 6 metrics with targets. */
+  highlights: (LabMetric & { case: string; suite: string })[]
+}
 
 export interface LabHistoryPoint {
   run_id: string

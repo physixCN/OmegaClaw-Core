@@ -9,6 +9,7 @@ import type {
   LabCase,
   LabHistory,
   LabRunSummary,
+  LabScorecardEntry,
   LabSuite,
   Message,
   PolicyRule,
@@ -81,6 +82,8 @@ export interface HiveData {
   labLogs: Record<string, string[]>
   /** Per-suite history (oldest first), kept current as runs finish. */
   labHistory: Record<string, LabHistory>
+  /** Per-dimension health (GET /api/lab/scorecard); null until fetched or on older servers. */
+  labScorecard: LabScorecardEntry[] | null
 }
 
 export const emptyData = (): HiveData => ({
@@ -108,6 +111,7 @@ export const emptyData = (): HiveData => ({
   labCases: {},
   labLogs: {},
   labHistory: {},
+  labScorecard: null,
 })
 
 const pulseKey = (swarmId: string, statement: string) => `${swarmId}\u0000${statement}`

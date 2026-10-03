@@ -1768,6 +1768,9 @@ export class SimClient implements HiveClient {
   getLabHistory(suite: string, limit?: number) {
     return this.lab.history(suite, limit)
   }
+  getLabScorecard() {
+    return this.lab.scorecard()
+  }
 
   connect() {
     if (this.state === 'open') return

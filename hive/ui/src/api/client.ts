@@ -17,6 +17,7 @@ import type {
   LabHistory,
   LabRun,
   LabRunSummary,
+  LabScorecardEntry,
   LabSuite,
   MemoryAtom,
   MemorySpace,
@@ -107,6 +108,8 @@ export interface HiveClient {
   getLabRun(id: string): Promise<LabRun>
   cancelLabRun(id: string): Promise<{ cancelling: true }>
   getLabHistory(suite: string, limit?: number): Promise<LabHistory>
+  /** Health per dimension from the latest finished run of every suite. */
+  getLabScorecard(): Promise<LabScorecardEntry[]>
 
   /** Open the live event stream. Safe to call more than once. */
   connect(): void

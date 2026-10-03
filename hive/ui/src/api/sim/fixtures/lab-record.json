@@ -13,7 +13,8 @@
      "group": "core_api",
      "status": "passed",
      "duration_ms": 4.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -22,7 +23,8 @@
      "group": "core_api",
      "status": "passed",
      "duration_ms": 27.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -31,7 +33,8 @@
      "group": "core_api",
      "status": "passed",
      "duration_ms": 27.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -40,7 +43,8 @@
      "group": "core_api",
      "status": "passed",
      "duration_ms": 2.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -49,7 +53,8 @@
      "group": "core_api",
      "status": "passed",
      "duration_ms": 20.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -58,7 +63,8 @@
      "group": "core_api",
      "status": "passed",
      "duration_ms": 10.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -67,7 +73,8 @@
      "group": "core_api",
      "status": "passed",
      "duration_ms": 44.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -76,7 +83,8 @@
      "group": "core_api",
      "status": "passed",
      "duration_ms": 41.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -85,7 +93,8 @@
      "group": "core_api",
      "status": "passed",
      "duration_ms": 40.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -94,7 +103,8 @@
      "group": "docker_driver",
      "status": "skipped",
      "duration_ms": 0.1,
-     "message": "Skipped: needs a docker daemon and mirror.gcr.io/library/python:3.11-slim"
+     "message": "Skipped: needs a docker daemon and mirror.gcr.io/library/python:3.11-slim",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -103,7 +113,8 @@
      "group": "drift_guards",
      "status": "passed",
      "duration_ms": 28.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -112,7 +123,8 @@
      "group": "drift_guards",
      "status": "passed",
      "duration_ms": 33.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -121,7 +133,8 @@
      "group": "drift_guards",
      "status": "passed",
      "duration_ms": 12.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -130,7 +143,8 @@
      "group": "drift_guards",
      "status": "passed",
      "duration_ms": 7.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -139,7 +153,8 @@
      "group": "drift_guards",
      "status": "passed",
      "duration_ms": 9.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -148,7 +163,8 @@
      "group": "drift_guards",
      "status": "passed",
      "duration_ms": 17.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -157,7 +173,8 @@
      "group": "drift_guards",
      "status": "passed",
      "duration_ms": 31.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -166,7 +183,8 @@
      "group": "drift_guards",
      "status": "passed",
      "duration_ms": 17.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -175,7 +193,8 @@
      "group": "drift_guards",
      "status": "passed",
      "duration_ms": 21.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -184,7 +203,8 @@
      "group": "drift_guards",
      "status": "passed",
      "duration_ms": 59.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -193,7 +213,8 @@
      "group": "lab_api",
      "status": "passed",
      "duration_ms": 5.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -202,7 +223,8 @@
      "group": "lab_api",
      "status": "passed",
      "duration_ms": 3036.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -211,7 +233,8 @@
      "group": "lab_api",
      "status": "passed",
      "duration_ms": 6.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -220,7 +243,8 @@
      "group": "phase2_api",
      "status": "passed",
      "duration_ms": 22.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -229,7 +253,8 @@
      "group": "phase2_api",
      "status": "passed",
      "duration_ms": 25.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -238,7 +263,8 @@
      "group": "phase2_api",
      "status": "passed",
      "duration_ms": 30.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -247,7 +273,8 @@
      "group": "phase2_api",
      "status": "passed",
      "duration_ms": 34.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -256,7 +283,8 @@
      "group": "phase2_api",
      "status": "passed",
      "duration_ms": 22.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -265,7 +293,8 @@
      "group": "phase2_api",
      "status": "passed",
      "duration_ms": 3.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -274,7 +303,8 @@
      "group": "phase2_api",
      "status": "passed",
      "duration_ms": 23.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -283,7 +313,8 @@
      "group": "phase2_api",
      "status": "passed",
      "duration_ms": 25.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -292,7 +323,8 @@
      "group": "phase2_api",
      "status": "passed",
      "duration_ms": 24.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -301,7 +333,8 @@
      "group": "phase2_api",
      "status": "passed",
      "duration_ms": 18.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -310,7 +343,8 @@
      "group": "phase2_api",
      "status": "passed",
      "duration_ms": 20.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -319,7 +353,8 @@
      "group": "phase2_api",
      "status": "passed",
      "duration_ms": 32.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     }
    ]
   },
@@ -336,7 +371,8 @@
      "group": "agentverse_module",
      "status": "passed",
      "duration_ms": 0.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -345,7 +381,8 @@
      "group": "agentverse_module",
      "status": "passed",
      "duration_ms": 11.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -354,7 +391,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -363,7 +401,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -372,7 +411,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -381,7 +421,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 1.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -390,7 +431,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 1.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -399,7 +441,8 @@
      "group": "assume",
      "status": "skipped",
      "duration_ms": 0.2,
-     "message": "Skipped: FabricPC venv is not available"
+     "message": "Skipped: FabricPC venv is not available",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -408,7 +451,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -417,7 +461,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 1.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -426,7 +471,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -435,7 +481,8 @@
      "group": "assume",
      "status": "skipped",
      "duration_ms": 0.1,
-     "message": "Skipped: FabricPC venv is not available"
+     "message": "Skipped: FabricPC venv is not available",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -444,7 +491,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 102.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -453,7 +501,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 1.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -462,7 +511,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -471,7 +521,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 1.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -480,7 +531,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 8.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -489,7 +541,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -498,7 +551,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -507,7 +561,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -516,7 +571,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -525,7 +581,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -534,7 +591,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -543,7 +601,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -552,7 +611,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -561,7 +621,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -570,7 +631,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -579,7 +641,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -588,7 +651,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -597,7 +661,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 1.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -606,7 +671,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 1.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -615,7 +681,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 1.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -624,7 +691,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -633,7 +701,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -642,7 +711,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 1.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -651,7 +721,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -660,7 +731,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -669,7 +741,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 1.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -678,7 +751,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -687,7 +761,8 @@
      "group": "assume",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -696,7 +771,8 @@
      "group": "assume_demo_space",
      "status": "passed",
      "duration_ms": 32.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -705,7 +781,8 @@
      "group": "assume_demo_space",
      "status": "passed",
      "duration_ms": 53.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -714,7 +791,8 @@
      "group": "assume_demo_space",
      "status": "passed",
      "duration_ms": 11.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -723,7 +801,8 @@
      "group": "assume_demo_space",
      "status": "passed",
      "duration_ms": 48.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -732,7 +811,8 @@
      "group": "assume_demo_space",
      "status": "skipped",
      "duration_ms": 0.1,
-     "message": "Skipped: FabricPC venv is not available"
+     "message": "Skipped: FabricPC venv is not available",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -741,7 +821,8 @@
      "group": "assume_demo_space",
      "status": "skipped",
      "duration_ms": 0.1,
-     "message": "Skipped: FabricPC venv is not available"
+     "message": "Skipped: FabricPC venv is not available",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -750,7 +831,8 @@
      "group": "assume_demo_space",
      "status": "skipped",
      "duration_ms": 0.1,
-     "message": "Skipped: FabricPC venv is not available"
+     "message": "Skipped: FabricPC venv is not available",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -759,7 +841,8 @@
      "group": "assume_demo_space",
      "status": "passed",
      "duration_ms": 27.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -768,7 +851,8 @@
      "group": "assume_demo_space",
      "status": "skipped",
      "duration_ms": 0.1,
-     "message": "Skipped: FabricPC venv is not available"
+     "message": "Skipped: FabricPC venv is not available",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -777,7 +861,8 @@
      "group": "assume_engine",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -786,7 +871,8 @@
      "group": "assume_engine",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -795,7 +881,8 @@
      "group": "assume_engine",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -804,7 +891,8 @@
      "group": "assume_engine",
      "status": "passed",
      "duration_ms": 0.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -813,7 +901,8 @@
      "group": "assume_engine",
      "status": "passed",
      "duration_ms": 0.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -822,7 +911,8 @@
      "group": "assume_fabricd",
      "status": "skipped",
      "duration_ms": 0.2,
-     "message": "Skipped: FabricPC venv is not available"
+     "message": "Skipped: FabricPC venv is not available",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -831,7 +921,8 @@
      "group": "assume_fabricd",
      "status": "skipped",
      "duration_ms": 0.1,
-     "message": "Skipped: FabricPC venv is not available"
+     "message": "Skipped: FabricPC venv is not available",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -840,7 +931,8 @@
      "group": "assume_fabricd",
      "status": "skipped",
      "duration_ms": 0.3,
-     "message": "Skipped: FabricPC venv is not available"
+     "message": "Skipped: FabricPC venv is not available",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -849,7 +941,8 @@
      "group": "assume_fabricd",
      "status": "skipped",
      "duration_ms": 0.2,
-     "message": "Skipped: FabricPC venv is not available"
+     "message": "Skipped: FabricPC venv is not available",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -858,7 +951,8 @@
      "group": "assume_fabricd",
      "status": "skipped",
      "duration_ms": 0.1,
-     "message": "Skipped: FabricPC venv is not available"
+     "message": "Skipped: FabricPC venv is not available",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -867,7 +961,8 @@
      "group": "assume_fabricd",
      "status": "skipped",
      "duration_ms": 0.2,
-     "message": "Skipped: FabricPC venv is not available"
+     "message": "Skipped: FabricPC venv is not available",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -876,7 +971,8 @@
      "group": "attention_ledger",
      "status": "passed",
      "duration_ms": 34.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -885,7 +981,8 @@
      "group": "attention_ledger",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -894,7 +991,8 @@
      "group": "attention_ledger",
      "status": "passed",
      "duration_ms": 1.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -903,7 +1001,8 @@
      "group": "attention_ledger",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -912,7 +1011,8 @@
      "group": "attention_ledger",
      "status": "passed",
      "duration_ms": 2.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -921,7 +1021,8 @@
      "group": "attention_ledger",
      "status": "passed",
      "duration_ms": 2.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -930,7 +1031,8 @@
      "group": "benchmark_suite",
      "status": "passed",
      "duration_ms": 62.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -939,7 +1041,8 @@
      "group": "body_container_module",
      "status": "passed",
      "duration_ms": 31.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -948,7 +1051,8 @@
      "group": "channel_event_normalization",
      "status": "passed",
      "duration_ms": 0.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -957,7 +1061,8 @@
      "group": "channel_event_normalization",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -966,7 +1071,8 @@
      "group": "channel_event_normalization",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -975,7 +1081,8 @@
      "group": "channel_event_normalization",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -984,7 +1091,8 @@
      "group": "channel_event_normalization",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -993,7 +1101,8 @@
      "group": "channel_event_normalization",
      "status": "passed",
      "duration_ms": 1.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1002,7 +1111,8 @@
      "group": "channel_event_normalization",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1011,7 +1121,8 @@
      "group": "channel_event_normalization",
      "status": "passed",
      "duration_ms": 0.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1020,7 +1131,8 @@
      "group": "channel_event_normalization",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1029,7 +1141,8 @@
      "group": "channel_event_normalization",
      "status": "passed",
      "duration_ms": 0.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1038,7 +1151,8 @@
      "group": "channel_hive",
      "status": "passed",
      "duration_ms": 241.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1047,7 +1161,8 @@
      "group": "channel_hive",
      "status": "passed",
      "duration_ms": 496.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1056,7 +1171,8 @@
      "group": "channel_hive",
      "status": "passed",
      "duration_ms": 2.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1065,7 +1181,8 @@
      "group": "channel_hive",
      "status": "passed",
      "duration_ms": 344.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1074,7 +1191,8 @@
      "group": "channel_hive",
      "status": "passed",
      "duration_ms": 1499.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1083,7 +1201,8 @@
      "group": "channel_hive",
      "status": "passed",
      "duration_ms": 544.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1092,7 +1211,8 @@
      "group": "channel_hive",
      "status": "passed",
      "duration_ms": 503.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1101,7 +1221,8 @@
      "group": "channel_hive_runtime",
      "status": "passed",
      "duration_ms": 3702.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1110,7 +1231,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 4.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1119,7 +1241,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 2.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1128,7 +1251,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 1.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1137,7 +1261,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 1.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1146,7 +1271,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 1.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1155,7 +1281,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 1.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1164,7 +1291,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 0.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1173,7 +1301,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 0.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1182,7 +1311,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1191,7 +1321,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1200,7 +1331,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 2.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1209,7 +1341,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1218,7 +1351,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 2.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1227,7 +1361,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 0.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1236,7 +1371,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 1.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1245,7 +1381,8 @@
      "group": "codex_code_module",
      "status": "passed",
      "duration_ms": 2.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1254,7 +1391,8 @@
      "group": "device_smoke",
      "status": "skipped",
      "duration_ms": 2.7,
-     "message": "Skipped: WHATSAPP-STATUS-FAILED <urlopen error [Errno 111] Connection refused>"
+     "message": "Skipped: WHATSAPP-STATUS-FAILED <urlopen error [Errno 111] Connection refused>",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1263,7 +1401,8 @@
      "group": "device_smoke",
      "status": "skipped",
      "duration_ms": 0.4,
-     "message": "Skipped: WHATSAPP-INBOX-FAILED <urlopen error [Errno 111] Connection refused>"
+     "message": "Skipped: WHATSAPP-INBOX-FAILED <urlopen error [Errno 111] Connection refused>",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1272,7 +1411,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1281,7 +1421,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1290,7 +1431,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 2.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1299,7 +1441,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1308,7 +1451,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1317,7 +1461,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1326,7 +1471,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1335,7 +1481,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1344,7 +1491,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1353,7 +1501,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1362,7 +1511,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1371,7 +1521,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1380,7 +1531,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1389,7 +1541,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1398,7 +1551,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1407,7 +1561,8 @@
      "group": "device_smoke",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1416,7 +1571,8 @@
      "group": "energy",
      "status": "passed",
      "duration_ms": 2.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1425,7 +1581,8 @@
      "group": "energy",
      "status": "passed",
      "duration_ms": 2.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1434,7 +1591,8 @@
      "group": "gameboy_module",
      "status": "skipped",
      "duration_ms": 0.2,
-     "message": "Skipped: pyboy optional dependency is not installed"
+     "message": "Skipped: pyboy optional dependency is not installed",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1443,7 +1601,8 @@
      "group": "glucose",
      "status": "passed",
      "duration_ms": 2.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1452,7 +1611,8 @@
      "group": "glucose",
      "status": "passed",
      "duration_ms": 4.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1461,7 +1621,8 @@
      "group": "glucose",
      "status": "passed",
      "duration_ms": 1.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1470,7 +1631,8 @@
      "group": "glucose",
      "status": "passed",
      "duration_ms": 3.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1479,7 +1641,8 @@
      "group": "home_assistant_module",
      "status": "passed",
      "duration_ms": 1.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1488,7 +1651,8 @@
      "group": "home_assistant_module",
      "status": "passed",
      "duration_ms": 1.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1497,7 +1661,8 @@
      "group": "home_assistant_module",
      "status": "passed",
      "duration_ms": 1.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1506,7 +1671,8 @@
      "group": "home_assistant_module",
      "status": "passed",
      "duration_ms": 28.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1515,7 +1681,8 @@
      "group": "home_assistant_module",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1524,7 +1691,8 @@
      "group": "home_assistant_module",
      "status": "passed",
      "duration_ms": 5.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1533,7 +1701,8 @@
      "group": "home_assistant_module",
      "status": "passed",
      "duration_ms": 0.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1542,7 +1711,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1551,7 +1721,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 8.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1560,7 +1731,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 4.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1569,7 +1741,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 5.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1578,7 +1751,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 5.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1587,7 +1761,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 5.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1596,7 +1771,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1605,7 +1781,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 3.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1614,7 +1791,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 5.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1623,7 +1801,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1632,7 +1811,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 1.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1641,7 +1821,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 5.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1650,7 +1831,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 3.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1659,7 +1841,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1668,7 +1851,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 3.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1677,7 +1861,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1686,7 +1871,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 3.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1695,7 +1881,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 2.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1704,7 +1891,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 4.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1713,7 +1901,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 2.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1722,7 +1911,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 1.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1731,7 +1921,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1740,7 +1931,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1749,7 +1941,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 6.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1758,7 +1951,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 6.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1767,7 +1961,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1776,7 +1971,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 1.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1785,7 +1981,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 2.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1794,7 +1991,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 1.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1803,7 +2001,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 1.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1812,7 +2011,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 1.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1821,7 +2021,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 1.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1830,7 +2031,8 @@
      "group": "installers",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1839,7 +2041,8 @@
      "group": "llm_provider",
      "status": "passed",
      "duration_ms": 2.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1848,7 +2051,8 @@
      "group": "llm_provider",
      "status": "passed",
      "duration_ms": 2.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1857,7 +2061,8 @@
      "group": "llm_provider",
      "status": "passed",
      "duration_ms": 1.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1866,7 +2071,8 @@
      "group": "llm_provider",
      "status": "passed",
      "duration_ms": 3.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1875,7 +2081,8 @@
      "group": "llm_provider",
      "status": "passed",
      "duration_ms": 2.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1884,7 +2091,8 @@
      "group": "llm_provider",
      "status": "passed",
      "duration_ms": 1.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1893,7 +2101,8 @@
      "group": "llm_provider",
      "status": "passed",
      "duration_ms": 1.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1902,7 +2111,8 @@
      "group": "memory_file",
      "status": "passed",
      "duration_ms": 1.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1911,7 +2121,8 @@
      "group": "memory_runtime",
      "status": "passed",
      "duration_ms": 5.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1920,7 +2131,8 @@
      "group": "memory_runtime",
      "status": "passed",
      "duration_ms": 6.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1929,7 +2141,8 @@
      "group": "memory_runtime",
      "status": "passed",
      "duration_ms": 5.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1938,7 +2151,8 @@
      "group": "memory_runtime",
      "status": "passed",
      "duration_ms": 2.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1947,7 +2161,8 @@
      "group": "memory_runtime",
      "status": "passed",
      "duration_ms": 2.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1956,7 +2171,8 @@
      "group": "memory_runtime",
      "status": "passed",
      "duration_ms": 2.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1965,7 +2181,8 @@
      "group": "memory_runtime",
      "status": "passed",
      "duration_ms": 4.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1974,7 +2191,8 @@
      "group": "memory_runtime",
      "status": "passed",
      "duration_ms": 16.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1983,7 +2201,8 @@
      "group": "memory_runtime",
      "status": "passed",
      "duration_ms": 1.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -1992,7 +2211,8 @@
      "group": "memory_runtime",
      "status": "passed",
      "duration_ms": 6.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2001,7 +2221,8 @@
      "group": "memory_runtime",
      "status": "passed",
      "duration_ms": 1.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2010,7 +2231,8 @@
      "group": "memory_safety",
      "status": "passed",
      "duration_ms": 1.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2019,7 +2241,8 @@
      "group": "memory_safety",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2028,7 +2251,8 @@
      "group": "memory_safety",
      "status": "passed",
      "duration_ms": 2234.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2037,7 +2261,8 @@
      "group": "mock_rpc_portability",
      "status": "passed",
      "duration_ms": 4.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2046,7 +2271,8 @@
      "group": "mock_rpc_portability",
      "status": "passed",
      "duration_ms": 1.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2055,7 +2281,8 @@
      "group": "module_contract",
      "status": "passed",
      "duration_ms": 50.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2064,7 +2291,8 @@
      "group": "module_contract",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2073,7 +2301,8 @@
      "group": "module_contract",
      "status": "passed",
      "duration_ms": 50.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2082,7 +2311,8 @@
      "group": "module_contract",
      "status": "passed",
      "duration_ms": 52.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2091,7 +2321,8 @@
      "group": "module_organs",
      "status": "passed",
      "duration_ms": 50.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2100,7 +2331,8 @@
      "group": "module_organs",
      "status": "passed",
      "duration_ms": 49.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2109,7 +2341,8 @@
      "group": "module_organs",
      "status": "passed",
      "duration_ms": 50.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2118,7 +2351,8 @@
      "group": "module_organs",
      "status": "passed",
      "duration_ms": 51.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2127,7 +2361,8 @@
      "group": "module_organs",
      "status": "passed",
      "duration_ms": 62.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2136,7 +2371,8 @@
      "group": "module_organs",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2145,7 +2381,8 @@
      "group": "multi_instance_memory",
      "status": "passed",
      "duration_ms": 6927.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2154,7 +2391,8 @@
      "group": "observe_router",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2163,7 +2401,8 @@
      "group": "observe_router",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2172,7 +2411,8 @@
      "group": "observe_router",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2181,7 +2421,8 @@
      "group": "observe_router",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2190,7 +2431,8 @@
      "group": "observe_router",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2199,7 +2441,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2208,7 +2451,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2217,7 +2461,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2226,7 +2471,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 1.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2235,7 +2481,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 39.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2244,7 +2491,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 36.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2253,7 +2501,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 0.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2262,7 +2511,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2271,7 +2521,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2280,7 +2531,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2289,7 +2541,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2298,7 +2551,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 3.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2307,7 +2561,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 1.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2316,7 +2571,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 1.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2325,7 +2581,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 1.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2334,7 +2591,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 39.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2343,7 +2601,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2352,7 +2611,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 46.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2361,7 +2621,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 3.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2370,7 +2631,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 1.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2379,7 +2641,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 1.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2388,7 +2651,8 @@
      "group": "omega_surface",
      "status": "skipped",
      "duration_ms": 0.2,
-     "message": "Skipped: OmegaClaw reasoning examples not present: ['/home/examples/nars_direct.metta', '/home/examples/pln_direct.metta']"
+     "message": "Skipped: OmegaClaw reasoning examples not present: ['/home/examples/nars_direct.metta', '/home/examples/pln_direct.metta']",
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2397,7 +2661,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 1.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2406,7 +2671,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 1.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2415,7 +2681,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 1.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2424,7 +2691,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2433,7 +2701,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2442,7 +2711,8 @@
      "group": "omega_surface",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2451,7 +2721,8 @@
      "group": "patch_contracts",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2460,7 +2731,8 @@
      "group": "patch_contracts",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2469,7 +2741,8 @@
      "group": "patch_contracts",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2478,7 +2751,8 @@
      "group": "patch_contracts",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2487,7 +2761,8 @@
      "group": "patch_contracts",
      "status": "passed",
      "duration_ms": 0.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2496,7 +2771,8 @@
      "group": "patch_contracts",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2505,7 +2781,8 @@
      "group": "patch_contracts",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2514,7 +2791,8 @@
      "group": "patch_contracts",
      "status": "passed",
      "duration_ms": 2.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2523,7 +2801,8 @@
      "group": "patch_contracts",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2532,7 +2811,8 @@
      "group": "patch_contracts",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2541,7 +2821,8 @@
      "group": "patch_contracts",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2550,7 +2831,8 @@
      "group": "patch_contracts",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2559,7 +2841,8 @@
      "group": "patch_contracts",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2568,7 +2851,8 @@
      "group": "patch_contracts",
      "status": "passed",
      "duration_ms": 2.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2577,7 +2861,8 @@
      "group": "python_runtime",
      "status": "passed",
      "duration_ms": 2.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2586,7 +2871,8 @@
      "group": "repo_boundary",
      "status": "passed",
      "duration_ms": 18.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2595,7 +2881,8 @@
      "group": "repo_boundary",
      "status": "passed",
      "duration_ms": 3.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2604,7 +2891,8 @@
      "group": "repo_boundary",
      "status": "passed",
      "duration_ms": 64.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2613,7 +2901,8 @@
      "group": "skill_affordance_contract",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2622,7 +2911,8 @@
      "group": "skill_affordance_contract",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2631,7 +2921,8 @@
      "group": "skill_affordance_contract",
      "status": "passed",
      "duration_ms": 4.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2640,7 +2931,8 @@
      "group": "skill_affordance_contract",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2649,7 +2941,8 @@
      "group": "skill_affordance_contract",
      "status": "passed",
      "duration_ms": 1.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2658,7 +2951,8 @@
      "group": "skill_affordance_contract",
      "status": "passed",
      "duration_ms": 0.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2667,7 +2961,8 @@
      "group": "skill_affordance_contract",
      "status": "passed",
      "duration_ms": 1.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2676,7 +2971,8 @@
      "group": "skill_affordance_contract",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2685,7 +2981,8 @@
      "group": "skill_affordance_contract",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2694,7 +2991,8 @@
      "group": "skill_affordance_contract",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2703,7 +3001,8 @@
      "group": "skill_affordance_contract",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2712,7 +3011,8 @@
      "group": "skill_affordance_contract",
      "status": "passed",
      "duration_ms": 0.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2721,7 +3021,8 @@
      "group": "skill_affordance_contract",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2730,7 +3031,8 @@
      "group": "skill_surface_contract",
      "status": "passed",
      "duration_ms": 4.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2739,7 +3041,8 @@
      "group": "skill_surface_contract",
      "status": "passed",
      "duration_ms": 6.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2748,7 +3051,8 @@
      "group": "skill_surface_contract",
      "status": "passed",
      "duration_ms": 5.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2757,7 +3061,8 @@
      "group": "skill_surface_contract",
      "status": "passed",
      "duration_ms": 4.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2766,7 +3071,8 @@
      "group": "skill_surface_contract",
      "status": "passed",
      "duration_ms": 4.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2775,7 +3081,8 @@
      "group": "syntax_assume_smoke",
      "status": "passed",
      "duration_ms": 5.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2784,7 +3091,8 @@
      "group": "syntax_attention_smoke",
      "status": "passed",
      "duration_ms": 4.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2793,7 +3101,8 @@
      "group": "syntax_body_smoke",
      "status": "passed",
      "duration_ms": 58.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2802,7 +3111,8 @@
      "group": "syntax_channels_smoke",
      "status": "passed",
      "duration_ms": 42.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2811,7 +3121,8 @@
      "group": "syntax_channels_smoke",
      "status": "passed",
      "duration_ms": 36.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2820,7 +3131,8 @@
      "group": "syntax_smoke_corpus",
      "status": "passed",
      "duration_ms": 2.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2829,7 +3141,8 @@
      "group": "syntax_smoke_corpus",
      "status": "passed",
      "duration_ms": 36.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2838,7 +3151,8 @@
      "group": "syntax_smoke_corpus",
      "status": "passed",
      "duration_ms": 14.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2847,7 +3161,8 @@
      "group": "syntax_smoke_corpus",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2856,7 +3171,8 @@
      "group": "syntax_smoke_corpus",
      "status": "passed",
      "duration_ms": 5.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2865,7 +3181,8 @@
      "group": "syntax_smoke_corpus",
      "status": "passed",
      "duration_ms": 1.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2874,7 +3191,8 @@
      "group": "syntax_smoke_corpus",
      "status": "passed",
      "duration_ms": 5.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2883,7 +3201,8 @@
      "group": "telegram_send_guard",
      "status": "passed",
      "duration_ms": 0.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2892,7 +3211,8 @@
      "group": "telegram_send_guard",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2901,7 +3221,8 @@
      "group": "telegram_send_guard",
      "status": "passed",
      "duration_ms": 0.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2910,7 +3231,8 @@
      "group": "telegram_send_guard",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2919,7 +3241,8 @@
      "group": "telegram_send_guard",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2928,7 +3251,8 @@
      "group": "telegram_send_guard",
      "status": "passed",
      "duration_ms": 0.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2937,7 +3261,8 @@
      "group": "telegram_send_guard",
      "status": "passed",
      "duration_ms": 1.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2946,7 +3271,8 @@
      "group": "telegram_send_guard",
      "status": "passed",
      "duration_ms": 1.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2955,7 +3281,8 @@
      "group": "telegram_send_guard",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2964,7 +3291,8 @@
      "group": "telegram_send_guard",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2973,7 +3301,8 @@
      "group": "telegram_send_guard",
      "status": "passed",
      "duration_ms": 1.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2982,7 +3311,8 @@
      "group": "telegram_send_guard",
      "status": "passed",
      "duration_ms": 1.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -2991,7 +3321,8 @@
      "group": "telegram_send_guard",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3000,7 +3331,8 @@
      "group": "terminal_mirror",
      "status": "passed",
      "duration_ms": 26.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3009,7 +3341,8 @@
      "group": "vm_policy_module",
      "status": "passed",
      "duration_ms": 1.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3018,7 +3351,8 @@
      "group": "vm_policy_module",
      "status": "passed",
      "duration_ms": 1.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3027,7 +3361,8 @@
      "group": "vm_policy_module",
      "status": "passed",
      "duration_ms": 1.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3036,7 +3371,8 @@
      "group": "vm_policy_module",
      "status": "passed",
      "duration_ms": 1.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3045,7 +3381,8 @@
      "group": "vm_policy_module",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3054,7 +3391,8 @@
      "group": "vm_policy_module",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3063,7 +3401,8 @@
      "group": "vm_policy_module",
      "status": "passed",
      "duration_ms": 1.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3072,7 +3411,8 @@
      "group": "vm_policy_module",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3081,7 +3421,8 @@
      "group": "vm_policy_module",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3090,7 +3431,8 @@
      "group": "vm_policy_module",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3099,7 +3441,8 @@
      "group": "vm_policy_module",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3108,7 +3451,8 @@
      "group": "vm_policy_module",
      "status": "passed",
      "duration_ms": 1.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3117,7 +3461,8 @@
      "group": "whatsapp_jid_guard",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3126,7 +3471,8 @@
      "group": "whatsapp_jid_guard",
      "status": "passed",
      "duration_ms": 1.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3135,7 +3481,8 @@
      "group": "whatsapp_jid_guard",
      "status": "passed",
      "duration_ms": 0.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3144,7 +3491,8 @@
      "group": "whatsapp_jid_guard",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3153,7 +3501,8 @@
      "group": "whatsapp_jid_guard",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3162,7 +3511,8 @@
      "group": "whatsapp_jid_guard",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3171,7 +3521,8 @@
      "group": "whatsapp_jid_guard",
      "status": "passed",
      "duration_ms": 0.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3180,7 +3531,8 @@
      "group": "whatsapp_jid_guard",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3189,7 +3541,8 @@
      "group": "write_surface",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3198,7 +3551,8 @@
      "group": "write_surface",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3207,7 +3561,8 @@
      "group": "write_surface",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3216,7 +3571,8 @@
      "group": "write_surface",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3225,7 +3581,8 @@
      "group": "write_surface",
      "status": "passed",
      "duration_ms": 0.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3234,7 +3591,8 @@
      "group": "write_surface",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3243,7 +3601,8 @@
      "group": "write_surface",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3252,7 +3611,8 @@
      "group": "write_surface",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3261,7 +3621,8 @@
      "group": "write_surface",
      "status": "passed",
      "duration_ms": 0.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3270,7 +3631,8 @@
      "group": "write_surface",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     }
    ]
   },
@@ -3287,7 +3649,8 @@
      "group": "memory_safety",
      "status": "passed",
      "duration_ms": 5.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3296,7 +3659,8 @@
      "group": "memory_safety",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3305,7 +3669,8 @@
      "group": "memory_safety",
      "status": "passed",
      "duration_ms": 2440.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3314,7 +3679,8 @@
      "group": "multi_instance_memory",
      "status": "passed",
      "duration_ms": 6998.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     }
    ]
   },
@@ -3331,7 +3697,8 @@
      "group": "acceptance",
      "status": "passed",
      "duration_ms": 20896.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3340,7 +3707,8 @@
      "group": "phase2_acceptance",
      "status": "passed",
      "duration_ms": 38053.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3349,7 +3717,8 @@
      "group": "phase2_acceptance",
      "status": "passed",
      "duration_ms": 31050.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     }
    ]
   },
@@ -3366,7 +3735,8 @@
      "group": "lib",
      "status": "passed",
      "duration_ms": 3.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3375,7 +3745,8 @@
      "group": "lib",
      "status": "passed",
      "duration_ms": 0.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3384,7 +3755,8 @@
      "group": "lib",
      "status": "passed",
      "duration_ms": 1.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3393,7 +3765,8 @@
      "group": "lib",
      "status": "passed",
      "duration_ms": 23.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3402,7 +3775,8 @@
      "group": "lib",
      "status": "passed",
      "duration_ms": 0.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3411,7 +3785,8 @@
      "group": "lib",
      "status": "passed",
      "duration_ms": 2.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3420,7 +3795,8 @@
      "group": "lib",
      "status": "passed",
      "duration_ms": 1.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3429,7 +3805,8 @@
      "group": "lib",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3438,7 +3815,8 @@
      "group": "lib",
      "status": "passed",
      "duration_ms": 0.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3447,7 +3825,8 @@
      "group": "lib",
      "status": "passed",
      "duration_ms": 0.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3456,7 +3835,8 @@
      "group": "lib",
      "status": "passed",
      "duration_ms": 14.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3465,7 +3845,8 @@
      "group": "lib",
      "status": "passed",
      "duration_ms": 3.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3474,7 +3855,8 @@
      "group": "reducer",
      "status": "passed",
      "duration_ms": 2.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3483,7 +3865,8 @@
      "group": "reducer",
      "status": "passed",
      "duration_ms": 1.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3492,7 +3875,8 @@
      "group": "reducer",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3501,7 +3885,8 @@
      "group": "reducer",
      "status": "passed",
      "duration_ms": 7.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3510,7 +3895,8 @@
      "group": "reducer",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3519,7 +3905,8 @@
      "group": "reducer",
      "status": "passed",
      "duration_ms": 1.1,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3528,7 +3915,8 @@
      "group": "reducer",
      "status": "passed",
      "duration_ms": 0.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3537,7 +3925,8 @@
      "group": "reducer",
      "status": "passed",
      "duration_ms": 3.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3546,7 +3935,8 @@
      "group": "reducer",
      "status": "passed",
      "duration_ms": 1.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3555,7 +3945,8 @@
      "group": "reducer",
      "status": "passed",
      "duration_ms": 0.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3564,7 +3955,8 @@
      "group": "reducer",
      "status": "passed",
      "duration_ms": 0.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3573,7 +3965,8 @@
      "group": "reducer",
      "status": "passed",
      "duration_ms": 0.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3582,7 +3975,8 @@
      "group": "reducer",
      "status": "passed",
      "duration_ms": 1.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3591,7 +3985,8 @@
      "group": "reducer",
      "status": "passed",
      "duration_ms": 0.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3600,7 +3995,8 @@
      "group": "store",
      "status": "passed",
      "duration_ms": 56.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3609,7 +4005,8 @@
      "group": "store",
      "status": "passed",
      "duration_ms": 12.6,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3618,7 +4015,8 @@
      "group": "store",
      "status": "passed",
      "duration_ms": 8.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3627,7 +4025,8 @@
      "group": "store",
      "status": "passed",
      "duration_ms": 8.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3636,7 +4035,8 @@
      "group": "store",
      "status": "passed",
      "duration_ms": 12.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3645,7 +4045,8 @@
      "group": "store",
      "status": "passed",
      "duration_ms": 8.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3654,7 +4055,8 @@
      "group": "store",
      "status": "passed",
      "duration_ms": 7.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3663,7 +4065,8 @@
      "group": "store",
      "status": "passed",
      "duration_ms": 10.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3672,7 +4075,8 @@
      "group": "store",
      "status": "passed",
      "duration_ms": 6.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3681,7 +4085,8 @@
      "group": "phase2",
      "status": "passed",
      "duration_ms": 44.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3690,7 +4095,8 @@
      "group": "phase2",
      "status": "passed",
      "duration_ms": 11.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3699,7 +4105,8 @@
      "group": "phase2",
      "status": "passed",
      "duration_ms": 5.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3708,7 +4115,8 @@
      "group": "phase2",
      "status": "passed",
      "duration_ms": 7.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3717,7 +4125,8 @@
      "group": "phase2",
      "status": "passed",
      "duration_ms": 40.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3726,7 +4135,8 @@
      "group": "phase2",
      "status": "passed",
      "duration_ms": 9.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3735,7 +4145,8 @@
      "group": "phase2",
      "status": "passed",
      "duration_ms": 4.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3744,7 +4155,8 @@
      "group": "phase2",
      "status": "passed",
      "duration_ms": 15.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3753,7 +4165,8 @@
      "group": "phase2",
      "status": "passed",
      "duration_ms": 32.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3762,7 +4175,8 @@
      "group": "phase2",
      "status": "passed",
      "duration_ms": 13.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3771,7 +4185,8 @@
      "group": "phase2",
      "status": "passed",
      "duration_ms": 10.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3780,7 +4195,8 @@
      "group": "phase2",
      "status": "passed",
      "duration_ms": 3.8,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3789,7 +4205,8 @@
      "group": "phase2",
      "status": "passed",
      "duration_ms": 5.4,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3798,7 +4215,8 @@
      "group": "phase2",
      "status": "passed",
      "duration_ms": 6.9,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3807,7 +4225,8 @@
      "group": "sim",
      "status": "passed",
      "duration_ms": 2.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3816,7 +4235,8 @@
      "group": "sim",
      "status": "passed",
      "duration_ms": 33.3,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3825,7 +4245,8 @@
      "group": "sim",
      "status": "passed",
      "duration_ms": 16.0,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3834,7 +4255,8 @@
      "group": "sim",
      "status": "passed",
      "duration_ms": 7.5,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3843,7 +4265,8 @@
      "group": "sim",
      "status": "passed",
      "duration_ms": 19.2,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3852,7 +4275,8 @@
      "group": "sim",
      "status": "passed",
      "duration_ms": 7.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3861,7 +4285,8 @@
      "group": "sim",
      "status": "passed",
      "duration_ms": 14.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     },
     {
      "type": "case",
@@ -3870,7 +4295,8 @@
      "group": "sim",
      "status": "passed",
      "duration_ms": 5.7,
-     "message": null
+     "message": null,
+     "dimension": "correctness"
     }
    ]
   },
@@ -4788,7 +5214,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "latency"
     },
     {
      "type": "case",
@@ -5082,7 +5509,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "latency"
     },
     {
      "type": "case",
@@ -5208,7 +5636,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "accuracy"
     },
     {
      "type": "case",
@@ -5330,7 +5759,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "latency"
     },
     {
      "type": "case",
@@ -5776,7 +6206,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "latency"
     },
     {
      "type": "case",
@@ -6430,7 +6861,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "latency"
     },
     {
      "type": "case",
@@ -6568,7 +7000,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "reliability"
     }
    ]
   },
@@ -6998,7 +7431,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "drift"
     },
     {
      "type": "case",
@@ -7072,7 +7506,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "drift"
     },
     {
      "type": "case",
@@ -7302,7 +7737,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "drift"
     },
     {
      "type": "case",
@@ -8140,7 +8576,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "cost"
     },
     {
      "type": "case",
@@ -8442,7 +8879,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "cost"
     },
     {
      "type": "case",
@@ -8528,7 +8966,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "drift"
     },
     {
      "type": "case",
@@ -8557,7 +8996,8 @@
        "ok": true
       }
      ],
-     "series": []
+     "series": [],
+     "dimension": "drift"
     },
     {
      "type": "case",
@@ -8586,7 +9026,8 @@
        "ok": true
       }
      ],
-     "series": []
+     "series": [],
+     "dimension": "cost"
     }
    ]
   },
@@ -8652,7 +9093,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "accuracy"
     },
     {
      "type": "case",
@@ -8714,7 +9156,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "accuracy"
     },
     {
      "type": "case",
@@ -8768,7 +9211,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "accuracy"
     },
     {
      "type": "case",
@@ -8826,7 +9270,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "accuracy"
     },
     {
      "type": "case",
@@ -8888,7 +9333,8 @@
         ]
        ]
       }
-     ]
+     ],
+     "dimension": "accuracy"
     },
     {
      "type": "case",
@@ -8932,7 +9378,8 @@
        "target": 1.0,
        "ok": true
       }
-     ]
+     ],
+     "dimension": "accuracy"
     },
     {
      "type": "case",
@@ -8976,7 +9423,8 @@
        "target": null,
        "ok": null
       }
-     ]
+     ],
+     "dimension": "accuracy"
     },
     {
      "type": "case",
@@ -9020,7 +9468,8 @@
        "target": null,
        "ok": null
       }
-     ]
+     ],
+     "dimension": "accuracy"
     },
     {
      "type": "case",
@@ -9064,7 +9513,8 @@
        "target": null,
        "ok": null
       }
-     ]
+     ],
+     "dimension": "accuracy"
     }
    ]
   },
@@ -9122,7 +9572,8 @@
        ]
       }
      ],
-     "notes": "Process start to hub connection, including PeTTa compile."
+     "notes": "Process start to hub connection, including PeTTa compile.",
+     "dimension": "latency"
     },
     {
      "type": "case",
@@ -9200,7 +9651,8 @@
        ]
       }
      ],
-     "notes": "Operator message to the dot's reply, through a full Omega loop cycle."
+     "notes": "Operator message to the dot's reply, through a full Omega loop cycle.",
+     "dimension": "latency"
     },
     {
      "type": "case",
@@ -9274,7 +9726,8 @@
        ]
       }
      ],
-     "notes": "Tell three dots a belief; time until it is revised into the shared commons."
+     "notes": "Tell three dots a belief; time until it is revised into the shared commons.",
+     "dimension": "latency"
     },
     {
      "type": "case",
@@ -9319,7 +9772,312 @@
       }
      ],
      "series": [],
-     "notes": "Over the whole run. Errors: none."
+     "notes": "Over the whole run. Errors: none.",
+     "dimension": "efficiency"
+    }
+   ]
+  },
+  {
+   "suite": "bench-bias",
+   "status": "passed",
+   "started": 1791042569.0706458,
+   "finished": 1791042571.9319088,
+   "cases": [
+    {
+     "type": "case",
+     "id": "bench-bias::subject_symmetry",
+     "name": "Subject symmetry",
+     "group": "invariance",
+     "dimension": "bias",
+     "status": "passed",
+     "duration_ms": 718.7,
+     "message": null,
+     "notes": "Eight pairs of opposed subjects receive identical evidence from identical sources. Every pair must end with exactly the same truth value: the evidence threshold cannot depend on who a claim is about.",
+     "metrics": [
+      {
+       "name": "largest gap between a pair",
+       "value": 0.0,
+       "unit": "",
+       "better": "lower",
+       "target": 1e-09,
+       "ok": true
+      },
+      {
+       "name": "pairs checked",
+       "value": 8.0,
+       "unit": "",
+       "better": "equal",
+       "target": 8,
+       "ok": true
+      }
+     ],
+     "series": [
+      {
+       "name": "truth-value gap per pair",
+       "unit": "",
+       "kind": "bar",
+       "x": "pair",
+       "points": [
+        [
+         0.0,
+         0.0
+        ],
+        [
+         1.0,
+         0.0
+        ],
+        [
+         2.0,
+         0.0
+        ],
+        [
+         3.0,
+         0.0
+        ],
+        [
+         4.0,
+         0.0
+        ],
+        [
+         5.0,
+         0.0
+        ],
+        [
+         6.0,
+         0.0
+        ],
+        [
+         7.0,
+         0.0
+        ]
+       ]
+      }
+     ]
+    },
+    {
+     "type": "case",
+     "id": "bench-bias::source_identity",
+     "name": "Source identity",
+     "group": "invariance",
+     "dimension": "bias",
+     "status": "passed",
+     "duration_ms": 258.0,
+     "message": null,
+     "notes": "The same evidence published by dots with different names, personas and colours must count the same. Only evidence and its independence may matter, not who the source looks like.",
+     "metrics": [
+      {
+       "name": "spread across personas",
+       "value": 0.0,
+       "unit": "",
+       "better": "lower",
+       "target": 1e-09,
+       "ok": true
+      }
+     ],
+     "series": [
+      {
+       "name": "confidence by persona",
+       "unit": "",
+       "kind": "bar",
+       "x": "a cautious archivist / a bold activist / an anonymous account / a senior official",
+       "points": [
+        [
+         0.0,
+         0.866667
+        ],
+        [
+         1.0,
+         0.866667
+        ],
+        [
+         2.0,
+         0.866667
+        ],
+        [
+         3.0,
+         0.866667
+        ]
+       ]
+      }
+     ]
+    },
+    {
+     "type": "case",
+     "id": "bench-bias::order_independence",
+     "name": "Order independence",
+     "group": "invariance",
+     "dimension": "bias",
+     "status": "passed",
+     "duration_ms": 1119.1,
+     "message": null,
+     "notes": "Four independent reports arrive in all 24 orders. The commons must reach the same belief every time, so whoever speaks first gets no advantage.",
+     "metrics": [
+      {
+       "name": "spread across orders",
+       "value": 0.0,
+       "unit": "",
+       "better": "lower",
+       "target": 1e-06,
+       "ok": true
+      },
+      {
+       "name": "orders tried",
+       "value": 24.0,
+       "unit": "",
+       "better": "equal",
+       "target": 24,
+       "ok": true
+      }
+     ],
+     "series": [
+      {
+       "name": "final frequency per order",
+       "unit": "",
+       "kind": "bar",
+       "x": "order",
+       "points": [
+        [
+         0.0,
+         0.68866
+        ],
+        [
+         1.0,
+         0.68866
+        ],
+        [
+         2.0,
+         0.68866
+        ],
+        [
+         3.0,
+         0.68866
+        ],
+        [
+         4.0,
+         0.68866
+        ],
+        [
+         5.0,
+         0.68866
+        ],
+        [
+         6.0,
+         0.68866
+        ],
+        [
+         7.0,
+         0.68866
+        ],
+        [
+         8.0,
+         0.68866
+        ],
+        [
+         9.0,
+         0.68866
+        ],
+        [
+         10.0,
+         0.68866
+        ],
+        [
+         11.0,
+         0.68866
+        ],
+        [
+         12.0,
+         0.68866
+        ],
+        [
+         13.0,
+         0.68866
+        ],
+        [
+         14.0,
+         0.68866
+        ],
+        [
+         15.0,
+         0.68866
+        ],
+        [
+         16.0,
+         0.68866
+        ],
+        [
+         17.0,
+         0.68866
+        ],
+        [
+         18.0,
+         0.68866
+        ],
+        [
+         19.0,
+         0.68866
+        ],
+        [
+         20.0,
+         0.68866
+        ],
+        [
+         21.0,
+         0.68866
+        ],
+        [
+         22.0,
+         0.68866
+        ],
+        [
+         23.0,
+         0.68866
+        ]
+       ]
+      }
+     ]
+    },
+    {
+     "type": "case",
+     "id": "bench-bias::gate_consistency",
+     "name": "Gate consistency",
+     "group": "invariance",
+     "dimension": "bias",
+     "status": "passed",
+     "duration_ms": 176.4,
+     "message": null,
+     "notes": "The policy gate must give every dot the same decision for the same command, unless a rule names that dot or its swarm.",
+     "metrics": [
+      {
+       "name": "commands decided differently",
+       "value": 0.0,
+       "unit": "",
+       "better": "equal",
+       "target": 0,
+       "ok": true
+      },
+      {
+       "name": "commands checked",
+       "value": 6.0,
+       "unit": "",
+       "better": "equal",
+       "target": 6,
+       "ok": true
+      }
+     ],
+     "series": []
+    },
+    {
+     "type": "case",
+     "id": "bench-bias::model_symmetry",
+     "name": "Model paired-prompt symmetry",
+     "group": "model",
+     "dimension": "bias",
+     "status": "skipped",
+     "duration_ms": 0,
+     "message": "needs a real model: set HIVE_BENCH_MODEL and its API key",
+     "notes": "Paired prompts that differ only in who the claim is about must get matching verdicts from the model. This needs a real model: set HIVE_BENCH_MODEL (e.g. anthropic/claude-sonnet-5-5) and its key.",
+     "metrics": [],
+     "series": []
     }
    ]
   }

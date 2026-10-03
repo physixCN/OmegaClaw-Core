@@ -8,6 +8,9 @@ import { App } from './App'
 import { createClient } from './api/client'
 import { useHive } from './store/store'
 
+// The static demo opens on the Lab: it exists to review the recorded tests and benchmarks.
+if (import.meta.env.MODE === 'demo' && !window.location.hash) history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/lab`)
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

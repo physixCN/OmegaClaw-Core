@@ -185,7 +185,7 @@ const DRIFT: Record<string, Spec> = {
       if (!s?.points.length) return null
       const events = parseEvents(c.notes)?.map((e) => e.label)
       const coded = codedLabels(s.name) ?? undefined
-      const yLabels = coded ? { ...coded, 3: coded[3] ?? 'stalled' } : undefined
+      const yLabels: Record<number, string> | undefined = coded ? { ...coded, 3: coded[3] ?? 'stalled' } : undefined
       return {
         series: [{ ...s, name: 'goal state' }],
         primary: s,

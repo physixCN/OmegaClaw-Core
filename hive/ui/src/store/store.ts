@@ -125,6 +125,7 @@ export interface Actions {
   loadLab(): Promise<void>
   loadLabRun(id: string): Promise<LabRun | null>
   loadLabHistory(suite: string): Promise<void>
+  loadLabScorecard(): Promise<void>
   startLab(suite: string): Promise<LabRun | null>
   cancelLab(id: string): Promise<void>
   /** Queue every runnable suite (tests first) and run them one at a time. */
@@ -546,6 +547,13 @@ export const useHive = create<Store>()((set, get) => ({
         labLoaded: true,
       }
     })
+    void get().loadLabScorecard().catch(() => undefined)
+  },
+
+  async loadLabScorecard() {
+    const client = get().client
+    if (!client) return
+    set({ labScorecard: await client.getLabScorecard() })
   },
 
   async loadLabRun(id) {
@@ -661,6 +669,8 @@ function onLabRunFinished(runId: string) {
       void s.startLab(next)
     }
   }
+  clearTimeout(labRefetch.get('__scorecard'))
+  labRefetch.set('__scorecard', setTimeout(() => void useHive.getState().loadLabScorecard().catch(() => undefined), 500))
   if (s.labHistory[run.suite]) {
     clearTimeout(labRefetch.get(run.suite))
     labRefetch.set(run.suite, setTimeout(() => void useHive.getState().loadLabHistory(run.suite).catch(() => undefined), 600))
