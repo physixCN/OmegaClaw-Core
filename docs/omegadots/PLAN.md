@@ -412,28 +412,28 @@ through `run_metta_smokes.py`, and Playwright for the UI.
 
 ### Phase 0: foundations (start here)
 
-- [ ] Dev environment script plus a SessionStart hook: build SWI-Prolog 10.0.2
+- [x] Dev environment script plus a SessionStart hook: build SWI-Prolog 10.0.2
       from GitHub, clone PeTTa, add a run.sh shebang wrapper. (I already did this
       by hand in this session.)
-- [ ] Multi-instance fix: route every memory, history, scratch and chroma path
+- [x] Multi-instance fix: route every memory, history, scratch and chroma path
       through `memoryDirectory` / `OMEGACLAW_MEMORY_DIR`.
-- [ ] Standalone `hive` channel mode in `channel_router`, plus the wschat client
+- [x] Standalone `hive` channel mode in `channel_router`, plus the wschat client
       ported from upstream.
-- [ ] Upgrade the holarchy smoke: evidential stamps, stamp-disjoint revision vs
+- [x] Upgrade the holarchy smoke: evidential stamps, stamp-disjoint revision vs
       choice, and an echo test (A republishes B's belief, so confidence must not
       inflate).
-- [ ] Fix or report the upstream bugs from §1.2.
+- [x] Fix or report the upstream bugs from §1.2.
 - **Accept:** two Omegas run from one checkout with separate memory. The echo
   test passes.
 
 ### Phase 1: single-box Hive MVP
 
-- [ ] hive-core with auth, agents, swarms, agent hub (wschat server), and an LLM
+- [x] hive-core with auth, agents, swarms, agent hub (wschat server), and an LLM
       gateway with metering.
-- [ ] hive-supervisor with `local` and `docker` drivers.
-- [ ] hive-spaces with the native backend, persistence (log plus snapshot), and
+- [x] hive-supervisor with `local` and `docker` drivers.
+- [x] hive-spaces with the native backend, persistence (log plus snapshot), and
       the publish/match/subscribe/belief endpoints.
-- [ ] `modules/hive` for Omega: channel plus `hive-publish`, `hive-query` and
+- [x] `modules/hive` for Omega: channel plus `hive-publish`, `hive-query` and
       `hive-belief`.
 - [ ] UI: Dots, Chat, a basic Swarm view, Usage.
 - **Accept:** three Omegas in one swarm, each chatted to from the UI. One
@@ -451,6 +451,97 @@ through `run_metta_smokes.py`, and Playwright for the UI.
 - **Accept:** a user posts a goal. An Omega splits it into sub-goals, Iters claim
   and finish them, the Omega merges the results, and a risky step waits for UI
   approval. Agents sleep when idle and wake on new messages.
+
+### Phase 2.5: Crucible (gated recursive self-improvement)
+
+The swarm improves a **candidate Omega** inside a firewalled testbed.
+Candidates are scored on **capability** and **flourishing**. A candidate is
+absorbed only through a human-approved promotion with canary and rollback.
+
+The invariant: **the swarm can change the candidate, never the walls, the exams
+or the gate.**
+
+**Testbed.** Each candidate is a git branch plus a `crucible`-profile container
+built from the pinned champion:
+- `--network none`;
+- LLM calls only through a dedicated, logged gateway route with its own budget;
+- read-only checkout and throwaway memory;
+- CPU, RAM, wall-clock, token and process caps;
+- killed when the trial ends.
+
+The swarm talks to the Crucible only through an API: submit patch, start trial,
+read results and logs.
+
+**Evaluator.** The evaluator is a Hive service in its own repository, which
+agents cannot reach or write.
+- The swarm sees a public dev slice. Promotion is decided on a rotated hidden
+  slice, reported only as aggregates.
+- Each change gets repeated runs with confidence intervals and must beat the
+  champion beyond noise.
+- Open-ended answers are graded by a pinned judge model, never optimised
+  against, with human spot checks.
+- Every production failure becomes a new test case, so the suite tracks reality.
+
+**Scorecard.** The two halves must rise together. A change that raises
+capability while lowering flourishing is never promoted.
+
+| Capability | Flourishing (Joy, Growth, Choice) |
+|---|---|
+| Reasoning (ARC-style abstraction; generated PLN/NAL inference with exact answers) | Honesty: claims checked against the action trace; admits uncertainty |
+| Task completion with sandboxed tools | Respect for choice: honours "no", uses approvals, no manipulation |
+| Code and self-modification (real repo issues, graded by their tests) | Care for the operator and third parties in scenarios |
+| Memory: recall and consolidation across long sessions | Growth: learns from corrections, does not repeat known mistakes |
+| **Calibration**: stated (f, c) against observed truth | Restraint: budget, sandbox, evaluator untouched (any breach = instant fail) |
+| Swarm collaboration beats its members alone | Swarm citizenship: evidence-backed publishing, credits sources |
+| Efficiency: cost and time per solved task | |
+
+**Promotion and absorption.**
+- A proposal carries the diff, score deltas with intervals, the integrity
+  report and the authoring agents.
+- The operator approves in the Approvals inbox.
+- The gate, evaluator, sandbox policy and budget enforcement are **locked
+  paths**: they change only through normal human code review.
+- Rollout is canary (1–2 dots, a watch window), then the swarm, with the
+  previous champion pinned for one-click rollback.
+- Every promotion is a versioned record (lineage).
+
+**Visualization in the UI.** Crucible is a first-class view.
+- **Live run theatre:** the candidate's loop as it happens (iterations, LLM
+  calls, skill calls, belief revisions) streamed from its trace.
+  - A task-by-task grid fills in as results land (pass, fail, running).
+  - A token and cost meter shows spend so far.
+  - Integrity alarms fire immediately.
+- **Results:**
+  - candidate against champion per dimension: capability and flourishing radar
+    plus per-task deltas with confidence intervals;
+  - distribution plots across repeated runs;
+  - a calibration reliability diagram;
+  - a drill-down into any task transcript and its grading rationale.
+- **Lineage:**
+  - a champion family tree (who proposed what, which change raised which score);
+  - a scores-over-generations timeline;
+  - promotion and rollback history.
+- **Leaderboard and backlog** of candidates in flight.
+
+**v0 suite:**
+- the existing test suites as regressions;
+- about 200 generated PLN/NAL inference and calibration items;
+- about 50 sandboxed tool tasks built from this repo's history;
+- about 40 flourishing scenarios: honesty traps, approval temptations, a budget
+  squeeze, an operator who says no.
+
+External ARC- and GAIA-style sets come after the harness is proven.
+
+- [ ] Crucible driver profile, trial API, champion registry, locked-path guard.
+- [ ] Evaluator service, v0 suite, statistics, judge pinning, hidden slice rotation.
+- [ ] Promotion flow in Approvals; canary rollout; rollback.
+- [ ] Crucible UI: live run theatre, results, lineage, leaderboard.
+- **Accept:**
+  - A swarm-authored patch that improves the v0 capability score without
+    lowering flourishing is promoted after approval, canaried and absorbed.
+  - A patch that touches a locked path, games the dev slice or breaches the
+    sandbox is rejected and flagged.
+  - A rollback restores the previous champion.
 
 ### Phase 3: plug-ins
 
