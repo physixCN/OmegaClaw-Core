@@ -87,7 +87,7 @@ export function groupSeries(series: LabSeries[]): LabSeries[][] {
 }
 
 /** Reference lines (counterfactuals, models, limits) are drawn dashed. */
-export const isReference = (name: string) => /naive|budget|model|ceiling|target|limit|wanted/i.test(name)
+export const isReference = (name: string) => /naive|budget|model|ceiling|target|limit|wanted|perfect|prediction|diagonal/i.test(name)
 
 /** "goal state (0 open, 1 claimed, 2 waiting, 4 done)" → {0: "open", 1: "claimed", …} */
 export function codedLabels(name: string): Record<number, string> | null {

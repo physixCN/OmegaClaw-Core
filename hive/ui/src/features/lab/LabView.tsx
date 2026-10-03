@@ -68,7 +68,7 @@ export default function LabView() {
       title={title}
       onClose={() => navigate({ name: 'hive' })}
       onBack={back}
-      actions={suite && view !== 'overview' ? <RunButton suite={suite} className="mr-1" /> : undefined}
+      actions={suite && view !== 'overview' && suite.last_run?.status !== 'running' ? <RunButton suite={suite} className="mr-1" /> : undefined}
     >
       <div className="mx-auto w-full max-w-[1280px] px-3 pb-[calc(var(--sab)+96px)] md:px-6 md:pb-10">
         {sim && <DemoBanner recordedAt={recordedAt} />}
@@ -171,7 +171,7 @@ function Scorecard({ suites }: { suites: LabSuite[] }) {
               </div>
             </div>
           </div>
-          <dl className="grid flex-1 grid-cols-3 gap-2 sm:min-w-[300px]">
+          <dl className="grid w-full grid-cols-3 gap-2 sm:w-auto sm:min-w-[300px] sm:flex-1">
             <Figure label="Cases passing" value={`${casesPassed}`} sub={`of ${casesTotal}`} />
             <Figure label="Failing now" value={String(casesFailed)} tone={casesFailed ? 'bad' : 'good'} />
             <Figure label="Runnable here" value={String(runnable)} sub={`of ${suites.length} suites`} />

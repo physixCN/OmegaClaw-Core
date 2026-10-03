@@ -163,7 +163,7 @@ export function SeriesChart({
 
   const marks = (
     <>
-      {colored.map((s, si) =>
+      {[...colored].sort((a, b) => Number(!!b.dashed) - Number(!!a.dashed)).map((s, si) =>
         s.kind === 'bar' ? (
           <g key={s.name}>
             {s.points.map(([x, y]) => {
@@ -192,6 +192,12 @@ export function SeriesChart({
             opacity={si === 0 || !s.dashed ? 1 : 0.9}
           />
         ),
+      )}
+      {/* short measured series get markers, so each point reads as a measurement */}
+      {colored.map((s) =>
+        s.kind !== 'bar' && !s.dashed && s.points.length <= 16
+          ? s.points.map(([x, y], i) => <circle key={`${s.name}-${i}`} cx={sx(x)} cy={sy(y)} r={3.5} fill={s.color} stroke="#0d0d26" strokeWidth={1.5} />)
+          : null,
       )}
     </>
   )
