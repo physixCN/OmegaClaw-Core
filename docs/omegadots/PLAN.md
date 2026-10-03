@@ -448,6 +448,14 @@ through `run_metta_smokes.py`, and Playwright for the UI.
       for publishing.
 - [ ] Iter template plus tools; a mixed swarm (2 Omegas + 3 Iters).
 - [ ] Real scheduler and wakeups; sleep and wake (scale to zero).
+- [ ] Thinking timeline: loop, LLM, skill and belief events, plus a bounded MeTTa trace per
+      iteration (MesTTo trace schema), exported as OTel spans and replayable in the UI.
+- [ ] Provenance inspector: derivation trees for beliefs (TSMeTTa in a browser worker,
+      or a server-side port).
+- [ ] Memory inspector (view, edit, retire, reset) and a global kill switch.
+- [ ] Policy engine: per-action rules (act / pre-approved / ask / hand off / deny), a
+      human-only action list, and auto-review by a second model plus a symbolic
+      norm checker (`omegaclaw-deontic`).
 - **Accept:** a user posts a goal. An Omega splits it into sub-goals, Iters claim
   and finish them, the Omega merges the results, and a risky step waits for UI
   approval. Agents sleep when idle and wake on new messages.
@@ -533,6 +541,10 @@ capability while lowering flourishing is never promoted.
 External ARC- and GAIA-style sets come after the harness is proven.
 
 - [ ] Crucible driver profile, trial API, champion registry, locked-path guard.
+- [ ] Measurement discipline from MesTTo `metta-benchmarking`: inference counts,
+      empty-program control, minimum of 3, two-sided bands, configuration stamps,
+      and "refused" kept distinct from "regressed". Plus a `compareRuns`-style
+      trace diff for champion against candidate.
 - [ ] Evaluator service, v0 suite, statistics, judge pinning, hidden slice rotation.
 - [ ] Promotion flow in Approvals; canary rollout; rollback.
 - [ ] Crucible UI: live run theatre, results, lineage, leaderboard.
@@ -542,6 +554,34 @@ External ARC- and GAIA-style sets come after the harness is proven.
   - A patch that touches a locked path, games the dev slice or breaches the
     sandbox is rejected and flagged.
   - A rollback restores the previous champion.
+
+### Parity tracks (see FEATURE_PARITY.md)
+
+These close every gap against OpenAI Dots and Grok Bot.
+
+- **E: Embodiment** (after Phase 2):
+  - [ ] sandboxed Chromium with a computer-use skill module;
+  - [ ] live screen stream with human takeover;
+  - [ ] secure credential entry;
+  - [ ] teach-by-demonstration that compiles to MeTTa skills;
+  - [ ] opt-in local-computer companion;
+  - [ ] action journal and snapshots for undo.
+- **I: Integrations and channels** (with Phase 3):
+  - [ ] MCP client module;
+  - [ ] email, calendar, Teams, GitHub and docs connectors;
+  - [ ] event-trigger bus;
+  - [ ] vault broker;
+  - [ ] voice (speech-to-text, text-to-speech, WebRTC and SIP);
+  - [ ] Teams, SMS, Matrix and email channels;
+  - [ ] payment tool behind approval;
+  - [ ] outbound webhooks and SDKs.
+- **T: Teams and enterprise** (after Phase 4):
+  - [ ] multi-user auth with SSO and SCIM;
+  - [ ] RBAC and admin toggles;
+  - [ ] shared team agents;
+  - [ ] collaborative documents;
+  - [ ] agent service identities;
+  - [ ] retention controls.
 
 ### Phase 3: plug-ins
 
