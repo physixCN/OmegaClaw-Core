@@ -19,6 +19,7 @@ from .config import Settings
 from .db import Database, new_id, now
 from .events import EventBus
 from .goals import Goals
+from .lab import Lab
 from .policy import Policy
 from .schedule import Scheduler
 
@@ -48,6 +49,7 @@ class Hive:
         self.policy = Policy(self)
         self.goals = Goals(self)
         self.scheduler = Scheduler(self)
+        self.lab = Lab(self)
         self.last_llm = {}  # agent_id -> (latency_ms, tokens) of its latest model call
         self.llm_calls = {}  # agent_id -> monotonic times of its calls in the last minute
 
@@ -91,6 +93,9 @@ class Hive:
             "name": self.name, "version": "0.1.0", "agents": len(agents), "swarms": len(swarms),
             "awake": sum(1 for a in agents if a["status"] == "awake"), "beliefs": beliefs,
             "spent_usd": round(sum(a["spent_usd"] for a in agents), 6),
+            "limits": {"goal_lease_minutes": self.settings.goal_lease_minutes,
+                       "hive_budget_usd": self.settings.hive_budget_usd,
+                       "max_llm_calls_per_minute": self.settings.max_llm_calls_per_minute},
         }
 
     def models(self):

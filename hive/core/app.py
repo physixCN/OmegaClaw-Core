@@ -70,6 +70,7 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
 
     app = FastAPI(title="OmegaDots Hive", version="0.1.0", lifespan=lifespan)
     app.state.hive = hive
+    app.state.gateway = gateway
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
     @app.exception_handler(HiveError)
@@ -381,6 +382,39 @@ def create_app(settings: Settings | None = None, supervisor=None, reconcile_seco
     async def stop_all(request: Request):
         operator(request)
         return await run_in_threadpool(hive.stop_all)
+
+    # ---- the Lab: tests and benchmarks --------------------------------------------------------------
+
+    @app.get("/api/lab/suites")
+    async def lab_suites(request: Request):
+        operator(request)
+        return await run_in_threadpool(hive.lab.suites)
+
+    @app.get("/api/lab/runs")
+    async def lab_runs(request: Request, suite: str = "", limit: int = 50):
+        operator(request)
+        return hive.lab.runs(suite or None, min(200, max(1, limit)))
+
+    @app.post("/api/lab/runs")
+    async def lab_start(request: Request):
+        operator(request)
+        data = await body(request)
+        return await run_in_threadpool(hive.lab.start, str(data.get("suite", "")))
+
+    @app.get("/api/lab/runs/{run_id}")
+    async def lab_run(run_id: str, request: Request):
+        operator(request)
+        return hive.lab.run(run_id)
+
+    @app.post("/api/lab/runs/{run_id}/cancel")
+    async def lab_cancel(run_id: str, request: Request):
+        operator(request)
+        return hive.lab.cancel(run_id)
+
+    @app.get("/api/lab/history/{suite}")
+    async def lab_history(suite: str, request: Request, limit: int = 30):
+        operator(request)
+        return hive.lab.history(suite, min(100, max(1, limit)))
 
     # ---- phase 2: goals ----------------------------------------------------------------------------
 

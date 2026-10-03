@@ -106,6 +106,9 @@ class Goals:
             if changes["status"] not in STATUSES:
                 raise self.hive.error(400, "bad_request", f"status must be one of {sorted(STATUSES)}")
             values["status"] = changes["status"]
+            if changes["status"] == "open":
+                # Re-opening (e.g. a stalled goal) is a fresh start: no holder, no lapses.
+                values.update(claimed_by=None, lease_until=None, attempts=0)
         if "priority" in changes:
             values["priority"] = max(0.0, min(1.0, float(changes["priority"])))
         for key in ("title", "detail"):
